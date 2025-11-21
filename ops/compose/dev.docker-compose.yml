@@ -1,0 +1,17 @@
+version: "3.9"
+
+services:
+  backend:
+    build:
+      context: /srv/Celine/dev/Headhunter/backend
+      dockerfile: Dockerfile
+    container_name: headhunter-backend-dev
+    volumes:
+      - /srv/Celine/dev/Headhunter/backend:/app       # code
+      - /srv/Celine/dev/Headhunter/data/raw:/app/data/raw   # file uploads
+    ports:
+      - "8800:8000"
+    environment:
+      PYTHONDONTWRITEBYTECODE: 1
+      PYTHONUNBUFFERED: 1
+    restart: unless-stopped
