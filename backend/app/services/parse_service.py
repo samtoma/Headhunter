@@ -25,28 +25,27 @@ def process_cv_background(cv_id: int, db: Session):
         
         parsed_record.raw_text = full_text
         parsed_record.name = data.get("name")
+        parsed_record.summary = data.get("summary") # <--- Save Summary
+        
+        # JSON Lists
         parsed_record.email = json.dumps(data.get("emails", []))
         parsed_record.phone = json.dumps(data.get("phones", []))
-        
-        # Personal Details
+        parsed_record.social_links = json.dumps(data.get("social_links", []))
+        parsed_record.education = json.dumps(data.get("education", []))
+        parsed_record.job_history = json.dumps(data.get("job_history", []))
+        parsed_record.skills = json.dumps(data.get("skills", []))
+
+        # Fields
         parsed_record.address = data.get("address")
         parsed_record.age = data.get("age")
         parsed_record.marital_status = data.get("marital_status")
         parsed_record.military_status = data.get("military_status")
         parsed_record.bachelor_year = data.get("bachelor_year")
-        
         parsed_record.last_job_title = data.get("last_job_title")
         parsed_record.last_company = data.get("last_company")
-        
-        # Lists
-        parsed_record.social_links = json.dumps(data.get("social_links", []))
-        parsed_record.education = json.dumps(data.get("education", []))
-        parsed_record.job_history = json.dumps(data.get("job_history", []))
-        parsed_record.skills = json.dumps(data.get("skills", []))
-        
         parsed_record.experience_years = data.get("experience_years")
+        
         parsed_record.parsed_at = func.now()
-
         cv.is_parsed = True
         db.commit()
         logger.info(f"Finished CV ID {cv_id}")
