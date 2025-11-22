@@ -1,2 +1,78 @@
-# Placeholder: real docker compose files are under ops/compose/
-# See: ops/compose/dev.docker-compose.yml
+version: '3.8'
+
+services:
+  # --- Backend ---
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: headhunter_backend
+    restart: unless-stopped
+    privileged: true
+    devices:
+      - /dev/dri:/dev/dri
+    command: uvicorn app.main:app --host 0.0.0.0 --port 30001 --reload
+    volumes:
+      - ./backend:/app
+      - ./data/raw:/app/data/raw
+      - ./ai/models:/app/models
+    ports:
+      - "30001:30001"
+    # Load variables from .env file automatically
+    env_file:
+      - .env
+    # Explicitly pass keys if needed (redundant with env_file but safe)
+    environment:
+      - CMAKE_ARGS="-DGGML_OPENCL=on"
+    depends_on:
+      - db
+    networks:
+      - headhunter_net
+
+  # --- Frontend ---
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: headhunter_frontend
+    restart: unless-stopped
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    ports:
+      - "30004:5173"
+    environment:
+      - VITE_API_URL=http://backend:30001
+    networks:
+      - headhunter_net
+
+  # --- Database ---
+  db:
+    image: postgres:15-alpine
+    container_name: headhunter_db
+    restart: unless-stopped
+    # Use variables from .env so passwords aren't in this file
+    env_file:
+      - .env
+    volumes:
+      - ./data/db:/var/lib/postgresql/data
+    ports:
+      - "30002:5432"
+    networks:
+      - headhunter_net
+
+  # --- Vector DB ---
+  vector_db:
+    image: chromadb/chroma:latest
+    container_name: headhunter_vector
+    restart: unless-stopped
+    volumes:
+      - ./data/embeddings:/chroma/chroma
+    ports:
+      - "30003:8000"
+    networks:
+      - headhunter_net
+
+networks:
+  headhunter_net:
+    driver: bridge

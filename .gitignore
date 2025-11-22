@@ -1,0 +1,38 @@
+# --- Secrets & Configs ---
+.env
+.env.local
+.env.production
+
+# --- Heavy AI Models ---
+# Ignore all GGUF models to save bandwidth and storage
+ai/models/*.gguf
+backend/app/models/*.gguf
+
+# --- Data & Storage ---
+# Ignore the actual database and uploaded files
+data/db/
+data/raw/
+data/embeddings/
+data/processed/
+
+# --- Python Backend ---
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+venv/
+.venv/
+backend/venv/
+*.log
+
+# --- Node Frontend ---
+frontend/node_modules/
+frontend/dist/
+frontend/build/
+frontend/.cache/
+
+# --- IDEs & OS ---
+.vscode/
+.idea/
+.DS_Store
