@@ -9,6 +9,12 @@ class Job(Base):
     title = Column(String, nullable=False)
     department = Column(String, nullable=True)
     description = Column(Text, nullable=True)
+    
+    # --- NEW FIELDS ---
+    required_experience = Column(Integer, default=0) # e.g. 5 (years)
+    skills_required = Column(Text, nullable=True)    # e.g. ["Python", "React"]
+    # ------------------
+
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     applications = relationship("Application", back_populates="job", cascade="all, delete-orphan")
@@ -50,11 +56,7 @@ class ParsedCV(Base):
     marital_status = Column(String, nullable=True)
     military_status = Column(String, nullable=True)
     bachelor_year = Column(Integer, nullable=True)
-    
-    # --- NEW FIELD ---
     summary = Column(Text, nullable=True) 
-    # -----------------
-    
     last_job_title = Column(String, nullable=True)
     last_company = Column(String, nullable=True)
     social_links = Column(Text, nullable=True)
@@ -62,7 +64,6 @@ class ParsedCV(Base):
     job_history = Column(Text, nullable=True)
     skills = Column(Text, nullable=True)
     experience_years = Column(Integer, nullable=True)
-    
     current_salary = Column(String, nullable=True)
     expected_salary = Column(String, nullable=True)
     parsed_at = Column(DateTime(timezone=True), server_default=func.now())

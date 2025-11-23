@@ -7,7 +7,7 @@ from pypdf import PdfReader
 import docx
 
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-5-mini-2025-08-07")
+OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
 
 if OPENAI_API_KEY:
     from openai import OpenAI
@@ -59,6 +59,46 @@ def repair_json(json_str: str) -> str:
                 break
     return json_str
 
+# --- NEW FUNCTION ---
+def generate_job_metadata(title: str) -> Dict[str, Any]:
+    """Generates a rich description, skills list, and experience level from a job title."""
+    
+    system_prompt = f"""You are an expert HR Manager. 
+    For the Job Title "{title}", generate a structured JSON response containing:
+    1. description: A professional, engaging job description (approx 100 words) suitable for LinkedIn.
+    2. skills_required: A list of 5-7 key technical and soft skills.
+    3. required_experience: An integer estimate of years of experience needed (e.g., Senior=5, Junior=1).
+    
+    JSON Structure:
+    {{
+        "description": "...",
+        "skills_required": ["Skill1", "Skill2"],
+        "required_experience": 5
+    }}
+    """
+
+    if OPENAI_API_KEY:
+        try:
+            completion = client.chat.completions.create(
+                model=OPENAI_MODEL,
+                messages=[{"role": "system", "content": system_prompt}],
+                response_format={"type": "json_object"},
+                temperature=0.7
+            )
+            return json.loads(completion.choices[0].message.content)
+        except Exception as e:
+            print(f"OpenAI Error: {e}")
+            return {}
+    else:
+        llm = get_local_llm()
+        if not llm: return {}
+        prompt = f"<|start_header_id|>system<|end_header_id|>\n{system_prompt}<|eot_id|><|start_header_id|>assistant<|end_header_id|>"
+        output = llm(prompt, max_tokens=1000, stop=["<|eot_id|>"], temperature=0.7, echo=False)
+        try:
+            return json.loads(repair_json(output['choices'][0]['text']))
+        except:
+            return {}
+
 def parse_cv_with_llm(text: str, filename: str) -> Dict[str, Any]:
     truncated_text = text[:25000]
     
@@ -70,7 +110,7 @@ def parse_cv_with_llm(text: str, filename: str) -> Dict[str, Any]:
     3. **bachelor_year**: Year of Bachelor's graduation (Int).
     4. **experience_years**: Total years of experience (Int).
     5. **personal**: Address, Age, Marital Status, Military Status.
-    6. **contact**: Emails, Phones, Social Links.
+    6. **contact**: Emails, Phones, Social Links (LinkedIn, GitHub, etc).
     7. **skills**: Technical & Soft Skills.
     
     JSON Structure:
@@ -112,7 +152,6 @@ def parse_cv_with_llm(text: str, filename: str) -> Dict[str, Any]:
             completion = client.chat.completions.create(**kwargs)
             raw = completion.choices[0].message.content
             
-            # Map email/phone keys to match schema (plural in prompt, singular/list in schema)
             data = json.loads(repair_json(raw))
             if "emails" in data: data["emails"] = data["emails"] if isinstance(data["emails"], list) else [data["emails"]]
             if "phones" in data: data["phones"] = data["phones"] if isinstance(data["phones"], list) else [data["phones"]]
