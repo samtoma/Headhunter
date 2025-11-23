@@ -7,4 +7,5 @@ pydantic>=2.7.0
 pypdf>=4.2.0
 python-docx>=1.1.2
 llama-cpp-python>=0.2.77
-openai>=1.30.0  # <--- NEW
+openai>=1.30.0
+alembic>=1.13.0  # <--- CRITICAL ADDITION

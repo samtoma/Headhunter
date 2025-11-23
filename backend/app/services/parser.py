@@ -26,7 +26,7 @@ def get_local_llm():
         try:
             _llm = Llama(
                 model_path=MODEL_PATH,
-                n_ctx=8192, # Increased context for full history
+                n_ctx=8192,
                 n_threads=4,
                 n_gpu_layers=-1,
                 verbose=False
@@ -60,35 +60,38 @@ def repair_json(json_str: str) -> str:
     return json_str
 
 def parse_cv_with_llm(text: str, filename: str) -> Dict[str, Any]:
-    truncated_text = text[:25000] # Increased limit for long CVs
+    truncated_text = text[:25000]
     
     system_prompt = f"""You are an expert Headhunter. Extract details from the CV below into strict JSON.
 
     Requirements:
-    1. **job_history**: Full list of jobs (Title, Company, Start/End Year).
-    2. **bachelor_year**: The specific graduation year of the Bachelor's degree (used for experience calculation).
-    3. **personal**: Extract Address, Age, Marital Status, Military Status (if mentioned).
-    4. **experience_years**: If 'bachelor_year' found: (Current Year - Bachelor Year). Else: (Current Year - First Job Year).
+    1. **summary**: A short 2-3 sentence professional summary of the candidate.
+    2. **job_history**: List of jobs (Title, Company, Duration, Description).
+    3. **bachelor_year**: Year of Bachelor's graduation (Int).
+    4. **experience_years**: Total years of experience (Int).
+    5. **personal**: Address, Age, Marital Status, Military Status.
+    6. **contact**: Emails, Phones, Social Links.
+    7. **skills**: Technical & Soft Skills.
     
     JSON Structure:
     {{
       "name": "Name",
-      "address": "City, Country",
+      "summary": "Experienced software engineer...",
+      "email": ["a@b.com"],
+      "phone": ["+123"],
+      "address": "City",
       "age": 30,
-      "marital_status": "Married",
+      "marital_status": "Single",
       "military_status": "Exempt",
       "bachelor_year": 2015,
-      "experience_years": 10,
-      "emails": ["a@b.com"],
-      "phones": ["+123"],
+      "experience_years": 8,
       "last_job_title": "Title",
       "last_company": "Company",
       "social_links": ["linkedin..."],
       "skills": ["Python", "Java"],
       "education": [{{"school": "MIT", "degree": "BSc", "year": "2015"}}],
       "job_history": [
-        {{"title": "Senior Dev", "company": "Google", "duration": "2020-Present"}},
-        {{"title": "Junior Dev", "company": "Startup", "duration": "2018-2020"}}
+        {{"title": "Dev", "company": "Google", "duration": "2020-Present"}}
       ]
     }}
     """
@@ -108,7 +111,12 @@ def parse_cv_with_llm(text: str, filename: str) -> Dict[str, Any]:
             
             completion = client.chat.completions.create(**kwargs)
             raw = completion.choices[0].message.content
-            return json.loads(repair_json(raw))
+            
+            # Map email/phone keys to match schema (plural in prompt, singular/list in schema)
+            data = json.loads(repair_json(raw))
+            if "emails" in data: data["emails"] = data["emails"] if isinstance(data["emails"], list) else [data["emails"]]
+            if "phones" in data: data["phones"] = data["phones"] if isinstance(data["phones"], list) else [data["phones"]]
+            return data
         except Exception as e:
             print(f"OpenAI Error: {e}")
             return {}
@@ -118,6 +126,9 @@ def parse_cv_with_llm(text: str, filename: str) -> Dict[str, Any]:
         prompt = f"<|start_header_id|>system<|end_header_id|>\n{system_prompt}<|eot_id|><|start_header_id|>user<|end_header_id|>\nCV Text:\n{truncated_text}<|eot_id|><|start_header_id|>assistant<|end_header_id|>"
         output = llm(prompt, max_tokens=3000, stop=["<|eot_id|>"], temperature=0.1, echo=False)
         try:
-            return json.loads(repair_json(output['choices'][0]['text']))
+            data = json.loads(repair_json(output['choices'][0]['text']))
+            if "emails" in data: data["emails"] = data["emails"] if isinstance(data["emails"], list) else [data["emails"]]
+            if "phones" in data: data["phones"] = data["phones"] if isinstance(data["phones"], list) else [data["phones"]]
+            return data
         except:
             return {}
