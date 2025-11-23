@@ -6,14 +6,18 @@ import {
   LayoutGrid, Kanban, Star, DollarSign, Plus, Layers, 
   ChevronRight, Save, AlertCircle, Check, ChevronDown, Archive,
   Briefcase as BriefcaseIcon, Lock, Unlock, Flag, Heart,
-  LayoutDashboard, TrendingUp, Users, Award, Pencil, Sparkles, Linkedin, ExternalLink
+  LayoutDashboard, TrendingUp, Users, Award, Pencil, Sparkles, Linkedin, ExternalLink,
+  CheckSquare, Square, Settings, Building2, Calendar
 } from 'lucide-react'
 
 // --- Utility: Safe JSON Parse ---
 const safeList = (data) => {
   if (!data) return []
   if (Array.isArray(data)) return data
-  try { return JSON.parse(data) } catch (e) { return [] }
+  try { 
+      const parsed = JSON.parse(data)
+      return Array.isArray(parsed) ? parsed : [parsed]
+  } catch (e) { return [data] }
 }
 
 const parseSalary = (str) => {
@@ -35,15 +39,20 @@ function App() {
   const [selectedJob, setSelectedJob] = useState(null) 
   const [profiles, setProfiles] = useState([])
   const [uploading, setUploading] = useState(false)
+  const [uploadProgress, setUploadProgress] = useState("") // <--- NEW: Upload Progress
   const [status, setStatus] = useState("")
   const [searchTerm, setSearchTerm] = useState("")
   const [selectedCv, setSelectedCv] = useState(null)
   const [viewMode, setViewMode] = useState("list")
   const [showNewJobModal, setShowNewJobModal] = useState(false)
-  const [uploadFile, setUploadFile] = useState(null)
+  const [showCompanyModal, setShowCompanyModal] = useState(false)
+  const [uploadFiles, setUploadFiles] = useState(null) // <--- Changed to hold FileList
   const [showUploadModal, setShowUploadModal] = useState(false)
   
-  // Navigation State
+  // Bulk Action State
+  const [selectedIds, setSelectedIds] = useState([])
+  const [showBulkAssignModal, setShowBulkAssignModal] = useState(false)
+
   const [currentView, setCurrentView] = useState("dashboard")
   const [showArchived, setShowArchived] = useState(false)
 
@@ -62,16 +71,75 @@ function App() {
   useEffect(() => { fetchJobs(); fetchProfiles() }, [fetchJobs, fetchProfiles])
   useEffect(() => { const i = setInterval(() => { fetchJobs(); fetchProfiles() }, 5000); return () => clearInterval(i) }, [fetchJobs, fetchProfiles])
 
+  // --- Bulk Actions ---
+  const toggleSelect = (id) => {
+      if (selectedIds.includes(id)) setSelectedIds(selectedIds.filter(i => i !== id))
+      else setSelectedIds([...selectedIds, id])
+  }
+
+  const handleSelectAll = () => {
+      if (selectedIds.length === filteredProfiles.length) setSelectedIds([])
+      else setSelectedIds(filteredProfiles.map(p => p.id))
+  }
+
+  const performBulkAssign = async (targetJobId) => {
+      if (!targetJobId) return
+      try {
+          await Promise.all(selectedIds.map(cvId => 
+              axios.post('/api/applications/', { cv_id: cvId, job_id: targetJobId })
+          ))
+          alert(`Assigned ${selectedIds.length} candidates!`)
+          setSelectedIds([])
+          setShowBulkAssignModal(false)
+          fetchProfiles()
+          fetchJobs()
+      } catch (e) { alert("Bulk assign failed") }
+  }
+
+  const performBulkDelete = async () => {
+      if (!confirm(`Delete ${selectedIds.length} candidates permanently?`)) return
+      try {
+          await Promise.all(selectedIds.map(id => axios.delete(`/api/cv/${id}`)))
+          setProfiles(prev => prev.filter(p => !selectedIds.includes(p.id)))
+          setSelectedIds([])
+          fetchJobs()
+      } catch (e) { alert("Bulk delete failed") }
+  }
+
+  const handleSidebarDrop = async (e, targetJobId) => {
+      e.preventDefault()
+      const cvId = e.dataTransfer.getData("cvId")
+      if (!cvId) return
+      
+      const cv = profiles.find(p => p.id == cvId)
+      if (cv && cv.applications.some(a => a.job_id === targetJobId)) {
+          alert("Candidate already in this pipeline.")
+          return
+      }
+
+      try {
+          await axios.post('/api/applications/', { cv_id: parseInt(cvId), job_id: targetJobId })
+          fetchProfiles()
+          fetchJobs()
+      } catch (e) { alert("Failed to assign candidate") }
+  }
+
   // --- Actions ---
-  
-  const handleCreateJob = async (jobData) => {
+  const handleCreateJob = async (jobData, selectedCandidateIds) => {
     try { 
         const res = await axios.post('/api/jobs/', jobData); 
-        setJobs([...jobs, res.data]); 
+        const newJob = res.data
+        if (selectedCandidateIds && selectedCandidateIds.length > 0) {
+            await Promise.all(selectedCandidateIds.map(cvId => 
+                axios.post('/api/applications/', { cv_id: cvId, job_id: newJob.id })
+            ))
+        }
+        setJobs([...jobs, newJob]); 
         setShowNewJobModal(false);
         setCurrentView("pipeline");
-        setSelectedJob(res.data);
-    } catch (err) { alert("Failed to create job") }
+        setSelectedJob(newJob);
+        fetchProfiles();
+    } catch (err) { alert("Failed to create job pipeline") }
   }
   
   const handleToggleArchive = async (job) => {
@@ -88,10 +156,39 @@ function App() {
       } catch (e) { alert("Failed to save job details") }
   }
 
-  const performUpload = async (file, jobId) => {
-    const formData = new FormData(); formData.append('file', file); if (jobId) formData.append('job_id', jobId)
-    setUploading(true); setShowUploadModal(false); setStatus("Uploading...")
-    try { await axios.post('/api/cv/upload', formData); fetchProfiles(); fetchJobs(); setStatus("AI Parsing..."); setTimeout(() => { fetchProfiles(); fetchJobs(); setStatus("Done!"); setTimeout(() => setStatus(""), 2000) }, 3000) } catch (err) { alert("Upload failed"); setStatus("Error") } finally { setUploading(false); setUploadFile(null) }
+  // --- NEW: BULK UPLOAD HANDLER ---
+  const performUpload = async (files, jobId) => {
+    if (!files || files.length === 0) return
+    
+    setUploading(true)
+    setShowUploadModal(false)
+    
+    let successCount = 0
+    // Iterate through FileList
+    for (let i = 0; i < files.length; i++) {
+        const file = files[i]
+        setUploadProgress(`Uploading ${i + 1}/${files.length}: ${file.name}...`)
+        
+        const formData = new FormData()
+        formData.append('file', file)
+        if (jobId) formData.append('job_id', jobId)
+        
+        try {
+            await axios.post('/api/cv/upload', formData)
+            successCount++
+        } catch (err) {
+            console.error(`Failed to upload ${file.name}`, err)
+        }
+    }
+    
+    setUploadProgress("")
+    setUploading(false)
+    setUploadFiles(null)
+    setStatus(`Uploaded ${successCount} files! Parsing in background...`)
+    setTimeout(() => setStatus(""), 3000)
+    
+    fetchProfiles()
+    fetchJobs()
   }
 
   const handleDeleteCV = async (e, id) => {
@@ -122,7 +219,6 @@ function App() {
       if(app) { await axios.delete(`/api/applications/${app.id}`); fetchProfiles(); fetchJobs(); setSelectedCv(null) }
   }
 
-  // --- View Logic ---
   const displayedJobs = jobs.filter(j => showArchived ? !j.is_active : j.is_active)
   
   const filteredProfiles = useMemo(() => {
@@ -138,9 +234,7 @@ function App() {
 
   const getStatus = (cv) => { if (!selectedJob) return "New"; const app = cv.applications?.find(a => a.job_id === selectedJob.id); return app ? app.status : "New" }
   const COLUMNS = ["New", "Screening", "Interview", "Offer", "Hired", "Silver Medalist", "Rejected"]
-  const onDragStart = (e, id) => e.dataTransfer.setData("cvId", id)
-  const onDrop = async (e, newStatus) => { const id = parseInt(e.dataTransfer.getData("cvId")); const cv = profiles.find(p => p.id === id); const app = cv?.applications.find(a => a.job_id === selectedJob.id); if (app) { setProfiles(prev => prev.map(p => { if (p.id !== id) return p; const newApps = p.applications.map(a => a.id === app.id ? {...a, status: newStatus} : a); return {...p, applications: newApps} })); await axios.patch(`/api/applications/${app.id}`, { status: newStatus }) } }
-
+  
   return (
     <div className="flex h-screen bg-[#F8FAFC] font-sans text-slate-800 overflow-hidden">
       {/* SIDEBAR */}
@@ -162,8 +256,15 @@ function App() {
                 <Layers size={18}/> General Pool
             </button>
 
+            {/* SIDEBAR JOB LIST - DROP TARGETS */}
             {displayedJobs.map(job => (
-                <button key={job.id} onClick={() => { setCurrentView("pipeline"); setSelectedJob(job); }} className={`w-full flex items-center justify-between p-2.5 rounded-lg text-sm font-medium transition ${currentView === "pipeline" && selectedJob?.id === job.id ? 'bg-indigo-50 text-indigo-700 ring-1 ring-indigo-200' : 'text-slate-600 hover:bg-slate-50'}`}>
+                <button 
+                    key={job.id} 
+                    onClick={() => { setCurrentView("pipeline"); setSelectedJob(job); }}
+                    onDragOver={(e) => e.preventDefault()}
+                    onDrop={(e) => handleSidebarDrop(e, job.id)} 
+                    className={`w-full flex items-center justify-between p-2.5 rounded-lg text-sm font-medium transition border border-transparent ${currentView === "pipeline" && selectedJob?.id === job.id ? 'bg-indigo-50 text-indigo-700 ring-1 ring-indigo-200' : 'text-slate-600 hover:bg-slate-50 hover:border-slate-200'}`}
+                >
                     <span className={`truncate flex items-center gap-2 ${!job.is_active ? 'line-through opacity-70' : ''}`}>
                         {!job.is_active && <Lock size={12}/>} {job.title}
                     </span>
@@ -173,10 +274,12 @@ function App() {
             
             {!showArchived && <button onClick={() => setShowNewJobModal(true)} className="w-full flex items-center gap-2 p-2.5 text-sm text-slate-500 hover:text-indigo-600 mt-2 hover:bg-indigo-50 rounded-lg transition font-medium"><Plus size={16} /> New Pipeline</button>}
         </div>
+        <div className="p-4 border-t border-slate-100">
+            <button onClick={() => setShowCompanyModal(true)} className="w-full flex items-center gap-2 p-2.5 text-sm text-slate-500 hover:text-slate-700 hover:bg-slate-50 rounded-lg transition"><Settings size={16}/> Settings & Company</button>
+        </div>
       </div>
 
-      {/* MAIN CONTENT */}
-      <div className="flex-1 flex flex-col h-full overflow-hidden bg-slate-50">
+      <div className="flex-1 flex flex-col h-full overflow-hidden bg-slate-50 relative">
         
         {currentView === "dashboard" && (
             <Dashboard 
@@ -203,31 +306,128 @@ function App() {
                         )}
                     </div>
 
-                    <div className="flex gap-4">
+                    <div className="flex gap-4 items-center">
+                        {!selectedJob && (viewMode === "list") && (
+                            <button onClick={handleSelectAll} className="text-sm font-bold text-indigo-600 hover:bg-indigo-50 px-3 py-1.5 rounded transition">
+                                {selectedIds.length === filteredProfiles.length && filteredProfiles.length > 0 ? "Deselect All" : "Select All"}
+                            </button>
+                        )}
+
                         <div className="relative w-64"><Search className="absolute left-3 top-2.5 text-slate-400 w-4 h-4" /><input className="w-full pl-9 pr-4 py-2 text-sm rounded-lg border border-slate-200 bg-slate-50" placeholder="Search..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} /></div>
-                        <div className="bg-slate-100 p-1 rounded-lg flex"><button onClick={() => setViewMode("list")} className={`p-1.5 rounded transition ${viewMode === "list" ? "bg-white shadow text-indigo-600" : "text-slate-400"}`}><LayoutGrid size={18} /></button>{selectedJob && <button onClick={() => setViewMode("board")} className={`p-1.5 rounded transition ${viewMode === "board" ? "bg-white shadow text-indigo-600" : "text-slate-400"}`}><Kanban size={18} /></button>}</div>
-                        <label className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg cursor-pointer flex items-center gap-2 transition shadow-md active:scale-95"><Upload size={16} /> <span className="font-bold text-sm">{uploading ? "..." : "Add"}</span><input type="file" className="hidden" onChange={(e) => {if(e.target.files[0]) selectedJob ? performUpload(e.target.files[0], selectedJob.id) : (setUploadFile(e.target.files[0]), setShowUploadModal(true))}} disabled={uploading} /></label>
+                        
+                        {selectedJob && (
+                            <div className="bg-slate-100 p-1 rounded-lg flex">
+                                <button onClick={() => setViewMode("list")} className={`p-1.5 rounded transition ${viewMode === "list" ? "bg-white shadow text-indigo-600" : "text-slate-400"}`}><LayoutGrid size={18} /></button>
+                                <button onClick={() => setViewMode("board")} className={`p-1.5 rounded transition ${viewMode === "board" ? "bg-white shadow text-indigo-600" : "text-slate-400"}`}><Kanban size={18} /></button>
+                            </div>
+                        )}
+                        
+                        <label className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg cursor-pointer flex items-center gap-2 transition shadow-md active:scale-95">
+                            <Upload size={16} /> 
+                            <span className="font-bold text-sm">{uploading ? "..." : "Add"}</span>
+                            {/* ADDED MULTIPLE ATTRIBUTE HERE */}
+                            <input type="file" multiple className="hidden" onChange={(e) => {if(e.target.files.length > 0) selectedJob ? performUpload(e.target.files, selectedJob.id) : (setUploadFiles(e.target.files), setShowUploadModal(true))}} disabled={uploading} />
+                        </label>
                     </div>
                 </header>
 
                 <div className="flex-1 overflow-y-auto p-8">
-                    {viewMode === "list" ? (
-                        <div className="grid gap-4 grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">{filteredProfiles.map(cv => <Card key={cv.id} cv={cv} onClick={() => setSelectedCv(cv)} onDelete={handleDeleteCV} onReprocess={handleReprocess} status={selectedJob ? getStatus(cv) : null} jobs={jobs} />)}</div>
+                    {(viewMode === "list" || !selectedJob) ? (
+                        <div className="grid gap-4 grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 pb-20">
+                            {filteredProfiles.map(cv => 
+                                <Card 
+                                    key={cv.id} 
+                                    cv={cv} 
+                                    onClick={() => setSelectedCv(cv)} 
+                                    onDelete={handleDeleteCV} 
+                                    onReprocess={handleReprocess} 
+                                    status={selectedJob ? getStatus(cv) : null} 
+                                    jobs={jobs}
+                                    selectable={!selectedJob}
+                                    selected={selectedIds.includes(cv.id)}
+                                    onSelect={() => toggleSelect(cv.id)}
+                                />
+                            )}
+                        </div>
                     ) : (
                         <div className="flex gap-6 overflow-x-auto pb-4 h-full">{COLUMNS.map(col => (<div key={col} onDragOver={e => e.preventDefault()} onDrop={e => onDrop(e, col)} className="min-w-[320px] bg-slate-100 rounded-xl flex flex-col h-full border border-slate-200/60"><div className="p-3 border-b border-slate-200/50 bg-slate-50/50 rounded-t-xl flex justify-between font-bold text-xs text-slate-600 uppercase"><span>{col}</span><span className="bg-white px-2 py-0.5 rounded">{filteredProfiles.filter(p => getStatus(p) === col).length}</span></div><div className="flex-1 overflow-y-auto p-3 space-y-2">{filteredProfiles.filter(p => getStatus(p) === col).map(cv => <div key={cv.id} draggable onDragStart={e => onDragStart(e, cv.id)}><Card cv={cv} onClick={() => setSelectedCv(cv)} onDelete={handleDeleteCV} onReprocess={handleReprocess} compact jobs={jobs} /></div>)}</div></div>))}</div>
                     )}
                 </div>
+
+                {/* BULK ACTION BAR */}
+                {selectedIds.length > 0 && (
+                    <div className="absolute bottom-6 left-1/2 -translate-x-1/2 bg-white shadow-2xl border border-slate-200 rounded-full px-6 py-3 flex items-center gap-4 animate-in slide-in-from-bottom-4 fade-in z-40">
+                        <span className="font-bold text-sm text-slate-800">{selectedIds.length} Selected</span>
+                        <div className="h-4 w-px bg-slate-300"></div>
+                        <button onClick={() => setShowBulkAssignModal(true)} className="text-sm font-bold text-indigo-600 hover:text-indigo-800 flex items-center gap-1"><Layers size={16}/> Assign to Pipeline</button>
+                        <button onClick={performBulkDelete} className="text-sm font-bold text-red-600 hover:text-red-800 flex items-center gap-1"><Trash2 size={16}/> Delete</button>
+                        <button onClick={() => setSelectedIds([])} className="ml-2 p-1 hover:bg-slate-100 rounded-full"><X size={16} className="text-slate-400"/></button>
+                    </div>
+                )}
             </>
         )}
 
         {selectedCv && <Drawer cv={selectedCv} onClose={() => setSelectedCv(null)} jobs={jobs} updateApp={handleUpdateApp} updateProfile={handleUpdateProfile} selectedJobId={selectedJob?.id} assignJob={handleAssignJob} removeJob={handleRemoveJob} />}
         
         {showNewJobModal && <CreateJobModal onClose={() => setShowNewJobModal(false)} onCreate={handleCreateJob} />}
+        {showCompanyModal && <CompanyProfileModal onClose={() => setShowCompanyModal(false)} />}
         
-        {showUploadModal && <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50"><div className="bg-white p-6 rounded-xl shadow-xl max-w-sm w-full"><h3 className="text-lg font-bold text-slate-900 mb-4">Select Pipeline</h3><div className="space-y-2 mb-6 max-h-60 overflow-y-auto">{jobs.map(j => <button key={j.id} onClick={() => performUpload(uploadFile, j.id)} className="w-full flex justify-between items-center p-3 rounded-lg border hover:bg-indigo-50 transition text-left text-sm font-medium text-slate-700">{j.title} <ChevronRight size={14} className="text-slate-400"/></button>)}<button onClick={() => performUpload(uploadFile, null)} className="w-full p-3 rounded-lg border hover:bg-slate-50 transition text-left text-sm text-slate-500">General Pool</button></div><button onClick={() => setShowUploadModal(false)} className="w-full py-2 text-sm font-bold text-slate-500 hover:text-slate-700">Cancel</button></div></div>}
+        {showUploadModal && <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50"><div className="bg-white p-6 rounded-xl shadow-xl max-w-sm w-full"><h3 className="text-lg font-bold text-slate-900 mb-4">Select Pipeline</h3><div className="space-y-2 mb-6 max-h-60 overflow-y-auto">
+            {/* Filtered to only show active jobs for upload */}
+            {jobs.filter(j => j.is_active).map(j => <button key={j.id} onClick={() => performUpload(uploadFiles, j.id)} className="w-full flex justify-between items-center p-3 rounded-lg border hover:bg-indigo-50 transition text-left text-sm font-medium text-slate-700">{j.title} <ChevronRight size={14} className="text-slate-400"/></button>)}
+            <button onClick={() => performUpload(uploadFiles, null)} className="w-full p-3 rounded-lg border hover:bg-slate-50 transition text-left text-sm text-slate-500">General Pool</button></div><button onClick={() => setShowUploadModal(false)} className="w-full py-2 text-sm font-bold text-slate-500 hover:text-slate-700">Cancel</button></div></div>}
+
+        {/* BULK ASSIGN MODAL */}
+        {showBulkAssignModal && <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50"><div className="bg-white p-6 rounded-xl shadow-xl max-w-sm w-full"><h3 className="text-lg font-bold text-slate-900 mb-4">Bulk Assign {selectedIds.length} Candidates</h3><div className="space-y-2 mb-6 max-h-60 overflow-y-auto">{jobs.filter(j => j.is_active).map(j => <button key={j.id} onClick={() => performBulkAssign(j.id)} className="w-full flex justify-between items-center p-3 rounded-lg border hover:bg-indigo-50 transition text-left text-sm font-medium text-slate-700">{j.title} <ChevronRight size={14} className="text-slate-400"/></button>)}</div><button onClick={() => setShowBulkAssignModal(false)} className="w-full py-2 text-sm font-bold text-slate-500 hover:text-slate-700">Cancel</button></div></div>}
+        
+        {/* UPLOAD PROGRESS OVERLAY */}
+        {uploading && (
+            <div className="fixed bottom-6 right-6 bg-slate-900 text-white p-4 rounded-xl shadow-2xl z-50 flex items-center gap-3 animate-in slide-in-from-bottom-4">
+                <RefreshCw className="animate-spin text-indigo-400"/>
+                <div className="text-sm font-bold">{uploadProgress || "Uploading..."}</div>
+            </div>
+        )}
       </div>
     </div>
   )
+}
+
+// ... [Keep CompanyProfileModal, CreateJobModal, Dashboard, KPICard, JobInsightCard, CandidateList, getStatusColor, Card, Drawer components same as before] ...
+// Be sure to include them here!
+
+const CompanyProfileModal = ({ onClose }) => {
+    const [data, setData] = useState({ name: "", industry: "", description: "", culture: "" })
+    const [loading, setLoading] = useState(true)
+
+    useEffect(() => {
+        axios.get('/api/jobs/company').then(res => { setData(res.data); setLoading(false) })
+    }, [])
+
+    const save = async () => {
+        await axios.post('/api/jobs/company', data)
+        onClose()
+    }
+
+    return (
+        <div className="fixed inset-0 z-[70] bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4">
+            <div className="bg-white w-full max-w-lg rounded-2xl shadow-2xl p-6">
+                <div className="flex justify-between items-center mb-6">
+                    <h2 className="text-xl font-bold text-slate-900 flex items-center gap-2"><Building2 className="text-indigo-500"/> Company Profile</h2>
+                    <button onClick={onClose}><X className="text-slate-400 hover:text-slate-600"/></button>
+                </div>
+                <div className="space-y-4">
+                    <div><label className="text-xs font-bold text-slate-500 uppercase block mb-1">Company Name</label><input className="w-full p-2 border rounded-lg text-sm" value={data.name} onChange={e=>setData({...data, name: e.target.value})} /></div>
+                    <div><label className="text-xs font-bold text-slate-500 uppercase block mb-1">Industry</label><input className="w-full p-2 border rounded-lg text-sm" value={data.industry} onChange={e=>setData({...data, industry: e.target.value})} /></div>
+                    <div><label className="text-xs font-bold text-slate-500 uppercase block mb-1">About (Description)</label><textarea className="w-full p-2 border rounded-lg text-sm h-24" value={data.description} onChange={e=>setData({...data, description: e.target.value})} placeholder="What do you do?"/></div>
+                    <div><label className="text-xs font-bold text-slate-500 uppercase block mb-1">Culture & Values</label><textarea className="w-full p-2 border rounded-lg text-sm h-24" value={data.culture} onChange={e=>setData({...data, culture: e.target.value})} placeholder="e.g. Performance driven, remote friendly..."/></div>
+                </div>
+                <div className="mt-6 flex justify-end gap-3">
+                    <button onClick={onClose} className="px-4 py-2 text-slate-500 font-bold">Cancel</button>
+                    <button onClick={save} className="px-6 py-2 bg-indigo-600 text-white font-bold rounded-lg">Save Profile</button>
+                </div>
+            </div>
+        </div>
+    )
 }
 
 const CreateJobModal = ({ onClose, onCreate }) => {
@@ -235,23 +435,40 @@ const CreateJobModal = ({ onClose, onCreate }) => {
     const [loading, setLoading] = useState(false)
     const [data, setData] = useState({ title: "", department: "", description: "", required_experience: 0, skills_required: [] })
     const [matches, setMatches] = useState([])
+    const [selectedMatches, setSelectedMatches] = useState([])
 
-    const generateAI = async () => {
+    const runInitialAnalysis = async () => {
         if (!data.title) return
         setLoading(true)
         try {
             const res = await axios.post('/api/jobs/analyze', { title: data.title })
             setData(prev => ({ ...prev, ...res.data }))
-            setStep(2)
             
-            // Check for matches
+            await refreshCandidates({ ...data, ...res.data })
+            
+            setStep(2)
+        } catch (e) { alert("AI Analysis Failed") }
+        setLoading(false)
+    }
+
+    const refreshCandidates = async (jobData) => {
+        setLoading(true)
+        try {
             const matchRes = await axios.post('/api/jobs/matches', { 
-                required_experience: res.data.required_experience || 0,
-                skills_required: res.data.skills_required || []
+                required_experience: jobData.required_experience || 0,
+                skills_required: jobData.skills_required || []
             })
             setMatches(matchRes.data)
-        } catch (e) { alert("AI Generation Failed") }
+        } catch (e) { console.error(e) }
         setLoading(false)
+    }
+
+    const toggleMatch = (id) => {
+        if (selectedMatches.includes(id)) {
+            setSelectedMatches(selectedMatches.filter(i => i !== id))
+        } else {
+            setSelectedMatches([...selectedMatches, id])
+        }
     }
 
     return (
@@ -264,18 +481,27 @@ const CreateJobModal = ({ onClose, onCreate }) => {
                 
                 <div className="p-8 overflow-y-auto flex-1">
                     <div className="space-y-6">
-                        <div>
-                            <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Job Title</label>
-                            <div className="flex gap-2">
-                                <input className="flex-1 text-lg font-bold p-3 border border-slate-200 rounded-xl focus:ring-2 ring-indigo-500 outline-none" placeholder="e.g. Senior Product Designer" value={data.title} onChange={e => setData({...data, title: e.target.value})} autoFocus />
-                                <button onClick={generateAI} disabled={loading || !data.title} className="bg-indigo-600 text-white px-6 py-3 rounded-xl font-bold flex items-center gap-2 hover:bg-indigo-700 transition disabled:opacity-50">
-                                    {loading ? <RefreshCw className="animate-spin"/> : <Sparkles size={18}/>} {loading ? "Analyzing..." : "Auto-Fill"}
-                                </button>
+                        {step === 1 && (
+                            <div className="animate-in fade-in">
+                                <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Job Title</label>
+                                <div className="flex gap-2">
+                                    <input className="flex-1 text-lg font-bold p-3 border border-slate-200 rounded-xl focus:ring-2 ring-indigo-500 outline-none" placeholder="e.g. Senior Product Designer" value={data.title} onChange={e => setData({...data, title: e.target.value})} autoFocus onKeyDown={e => e.key === 'Enter' && runInitialAnalysis()}/>
+                                    <button onClick={runInitialAnalysis} disabled={loading || !data.title} className="bg-indigo-600 text-white px-6 py-3 rounded-xl font-bold flex items-center gap-2 hover:bg-indigo-700 transition disabled:opacity-50">
+                                        {loading ? <RefreshCw className="animate-spin"/> : <Sparkles size={18}/>} {loading ? "Analyze" : "Analyze"}
+                                    </button>
+                                </div>
+                                <p className="text-xs text-slate-400 mt-2 ml-1">AI will generate a description, required skills, and find matching candidates from your pool.</p>
                             </div>
-                        </div>
+                        )}
 
-                        {(step === 2 || data.description) && (
+                        {(step === 2) && (
                             <div className="animate-in fade-in slide-in-from-bottom-4 space-y-6">
+                                <div className="flex justify-end">
+                                    <button onClick={() => refreshCandidates(data)} disabled={loading} className="text-xs flex items-center gap-1 text-indigo-600 font-bold hover:bg-indigo-50 px-2 py-1 rounded transition">
+                                        <RefreshCw size={12} className={loading ? "animate-spin" : ""}/> Refresh Candidates
+                                    </button>
+                                </div>
+
                                 <div className="grid grid-cols-2 gap-4">
                                     <div>
                                         <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Department</label>
@@ -297,8 +523,11 @@ const CreateJobModal = ({ onClose, onCreate }) => {
                                     <input className="w-full p-2 border border-slate-200 rounded-lg text-sm" placeholder="Type & Enter to add skill..." onKeyDown={e => {
                                         if (e.key === 'Enter') {
                                             e.preventDefault();
-                                            setData({...data, skills_required: [...(data.skills_required||[]), e.target.value]});
-                                            e.target.value = "";
+                                            const newSkill = e.target.value.trim();
+                                            if(newSkill) {
+                                                setData({...data, skills_required: [...(data.skills_required||[]), newSkill]});
+                                                e.target.value = "";
+                                            }
                                         }
                                     }} />
                                 </div>
@@ -308,22 +537,33 @@ const CreateJobModal = ({ onClose, onCreate }) => {
                                     <textarea className="w-full p-4 border border-slate-200 rounded-xl text-sm leading-relaxed h-40 resize-none focus:ring-2 ring-indigo-500 outline-none" value={data.description} onChange={e => setData({...data, description: e.target.value})} />
                                 </div>
 
-                                {matches.length > 0 && (
-                                    <div className="bg-emerald-50 border border-emerald-100 rounded-xl p-4">
-                                        <h3 className="text-sm font-bold text-emerald-800 mb-3 flex items-center gap-2"><Users size={16}/> Found {matches.length} Existing Candidates</h3>
-                                        <div className="space-y-2">
-                                            {matches.slice(0, 3).map(m => (
-                                                <div key={m.id} className="bg-white p-2 rounded-lg border border-emerald-100 flex justify-between items-center">
-                                                    <span className="text-sm font-bold text-slate-700">{m.name}</span>
-                                                    <div className="flex items-center gap-2">
-                                                        <span className="text-[10px] bg-slate-100 px-1.5 py-0.5 rounded text-slate-500">{m.status}</span>
-                                                        <span className="text-xs font-bold text-emerald-600">{m.score}% Match</span>
+                                {matches.length > 0 ? (
+                                    <div className="bg-indigo-50/50 border border-indigo-100 rounded-xl p-4">
+                                        <h3 className="text-sm font-bold text-indigo-900 mb-3 flex items-center justify-between">
+                                            <span className="flex items-center gap-2"><Users size={16}/> Smart Candidate Match</span>
+                                            <span className="text-xs font-normal text-indigo-600">{selectedMatches.length} selected</span>
+                                        </h3>
+                                        <div className="space-y-2 max-h-40 overflow-y-auto pr-2">
+                                            {matches.map(m => (
+                                                <div key={m.id} onClick={() => toggleMatch(m.id)} className={`p-2 rounded-lg border flex justify-between items-center cursor-pointer transition ${selectedMatches.includes(m.id) ? "bg-indigo-100 border-indigo-200" : "bg-white border-slate-100 hover:border-indigo-200"}`}>
+                                                    <div className="flex items-center gap-3">
+                                                        <div className={`text-indigo-600 ${selectedMatches.includes(m.id) ? "opacity-100" : "opacity-40"}`}>
+                                                            {selectedMatches.includes(m.id) ? <CheckSquare size={18}/> : <Square size={18}/>}
+                                                        </div>
+                                                        <div>
+                                                            <div className="text-sm font-bold text-slate-800">{m.name}</div>
+                                                            <div className="flex items-center gap-2">
+                                                                <span className="text-[10px] font-bold text-emerald-600">{m.score}% Match</span>
+                                                                {m.status === "Silver Medalist" && <span className="text-[10px] bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded flex items-center gap-1"><Award size={10}/> Silver Medalist</span>}
+                                                            </div>
+                                                        </div>
                                                     </div>
                                                 </div>
                                             ))}
-                                            {matches.length > 3 && <div className="text-xs text-center text-emerald-600 font-bold mt-2">+ {matches.length - 3} more...</div>}
                                         </div>
                                     </div>
+                                ) : (
+                                    <div className="p-4 text-center text-slate-400 text-sm italic border border-dashed border-slate-200 rounded-xl">No matching candidates found in your pool.</div>
                                 )}
                             </div>
                         )}
@@ -332,7 +572,7 @@ const CreateJobModal = ({ onClose, onCreate }) => {
                 
                 <div className="p-6 border-t border-slate-100 bg-slate-50 flex justify-end gap-3">
                     <button onClick={onClose} className="px-4 py-2 text-slate-500 font-bold hover:bg-slate-200 rounded-lg transition">Cancel</button>
-                    <button onClick={() => onCreate(data)} disabled={!data.title} className="px-6 py-2 bg-indigo-600 text-white font-bold rounded-lg hover:bg-indigo-700 transition disabled:opacity-50">Create Pipeline</button>
+                    {step === 2 && <button onClick={() => onCreate(data, selectedMatches)} disabled={!data.title} className="px-6 py-2 bg-indigo-600 text-white font-bold rounded-lg hover:bg-indigo-700 transition disabled:opacity-50 flex items-center gap-2">Create & Assign {selectedMatches.length > 0 && `(${selectedMatches.length})`}</button>}
                 </div>
             </div>
         </div>
@@ -347,7 +587,6 @@ const Dashboard = ({ jobs, profiles, onEditJob, onNavigate, onViewProfile }) => 
         const activeJobs = jobs.filter(j => j.is_active).length
 
         profiles.forEach(p => {
-            // SAFETY FIX: Added optional chaining to p.applications
             p.applications?.forEach(a => {
                 if (a.status === "Hired") hired++
                 if (a.status === "Silver Medalist") silver++
@@ -395,7 +634,6 @@ const JobInsightCard = ({ job, profiles, onEdit, onNavigate }) => {
     const [skills, setSkills] = useState(safeList(job.skills_required).join(", "))
 
     const jobStats = useMemo(() => {
-        // SAFETY FIX: Added optional chaining
         const candidates = profiles.filter(p => p.applications?.some(a => a.job_id === job.id))
         let totalExp = 0, totalCurr = 0, totalExpSal = 0
         let countExp = 0, countSal = 0
@@ -447,7 +685,6 @@ const JobInsightCard = ({ job, profiles, onEdit, onNavigate }) => {
 }
 
 const CandidateList = ({ title, status, profiles, onViewProfile }) => {
-    // SAFETY FIX: Added optional chaining
     const candidates = profiles.filter(p => p.applications?.some(a => a.status === status))
     return (
         <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-5 flex-1">
@@ -475,17 +712,32 @@ const getStatusColor = (status) => {
     }
 }
 
-const Card = ({ cv, onClick, onDelete, onReprocess, status, compact, jobs }) => {
+const Card = ({ cv, onClick, onDelete, onReprocess, status, compact, jobs, selectable, selected, onSelect }) => {
   const d = cv.parsed_data || {}
   const skills = safeList(d.skills).slice(0, 3)
   return (
-    <div onClick={onClick} className={`bg-white p-4 rounded-xl shadow-[0_2px_8px_rgba(0,0,0,0.04)] border border-slate-100 hover:shadow-[0_4px_12px_rgba(0,0,0,0.08)] hover:border-indigo-200 transition-all cursor-pointer group relative ${compact ? 'mb-0' : ''}`}>
+    <div 
+        draggable
+        onDragStart={(e) => e.dataTransfer.setData("cvId", cv.id)}
+        onClick={onClick} 
+        className={`bg-white p-4 rounded-xl shadow-[0_2px_8px_rgba(0,0,0,0.04)] border hover:shadow-[0_4px_12px_rgba(0,0,0,0.08)] hover:border-indigo-200 transition-all cursor-pointer group relative ${compact ? 'mb-0' : ''} ${selected ? 'border-indigo-500 ring-1 ring-indigo-500' : 'border-slate-100'}`}
+    >
+       
+       {selectable && (
+           <div 
+                className={`absolute top-3 left-3 z-20 ${selected ? "opacity-100" : "opacity-0 group-hover:opacity-100 transition-opacity"}`}
+                onClick={(e) => { e.stopPropagation(); onSelect(); }}
+           >
+               {selected ? <CheckSquare className="text-indigo-600 bg-white rounded" size={20}/> : <Square className="text-slate-300 hover:text-indigo-400 bg-white rounded" size={20}/>}
+           </div>
+       )}
+
        <div className="absolute top-3 right-3 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity z-10 bg-white/80 backdrop-blur rounded-md p-0.5">
           <button onClick={(e) => onReprocess(e, cv.id)} className="p-1 text-slate-400 hover:text-indigo-600"><RotateCw size={14} /></button>
           <button onClick={(e) => onDelete(e, cv.id)} className="p-1 text-slate-400 hover:text-red-600"><Trash2 size={14} /></button>
        </div>
        {!cv.is_parsed && <div className="absolute inset-0 bg-white/90 flex items-center justify-center z-20"><RefreshCw className="animate-spin text-indigo-500" /></div>}
-       <div className="mb-3 pr-8">
+       <div className={`mb-3 pr-8 ${selectable ? 'pl-6' : ''}`}>
           <h3 className="text-[15px] font-bold text-slate-900 leading-tight line-clamp-1">{d.name || "Candidate"}</h3>
           <div className="text-xs text-slate-500 mt-1 flex items-center gap-1.5"><Briefcase size={12} className="text-indigo-400" /><span className="truncate">{d.last_job_title || "Unknown Role"}</span></div>
        </div>
@@ -507,9 +759,19 @@ const Card = ({ cv, onClick, onDelete, onReprocess, status, compact, jobs }) => 
 
 const Drawer = ({ cv, onClose, updateApp, updateProfile, jobs, selectedJobId, assignJob, removeJob }) => {
   const [view, setView] = useState("parsed")
+  const [isEditing, setIsEditing] = useState(false)
   const d = cv.parsed_data || {}
   const app = selectedJobId ? cv.applications?.find(a => a.job_id === selectedJobId) : null
   
+  const [editData, setEditData] = useState({ 
+      name: d.name, 
+      email: safeList(d.email)[0] || "", 
+      phone: safeList(d.phone)[0] || "",
+      address: d.address,
+      summary: d.summary,
+      skills: safeList(d.skills).join(", ")
+  })
+
   const [notes, setNotes] = useState(app ? app.notes : "")
   const [rating, setRating] = useState(app ? app.rating : 0)
   const [status, setStatus] = useState(app ? app.status : "New")
@@ -525,8 +787,41 @@ const Drawer = ({ cv, onClose, updateApp, updateProfile, jobs, selectedJobId, as
   const education = safeList(d.education)
   const skills = safeList(d.skills)
 
+  const groupedHistory = useMemo(() => {
+      const sorted = safeList(d.job_history).sort((a, b) => {
+         const getYear = (s) => {
+             if(!s) return 0
+             const match = s.match(/(\d{4})/)
+             return match ? parseInt(match[0]) : 0
+         }
+         return getYear(b.duration) - getYear(a.duration)
+      })
+      const groups = []
+      sorted.forEach(job => {
+          const last = groups[groups.length - 1]
+          if (last && last.company === job.company) {
+              last.roles.push(job)
+          } else {
+              groups.push({ company: job.company, roles: [job] })
+          }
+      })
+      return groups
+  }, [d.job_history])
+
   const save = async () => {
     setSaved(false)
+    if (isEditing) {
+        await updateProfile(cv.id, {
+            name: editData.name,
+            address: editData.address,
+            summary: editData.summary,
+            skills: editData.skills.split(",").map(s=>s.trim()).filter(s=>s),
+            email: JSON.stringify([editData.email]),
+            phone: JSON.stringify([editData.phone])
+        })
+        setIsEditing(false)
+    }
+
     if (selectedJobId && app) {
         await updateApp(app.id, { notes, rating: parseInt(rating), status, current_salary: curr, expected_salary: exp })
     } else {
@@ -543,14 +838,18 @@ const Drawer = ({ cv, onClose, updateApp, updateProfile, jobs, selectedJobId, as
        <div className="relative w-full max-w-[90rem] bg-[#F8FAFC] h-full shadow-2xl flex flex-col animate-slide-in-right overflow-hidden border-l border-slate-200">
           
           <div className="bg-white px-8 py-5 border-b border-slate-200 flex justify-between items-start shrink-0">
-             <div>
-                <h2 className="text-2xl font-extrabold text-slate-900">{d.name || "Candidate Profile"}</h2>
+             <div className="flex-1">
+                {isEditing ? (
+                    <input className="text-2xl font-extrabold text-slate-900 border-b border-slate-300 focus:border-indigo-500 outline-none w-full" value={editData.name} onChange={e=>setEditData({...editData, name: e.target.value})}/>
+                ) : (
+                    <h2 className="text-2xl font-extrabold text-slate-900">{d.name || "Candidate Profile"}</h2>
+                )}
                 <p className="text-indigo-600 font-medium text-base mt-0.5 flex items-center gap-2">
                     {d.last_job_title || "No Title"} 
                     {d.last_company && <span className="text-slate-400 font-normal">@ {d.last_company}</span>}
                 </p>
                 <div className="flex gap-4 mt-3 text-sm text-slate-500">
-                    <div className="flex items-center gap-1.5"><MapPin size={14}/> {d.address || "Remote"}</div>
+                    {isEditing ? <input className="border rounded p-1 text-xs" value={editData.address} onChange={e=>setEditData({...editData, address: e.target.value})}/> : <div className="flex items-center gap-1.5"><MapPin size={14}/> {d.address || "Remote"}</div>}
                     <div className="flex items-center gap-1.5"><User size={14}/> {d.age ? `${d.age} yrs` : "N/A"}</div>
                     <div className="flex items-center gap-1.5"><Briefcase size={14}/> {cv.projected_experience || 0}y Exp</div>
                 </div>
@@ -560,83 +859,102 @@ const Drawer = ({ cv, onClose, updateApp, updateProfile, jobs, selectedJobId, as
                     <button onClick={() => setView("parsed")} className={`px-3 py-1.5 rounded-md text-sm font-bold transition ${view === "parsed" ? "bg-white shadow text-indigo-600" : "text-slate-500 hover:text-slate-700"}`}>Profile</button>
                     <button onClick={() => setView("pdf")} className={`px-3 py-1.5 rounded-md text-sm font-bold transition ${view === "pdf" ? "bg-white shadow text-indigo-600" : "text-slate-500 hover:text-slate-700"}`}>Original CV</button>
                 </div>
+                <button onClick={() => setIsEditing(!isEditing)} className={`p-2.5 rounded-lg border transition ${isEditing ? 'bg-indigo-50 text-indigo-600 border-indigo-200' : 'bg-white text-slate-400 hover:text-indigo-600 border-slate-200'}`}>
+                    <Pencil size={20}/>
+                </button>
                 <button onClick={onClose} className="p-2.5 bg-white hover:bg-slate-50 rounded-lg text-slate-400 hover:text-slate-600 border border-slate-200 transition"><X size={20}/></button>
              </div>
           </div>
 
           <div className="flex flex-1 overflow-hidden">
-             
              <div className="flex-1 overflow-y-auto p-8 space-y-8">
                 {view === "pdf" ? (
                     <iframe src={`/api/files/${cv.filename}`} className="w-full h-full rounded-xl border border-slate-200 shadow-sm bg-white min-h-[800px]" title="PDF"></iframe>
                 ) : (
                     <>
                         <section>
-                            <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-3 flex items-center gap-2"><User size={14}/> Personal Details</h3>
-                            <div className="flex flex-wrap gap-4">
-                                {(d.marital_status || d.military_status) && (
-                                    <>
-                                        {d.marital_status && <div className="px-4 py-2 bg-pink-50 text-pink-700 border border-pink-100 rounded-lg text-sm font-medium flex items-center gap-2"><Heart size={14}/> {d.marital_status}</div>}
-                                        {d.military_status && <div className="px-4 py-2 bg-blue-50 text-blue-700 border border-blue-100 rounded-lg text-sm font-medium flex items-center gap-2"><Flag size={14}/> {d.military_status}</div>}
-                                    </>
-                                )}
-                                {/* LINKEDIN / SOCIAL LINKS FIX */}
-                                {safeList(d.social_links).map((link, i) => (
-                                    <a key={i} href={link} target="_blank" rel="noreferrer" className="px-4 py-2 bg-sky-50 text-sky-700 border border-sky-100 rounded-lg text-sm font-medium flex items-center gap-2 hover:bg-sky-100 transition">
-                                        {link.toLowerCase().includes("linkedin") ? <Linkedin size={14}/> : <ExternalLink size={14}/>} 
-                                        {link.toLowerCase().includes("linkedin") ? "LinkedIn Profile" : "Social Link"}
-                                    </a>
-                                ))}
-                            </div>
+                            <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-3 flex items-center gap-2"><User size={14}/> Contact & Personal</h3>
+                            {isEditing ? (
+                                <div className="grid grid-cols-2 gap-4 bg-slate-50 p-4 rounded-xl border border-slate-200">
+                                    <div><label className="text-xs font-bold block mb-1">Email</label><input className="w-full p-2 rounded border" value={editData.email} onChange={e=>setEditData({...editData, email: e.target.value})}/></div>
+                                    <div><label className="text-xs font-bold block mb-1">Phone</label><input className="w-full p-2 rounded border" value={editData.phone} onChange={e=>setEditData({...editData, phone: e.target.value})}/></div>
+                                </div>
+                            ) : (
+                                <div className="flex flex-wrap gap-4">
+                                    <div className="px-4 py-2 bg-slate-50 text-slate-700 border border-slate-200 rounded-lg text-sm font-medium">{safeList(d.email)[0] || "No Email"}</div>
+                                    <div className="px-4 py-2 bg-slate-50 text-slate-700 border border-slate-200 rounded-lg text-sm font-medium">{safeList(d.phone)[0] || "No Phone"}</div>
+                                    {safeList(d.social_links).map((link, i) => (
+                                        <a key={i} href={link} target="_blank" rel="noreferrer" className="px-4 py-2 bg-sky-50 text-sky-700 border border-sky-100 rounded-lg text-sm font-medium flex items-center gap-2 hover:bg-sky-100 transition">
+                                            {link.toLowerCase().includes("linkedin") ? <Linkedin size={14}/> : <ExternalLink size={14}/>} 
+                                            {link.toLowerCase().includes("linkedin") ? "LinkedIn" : "Link"}
+                                        </a>
+                                    ))}
+                                </div>
+                            )}
                         </section>
 
                         {d.summary && (
                             <section>
                                 <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-3 flex items-center gap-2"><FileText size={14}/> Professional Summary</h3>
-                                <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm text-slate-700 leading-relaxed text-base">{d.summary}</div>
+                                {isEditing ? (
+                                    <textarea className="w-full p-4 border rounded-xl text-sm h-32" value={editData.summary} onChange={e=>setEditData({...editData, summary: e.target.value})}/>
+                                ) : (
+                                    <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm text-slate-700 leading-relaxed text-base">{d.summary}</div>
+                                )}
                             </section>
                         )}
 
-                        {/* ... Skills, Experience, Education (Keep Same) ... */}
-                        {skills.length > 0 && (
-                            <section>
-                                <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-3 flex items-center gap-2"><BrainCircuit size={14}/> Key Skills</h3>
+                        <section>
+                            <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-3 flex items-center gap-2"><BrainCircuit size={14}/> Key Skills</h3>
+                            {isEditing ? (
+                                <textarea className="w-full p-4 border rounded-xl text-sm" value={editData.skills} onChange={e=>setEditData({...editData, skills: e.target.value})}/>
+                            ) : (
                                 <div className="flex flex-wrap gap-2">{skills.map((skill, i) => <span key={i} className="px-3 py-1.5 bg-indigo-50 text-indigo-700 border border-indigo-100 rounded-lg text-sm font-semibold shadow-sm">{skill}</span>)}</div>
+                            )}
+                        </section>
+
+                        {education.length > 0 && (
+                            <section>
+                                <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-3 flex items-center gap-2"><GraduationCap size={14}/> Education</h3>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    {education.map((edu, i) => (
+                                        <div key={i} className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex items-start gap-3">
+                                            <div className="mt-0.5"><GraduationCap className="text-slate-300" size={20}/></div>
+                                            <div>
+                                                <div className="font-bold text-slate-900">{edu.school || "University"}</div>
+                                                <div className="text-sm text-indigo-600">{edu.degree}</div>
+                                                <div className="text-xs text-slate-400 mt-1">{edu.year}</div>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
                             </section>
                         )}
 
                         <section>
                             <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-4 flex items-center gap-2"><Briefcase size={14}/> Work History</h3>
                             <div className="relative border-l-2 border-slate-200 ml-3 space-y-8 pb-2">
-                                {history.map((job, i) => (
+                                {groupedHistory.map((group, i) => (
                                     <div key={i} className="relative pl-8">
-                                        <div className="absolute -left-[9px] top-1.5 w-4 h-4 rounded-full bg-white border-4 border-indigo-500"></div>
-                                        <div className="relative">
-                                            <h4 className="font-bold text-lg text-slate-900 leading-tight">{job.title}</h4>
-                                            <div className="text-indigo-600 font-medium text-sm mt-0.5">{job.company}</div>
-                                            <span className="inline-block mt-1.5 px-2 py-0.5 bg-slate-100 text-slate-500 text-xs font-mono rounded">{job.duration}</span>
-                                            {job.description && <p className="mt-3 text-slate-600 text-sm leading-relaxed border-l-2 border-slate-100 pl-3">{job.description}</p>}
+                                        <div className="absolute -left-[9px] top-0 w-4 h-4 rounded-full bg-white border-4 border-indigo-500"></div>
+                                        <div className="mb-4">
+                                            <h4 className="text-lg font-bold text-indigo-900">{group.company}</h4>
+                                        </div>
+                                        
+                                        <div className="space-y-6 relative">
+                                            {group.roles.map((job, j) => (
+                                                <div key={j} className="relative">
+                                                    <div className="flex justify-between items-baseline mb-1">
+                                                        <h5 className="font-bold text-slate-800">{job.title}</h5>
+                                                        <span className="text-xs font-mono text-slate-500 bg-slate-100 px-2 py-0.5 rounded">{job.duration}</span>
+                                                    </div>
+                                                    {job.description && <p className="text-sm text-slate-600 leading-relaxed border-l-2 border-slate-100 pl-3">{job.description}</p>}
+                                                </div>
+                                            ))}
                                         </div>
                                     </div>
                                 ))}
-                                {history.length === 0 && <div className="pl-8 text-slate-400 italic">No experience detected.</div>}
-                            </div>
-                        </section>
-
-                        <section>
-                            <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-3 flex items-center gap-2"><GraduationCap size={14}/> Education</h3>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                {education.map((edu, i) => (
-                                    <div key={i} className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex items-start gap-3">
-                                        <div className="mt-0.5"><GraduationCap className="text-slate-300" size={20}/></div>
-                                        <div>
-                                            <div className="font-bold text-slate-900">{edu.school || "University"}</div>
-                                            <div className="text-sm text-indigo-600">{edu.degree}</div>
-                                            <div className="text-xs text-slate-400 mt-1">{edu.year}</div>
-                                        </div>
-                                    </div>
-                                ))}
-                                {education.length === 0 && <div className="text-slate-400 italic">No education detected.</div>}
+                                {groupedHistory.length === 0 && <div className="pl-8 text-slate-400 italic">No experience detected.</div>}
                             </div>
                         </section>
                     </>
@@ -644,7 +962,6 @@ const Drawer = ({ cv, onClose, updateApp, updateProfile, jobs, selectedJobId, as
              </div>
 
              <div className="w-[22rem] bg-white border-l border-slate-200 p-6 flex flex-col overflow-y-auto shadow-[rgba(0,0,0,0.05)_0px_0px_20px]">
-                 
                  <div className={`p-4 rounded-xl mb-6 ${selectedJobId ? 'bg-indigo-50 border border-indigo-100' : 'bg-slate-50 border border-slate-100'}`}>
                      <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">Active Pipeline</div>
                      <div className="font-bold text-slate-900 flex items-center gap-2">
@@ -660,7 +977,7 @@ const Drawer = ({ cv, onClose, updateApp, updateProfile, jobs, selectedJobId, as
                      )}
                  </div>
 
-                 {!selectedJobId && cv.applications?.length > 0 && ( // <--- SAFETY FIX: Added ?. to prevent crash
+                 {!selectedJobId && cv.applications?.length > 0 && (
                      <div className="mb-6">
                         <h4 className="text-xs font-bold text-slate-900 uppercase mb-3 flex items-center gap-2"><Layers size={14}/> Track Status</h4>
                         <div className="space-y-2">
@@ -744,7 +1061,6 @@ const Drawer = ({ cv, onClose, updateApp, updateProfile, jobs, selectedJobId, as
                         </button>
                     )}
                  </div>
-
              </div>
           </div>
        </div>

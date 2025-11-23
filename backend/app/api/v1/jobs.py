@@ -5,8 +5,8 @@ from pydantic import BaseModel, field_validator
 from datetime import datetime
 import json
 from app.core.database import get_db
-from app.models.models import Job, CV, ParsedCV
-from app.services.parser import generate_job_metadata # <--- Import new service
+from app.models.models import Job, CV, ParsedCV, Company # <--- Added Company
+from app.services.parser import generate_job_metadata
 
 router = APIRouter(prefix="/jobs", tags=["Jobs"])
 
@@ -66,12 +66,54 @@ class CandidateMatch(BaseModel):
     skills_matched: List[str]
     status: str
 
+class CompanySchema(BaseModel):
+    name: str
+    industry: Optional[str] = None
+    description: Optional[str] = None
+    culture: Optional[str] = None
+    class Config: from_attributes = True
+
 # --- Endpoints ---
 
+# 1. COMPANY PROFILE ENDPOINTS
+@router.get("/company", response_model=CompanySchema)
+def get_company_profile(db: Session = Depends(get_db)):
+    company = db.query(Company).first()
+    if not company:
+        return CompanySchema(name="My Company", description="Tech company", culture="Innovative")
+    return company
+
+@router.post("/company", response_model=CompanySchema)
+def update_company_profile(data: CompanySchema, db: Session = Depends(get_db)):
+    company = db.query(Company).first()
+    if not company:
+        company = Company(name=data.name)
+        db.add(company)
+    
+    company.name = data.name
+    company.industry = data.industry
+    company.description = data.description
+    company.culture = data.culture
+    db.commit()
+    db.refresh(company)
+    return company
+
+# 2. ANALYZE (With Company Context)
 @router.post("/analyze", response_model=Dict[str, Any])
-def analyze_job_request(title: str = Body(..., embed=True)):
+def analyze_job_request(title: str = Body(..., embed=True), db: Session = Depends(get_db)):
     """AI Endpoint to generate job description and skills from a title."""
-    return generate_job_metadata(title)
+    
+    # Fetch Company Context
+    company = db.query(Company).first()
+    context = {}
+    if company:
+        context = {
+            "name": company.name,
+            "description": company.description,
+            "culture": company.culture
+        }
+    
+    return generate_job_metadata(title, context)
 
 @router.post("/matches", response_model=List[CandidateMatch])
 def match_candidates_for_new_job(
@@ -79,11 +121,7 @@ def match_candidates_for_new_job(
     skills_required: List[str] = Body(...),
     db: Session = Depends(get_db)
 ):
-    """Finds Silver Medalists and strong candidates for a potential new role."""
-    # Get all parsed CVs that are not linked to an active 'Hired' status (optional logic)
-    # For now, we look at everyone
     candidates = db.query(ParsedCV).options(joinedload(ParsedCV.cv)).all()
-    
     matches = []
     req_skills_set = set(s.lower() for s in skills_required)
     
@@ -91,7 +129,6 @@ def match_candidates_for_new_job(
         score = 0
         matched = []
         
-        # 1. Skill Match
         cand_skills = []
         if cand.skills:
             try: cand_skills = json.loads(cand.skills)
@@ -102,15 +139,12 @@ def match_candidates_for_new_job(
                 score += 10
                 matched.append(s)
         
-        # 2. Experience Match
         cand_exp = cand.experience_years or 0
         if cand_exp >= required_experience:
             score += 20
         elif cand_exp >= (required_experience - 1):
             score += 10
             
-        # 3. Bonus for Silver Medalists
-        # Check applications of this CV
         is_silver = False
         for app in cand.cv.applications:
             if app.status == "Silver Medalist":
@@ -128,9 +162,8 @@ def match_candidates_for_new_job(
                 "status": "Silver Medalist" if is_silver else "Candidate"
             })
             
-    # Sort by score desc
     matches.sort(key=lambda x: x['score'], reverse=True)
-    return matches[:10] # Return top 10
+    return matches[:10]
 
 @router.post("/", response_model=JobOut)
 def create_job(job: JobCreate, db: Session = Depends(get_db)):

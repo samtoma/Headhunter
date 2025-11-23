@@ -3,18 +3,25 @@ from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
 from app.core.database import Base
 
+# --- NEW MODEL ---
+class Company(Base):
+    __tablename__ = "company"
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, default="TPAY")
+    industry = Column(String, nullable=True)
+    description = Column(Text, nullable=True) # "Leading payments provider in MEA..."
+    culture = Column(Text, nullable=True)     # "Performance driven, agile..."
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+# -----------------
+
 class Job(Base):
     __tablename__ = "jobs"
     id = Column(Integer, primary_key=True, index=True)
     title = Column(String, nullable=False)
     department = Column(String, nullable=True)
     description = Column(Text, nullable=True)
-    
-    # --- NEW FIELDS ---
-    required_experience = Column(Integer, default=0) # e.g. 5 (years)
-    skills_required = Column(Text, nullable=True)    # e.g. ["Python", "React"]
-    # ------------------
-
+    required_experience = Column(Integer, default=0)
+    skills_required = Column(Text, nullable=True)
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     applications = relationship("Application", back_populates="job", cascade="all, delete-orphan")
