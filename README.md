@@ -1,154 +1,141 @@
-# 🧠 Headhunter AI
+# 🧠 Headhunter AI (v1.2)
 
-**Headhunter AI** is a professional, self-hosted Applicant Tracking System (ATS) built for privacy and performance. It runs entirely on your own hardware (like a Beelink Mini PC with Intel N100) using Docker.
+**Headhunter AI** is a production-grade, self-hosted Applicant Tracking System (ATS) engineered for high-performance recruitment teams. 
 
-It leverages **Large Language Models (LLMs)** to intelligently parse resumes (PDF/DOCX), extracting structured data like skills, detailed work history, education, and personal details into a searchable database.
-
-## ✨ Key Features
-
-### 🤖 Hybrid AI Engine (Smart & Flexible)
-* **Fast Mode (Cloud):** Automatically uses **OpenAI (`gpt-4o-mini`)** if an API key is provided. Extremely fast and accurate.
-* **Private Mode (Local):** Falls back to a local **Llama 3.1 8B (Quantized)** model running on your hardware if no key is found.
-* **Hardware Acceleration:** Fully optimized for **Intel Integrated GPUs (iGPU)** using OpenCL drivers (perfect for N100/Alder Lake chips).
-
-### 📄 Intelligent Parsing
-* Extracts **Contact Info** (Email, Phone, Social Links).
-* Parses **Work History** into a structured timeline.
-* Identifies **Education**, **Skills**, and **Personal Details** (Age, Marital Status).
-* **Smart Experience Calculation:** Automatically calculates "Experience Drift." If a CV is 2 years old, the system adds those 2 years to the candidate's total experience estimate.
-
-### 💻 Modern Dashboard
-* **Search & Filter:** Instantly find candidates by name, job title, or specific skills.
-* **PDF Viewer:** View the original resume file directly inside the candidate profile without downloading it.
-* **Management:** Delete or Reprocess CVs with a single click.
+Unlike traditional ATS platforms that act as simple file storage, Headhunter AI uses **Context-Aware Large Language Models (LLMs)** to understand your company's specific culture, extract structured data from messy resumes, and proactively match candidates to open pipelines.
 
 ---
 
-## 🛠️ Tech Stack
+## 🏗️ System Architecture
 
-* **Frontend:** React 18, Vite, Tailwind CSS, Lucide Icons.
-* **Backend:** FastAPI (Python 3.13), SQLAlchemy, Pydantic.
-* **AI Inference:** `llama-cpp-python` (with OpenCL support) / OpenAI SDK.
-* **Database:** PostgreSQL 15.
-* **Vector DB:** ChromaDB (included for future semantic search).
-* **Infrastructure:** Docker & Docker Compose.
+The solution is built as a containerized microservices architecture, optimized for local deployment on NAS or private servers.
+
+| Component | Technology | Responsibility |
+|-----------|------------|----------------|
+| **Frontend** | React 18, Vite, Tailwind | Responsive UI, Kanban Boards, Real-time Dashboards. |
+| **Backend** | FastAPI (Python 3.13) | API Logic, AI Orchestration, PDF Parsing. |
+| **Database** | PostgreSQL 15 | Relational data (Candidates, Jobs, Applications). |
+| **AI Engine** | OpenAI / Llama 3.1 | Resume parsing, Job Description generation, Matching. |
+| **Vector DB** | ChromaDB | (Infrastructure Ready) Stores embeddings for semantic search. |
+| **Storage** | Local Filesystem | Stores raw PDF/DOCX files (`/data/raw`). |
+
+### 📂 Project Structure
+```text
+Headhunter/
+├── backend/                 # FastAPI Application
+│   ├── app/
+│   │   ├── api/             # REST Endpoints (Jobs, CVs, Profiles)
+│   │   ├── core/            # DB Config & Settings
+│   │   ├── models/          # SQLAlchemy Database Models
+│   │   ├── schemas/         # Pydantic Data Schemas
+│   │   └── services/        # AI Logic (Parser, Matcher)
+│   ├── alembic/             # Database Migrations
+│   └── Dockerfile
+├── frontend/                # React Application
+│   ├── src/                 # Components, Hooks, Pages
+│   └── Dockerfile
+├── data/                    # Persistent Data Volumes
+│   ├── db/                  # PostgreSQL Data
+│   └── raw/                 # Uploaded Resumes (PDFs)
+├── ops/                     # DevOps & Maintenance
+│   └── compose/             # Alternative Compose files
+├── .env                     # Environment Configuration
+└── docker-compose.yml       # Main Production Stack
+```
 
 ---
 
-## 🚀 Installation & Setup
+## ✨ Feature Deep Dive
+
+### 1. 🧠 Context-Aware AI Engine
+* **Dual-Mode Processing:** Seamlessly switches between **OpenAI (GPT-5-mini)** for speed/accuracy and **Local Llama 3.1** for total privacy.
+* **Company Profile Brain:** Define your organization's industry ("Fintech"), culture ("Agile"), and values in the settings. The AI reads this context to tailor every generated job description to sound like *your* company.
+* **Smart Contact Extraction:** Uses advanced normalization logic to extract Phone Numbers and Emails even from poorly formatted resumes.
+* **Hidden Link Detection:** Deep-scans PDF metadata to find "Click Here" links that point to LinkedIn or GitHub profiles.
+
+### 2. 🚀 Intelligent Pipeline Management
+* **Smart Wizard:** Create a job by simply typing a title (e.g., "Senior DevOps"). The AI generates a professional description, required skills, and experience level automatically.
+* **Instant Auto-Matching:** As soon as a job is drafted, the system scans your *entire existing database* to suggest "Silver Medalists" or qualified candidates you already have.
+* **Kanban Workflows:** Drag-and-drop candidates through stages: *New -> Screening -> Interview -> Offer -> Hired*.
+
+### 3. 🗂️ Candidate Workbench
+* **Bulk Actions:** Select 50+ candidates to **Bulk Assign** to a pipeline, **Delete**, or **Reprocess** (re-run AI extraction) in one click.
+* **Edit Mode:** Fix parsing errors directly in the UI. Toggle "Edit Mode" to correct names, years of experience, or summary text.
+* **Visual Timeline:** View a candidate's work history in a clean, grouped timeline (LinkedIn-style), organizing multiple roles under the same company.
+* **Smart Social Icons:** Automatically detects and brands links for LinkedIn (Blue) and GitHub (Black/Dark).
+
+### 4. 📊 Analytics Dashboard
+* **Real-Time KPIs:** Track Active Jobs, Total Candidates, Hires, and "Silver Medalists" (runners-up to keep warm).
+* **Pipeline Insights:** See live averages for *Years of Experience*, *Current Salary*, and *Expected Salary* for every open position.
+
+---
+
+## 🛠️ Installation Guide
+
+### Prerequisites
+* **Docker** & **Docker Compose** installed.
+* **NVIDIA GPU Drivers** (Optional: Only required for local LLM acceleration).
+* **OpenAI API Key** (Recommended for v1.2).
 
 ### 1. Clone the Repository
 ```bash
-git clone [https://github.com/samtoma/Headhunter.git](https://github.com/samtoma/Headhunter.git)
-cd Headhunter
+git clone <your-repo-url>
+cd headhunter
 ```
 
-### 2. Configure Environment
-Create a `.env` file in the project root. This file holds your secrets and is ignored by Git.
+### 2. Configuration (.env)
+Create a `.env` file in the project root.
 
-```bash
-nano .env
-```
-
-**Paste this configuration:**
 ```ini
-# --- Database Credentials ---
+# --- AI CONFIGURATION ---
+# Recommended Model for V1.2
+OPENAI_API_KEY=sk-proj-xxxxxxxxxxxxxxxxxxxxxxxx
+OPENAI_MODEL=gpt-5-mini-2025-08-07
+
+# --- DATABASE CONFIGURATION ---
 POSTGRES_USER=user
 POSTGRES_PASSWORD=password
 POSTGRES_DB=headhunter_db
+# Internal Docker Network URL
 DATABASE_URL=postgresql://user:password@db:5432/headhunter_db
 
-# --- AI Configuration ---
-# Option A: Use OpenAI (Recommended for Speed & Accuracy)
-OPENAI_API_KEY=sk-your-openai-key-here
-OPENAI_MODEL=gpt-4o-mini
-
-# Option B: Use Local GPU (Leave API Key empty to use Local Llama)
-# OPENAI_API_KEY=
+# --- OPTIONAL: LOCAL LLM ---
+# Path to GGUF model inside the container (if using local mode)
+# MODEL_PATH=/app/models/llama-3.1-8b-instruct-q4_k_m.gguf
 ```
 
-### 3. Download the Local Model (Required for Local Mode)
-If you plan to use the local GPU, you must download the GGUF model file.
-*Note: This file is ~5GB and is ignored by Git.*
+### 3. Launch the Stack
+This starts all services (Frontend, Backend, DB, VectorDB).
 
 ```bash
-mkdir -p ai/models
-wget -O ai/models/llama-3.1-8b-instruct-q4_k_m.gguf \
-[https://huggingface.co/bartowski/Meta-Llama-3.1-8B-Instruct-GGUF/resolve/main/Meta-Llama-3.1-8B-Instruct-Q4_K_M.gguf?download=true](https://huggingface.co/bartowski/Meta-Llama-3.1-8B-Instruct-GGUF/resolve/main/Meta-Llama-3.1-8B-Instruct-Q4_K_M.gguf?download=true)
+sudo docker compose up -d --build
 ```
 
-### 4. Build and Launch
-Run this command to build the containers. The first build will take 5-10 minutes as it compiles the Intel OpenCL drivers from source.
+### 4. Initialize Database
+Run the migration script to create the schema (Jobs, Company, CVs).
 
 ```bash
-docker compose up -d --build
+sudo docker compose exec backend alembic upgrade head
 ```
+
+### 5. Access the Application
+* **User Interface:** [http://localhost:30004](http://localhost:30004)
+* **API Documentation:** [http://localhost:30001/docs](http://localhost:30001/docs)
 
 ---
 
-## 🖥️ Usage Guide
+## 🔮 Future Roadmap
 
-### Access the Dashboard
-Open your browser and go to: **`http://<YOUR-NAS-IP>:30004`**
+1.  **Semantic Search (The "AI Brain"):**
+    * *Concept:* Connect the running ChromaDB container.
+    * *Goal:* Enable queries like "Find me a frontend dev who knows 3D graphics" to return candidates with "ThreeJS" or "WebGL" even if keywords don't match exactly.
 
-### Core Workflows
-1.  **Upload Candidates:**
-    * Drag & drop PDF/DOCX files onto the "Upload CV" button.
-    * Watch the status change from "Uploading..." to "Processing..." to "Done!".
-2.  **View Profiles:**
-    * Click on any candidate card to open the **Detail Modal**.
-    * See the full **Work History Timeline**, **Education**, and **Skills**.
-    * Click the **"View PDF"** button (top right) to see the original file.
-3.  **Search:**
-    * Type "Python" or "Manager" in the search bar to filter the list instantly.
-4.  **Manage Data:**
-    * **Reprocess:** If a CV failed or you updated the parser logic, click the **Rotate Icon** on the card to re-parse it.
-    * **Delete:** Click the **Trash Icon** to remove the candidate and file permanently.
+2.  **Email & Communication:**
+    * *Goal:* Add "Email Candidate" buttons in the drawer.
+    * *Integration:* SMTP or Gmail API to send interview invites directly from the platform.
+
+3.  **Calendar Sync:**
+    * *Goal:* Two-way sync with Google/Outlook calendars for interview scheduling.
 
 ---
-
-## 🔧 Troubleshooting & Maintenance
-
-### 1. Database Schema Errors
-If you update the code and see errors like `column "xyz" does not exist`, you need to reset the database to apply the new structure.
-
-**The "Nuclear" Reset Command:**
-```bash
-docker compose down
-sudo rm -rf data/db/* # WARNING: Deletes all parsed data
-docker compose up -d
-```
-
-### 2. Verify GPU Acceleration (Local Mode)
-To confirm your Intel iGPU is being used by the container:
-```bash
-docker exec -it headhunter_backend clinfo
-```
-* **Success:** You should see `Number of platforms: 1` and `Device Name: Intel(R) Graphics`.
-* **Failure:** If it shows 0 platforms, ensure `/dev/dri` is passed correctly in `docker-compose.yml`.
-
----
-
-## 📂 Project Structure
-
-```text
-Headhunter/
-├── .env                    # Secrets (Not in Git)
-├── docker-compose.yml      # Infrastructure Config
-├── backend/                # Python FastAPI Application
-│   ├── app/
-│   │   ├── models/         # Database Schemas
-│   │   ├── services/       # AI Logic (Parser)
-│   │   └── api/            # REST Endpoints
-│   └── Dockerfile          # Compiles OpenCL Drivers
-├── frontend/               # React + Vite Application
-│   ├── src/                # UI Components & Logic
-│   └── Dockerfile          # Node.js container
-├── ai/                     # Local AI Models Storage
-└── data/                   # Persisted Data (DB & Uploads)
-```
-
----
-
-## 📜 License
-MIT License. Built by **Samuel Toma** as an Open Source AI Project.
+*Generated by Headhunter AI Engineering Team*
