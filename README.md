@@ -137,36 +137,30 @@ sudo docker compose exec backend alembic upgrade head
 2.  **Detailed Feature List**
     *   🧠 AI & Automation
             Optimized for GPT-5 Mini: The backend is tuned to use gpt-5-mini-2025-08-07 with a temperature of 1.0 for maximum creativity and accuracy in parsing.
-
             Smart Pipeline Wizard: You don't just "create a job." You type a title (e.g., "DevOps Engineer"), and the AI generates a full description, required skills, and experience level based on your Company Profile.
-
             Auto-Matching: Immediately upon creating a job, the system scans your existing database to suggest "Silver Medalists" or qualified candidates you already have.
 
     *   🗂️ Candidate Management
             Bulk Power Tools: You can select 50 candidates at once to Assign them to a new pipeline, Delete them, or Reprocess them (useful if you update the parsing logic).
-
             Candidate Workbench: A detailed drawer view that lets you edit parsing errors, view the original PDF side-by-side, and see a "LinkedIn-style" timeline of their work history grouped by company.
-
             Smart Social Icons: The UI automatically detects LinkedIn and GitHub URLs and displays them with their official brand icons and colors.
 
     *   ⚙️ Configuration
             Company Profile Engine: A global settings module where you define TPAY's industry, culture, and values. This context is injected into every AI prompt to ensure generated content sounds like your company.
-
             Archive System: Keep your workspace clean by archiving old roles. They are hidden by default but can be toggled back into view.
 
 3.  **Future Roadmap (Next Steps)**
-    *   Semantic Search (The "AI Brain"):
+    *   **Semantic Search (The "AI Brain"):**
         *Concept:* Connect the running ChromaDB container.
         *Goal:* Enable queries like "Find me a frontend dev who knows 3D graphics" to return candidates with "ThreeJS" or "WebGL" even if keywords don't match exactly.
 
-    *   Local LLM Refactor:
-
+    *   **Local LLM Refactor:**
         Current State: The local Llama 3.1 flow exists but requires specific model paths and manual setup.
         Next Step: Refactor the local engine to be more robust, perhaps using a standardized model loader or containerized Ollama instance for easier deployment.
 
-    *   Email & Communication:**
+    *   **Email & Communication:**
         Goal: Add "Email Candidate" buttons in the drawer.
         Integration: SMTP or Gmail API to send interview invites directly from the platform.
 
-    *   Calendar Sync:
+    *   **Calendar Sync:**
             Goal: Two-way sync with Google/Outlook calendars for interview scheduling.
