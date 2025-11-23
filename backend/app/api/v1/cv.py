@@ -1,6 +1,7 @@
 from fastapi import APIRouter, UploadFile, File, Form, HTTPException, BackgroundTasks, Depends
 from pathlib import Path
 import os
+from typing import Optional
 from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.models import models
@@ -14,6 +15,7 @@ RAW_DIR.mkdir(parents=True, exist_ok=True)
 async def upload_cv(
     background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
+    job_id: Optional[int] = Form(None), # <--- Added this to accept the ID
     db: Session = Depends(get_db)
 ):
     if not file.filename.lower().endswith((".pdf", ".docx")):
@@ -23,7 +25,7 @@ async def upload_cv(
     with open(save_path, "wb") as f:
         f.write(await file.read())
 
-    # Create CV (No job_id here anymore)
+    # 1. Create CV Record
     new_cv = models.CV(
         filename=file.filename, 
         filepath=str(save_path)
@@ -32,7 +34,22 @@ async def upload_cv(
     db.commit()
     db.refresh(new_cv)
 
+    # 2. Link to Job (if uploaded to a track)
+    if job_id:
+        # Check if job exists first
+        job = db.query(models.Job).filter(models.Job.id == job_id).first()
+        if job:
+            application = models.Application(
+                cv_id=new_cv.id, 
+                job_id=job_id, 
+                status="New"
+            )
+            db.add(application)
+            db.commit()
+
+    # 3. Queue AI Parsing
     background_tasks.add_task(process_cv_background, new_cv.id, db)
+    
     return {"id": new_cv.id, "status": "queued"}
 
 @router.delete("/{cv_id}")

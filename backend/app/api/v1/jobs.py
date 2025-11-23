@@ -14,12 +14,17 @@ class JobCreate(BaseModel):
     department: Optional[str] = None
     description: Optional[str] = None
 
+# New Schema for Updating (Archiving)
+class JobUpdate(BaseModel):
+    is_active: Optional[bool] = None
+
 class JobOut(BaseModel):
     id: int
     title: str
     department: Optional[str] = None
     created_at: datetime
     candidate_count: int = 0
+    is_active: bool = True  # <--- Added this field
 
     class Config:
         from_attributes = True
@@ -35,7 +40,6 @@ def create_job(job: JobCreate, db: Session = Depends(get_db)):
 
 @router.get("/", response_model=List[JobOut])
 def list_jobs(db: Session = Depends(get_db)):
-    # Changed: Load 'applications' instead of old 'cvs'
     jobs = db.query(Job).options(joinedload(Job.applications)).all()
     results = []
     for j in jobs:
@@ -43,6 +47,19 @@ def list_jobs(db: Session = Depends(get_db)):
         j_dict['candidate_count'] = len(j.applications)
         results.append(j_dict)
     return results
+
+@router.patch("/{job_id}", response_model=JobOut)
+def update_job(job_id: int, job_data: JobUpdate, db: Session = Depends(get_db)):
+    job = db.query(Job).filter(Job.id == job_id).first()
+    if not job:
+        raise HTTPException(404, "Job not found")
+    
+    if job_data.is_active is not None:
+        job.is_active = job_data.is_active
+        
+    db.commit()
+    db.refresh(job)
+    return job
 
 @router.delete("/{job_id}")
 def delete_job(job_id: int, db: Session = Depends(get_db)):
