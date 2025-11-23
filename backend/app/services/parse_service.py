@@ -7,6 +7,41 @@ from app.services.parser import extract_text, parse_cv_with_llm
 
 logger = logging.getLogger(__name__)
 
+def clean_and_dump(data, keys):
+    """
+    Helper to find data across multiple keys and ensure it's a valid JSON string.
+    Prevents double-encoding (e.g., '"[...]"') which breaks the frontend.
+    """
+    val = None
+    # 1. Search for the value using all possible key names
+    for k in keys:
+        if data.get(k):
+            val = data[k]
+            break
+            
+    if not val:
+        return json.dumps([])
+
+    # 2. If it is already a list, dump it to JSON
+    if isinstance(val, list):
+        return json.dumps(val)
+
+    # 3. If it is a string, checking if it is ALREADY a JSON list
+    if isinstance(val, str):
+        cleaned = val.strip()
+        if cleaned.startswith("[") and cleaned.endswith("]"):
+            try:
+                # If it parses as a list, return the original string (don't dump again!)
+                parsed = json.loads(cleaned)
+                if isinstance(parsed, list):
+                    return cleaned
+            except:
+                pass
+        # If it's just a raw string (e.g. "hello@world.com"), wrap it in a list
+        return json.dumps([cleaned])
+
+    return json.dumps([])
+
 def process_cv_background(cv_id: int, db: Session):
     logger.info(f"Processing CV ID {cv_id}...")
     cv = db.query(CV).filter(CV.id == cv_id).first()
@@ -17,6 +52,9 @@ def process_cv_background(cv_id: int, db: Session):
         if not full_text: return
 
         data = parse_cv_with_llm(full_text, cv.filename)
+        
+        # Debug log to see what we got
+        logger.info(f"Parsed Data for CV {cv_id}: Keys={data.keys()}")
 
         parsed_record = db.query(ParsedCV).filter(ParsedCV.cv_id == cv.id).first()
         if not parsed_record:
@@ -25,17 +63,19 @@ def process_cv_background(cv_id: int, db: Session):
         
         parsed_record.raw_text = full_text
         parsed_record.name = data.get("name")
-        parsed_record.summary = data.get("summary") # <--- Save Summary
+        parsed_record.summary = data.get("summary")
         
-        # JSON Lists
-        parsed_record.email = json.dumps(data.get("emails", []))
-        parsed_record.phone = json.dumps(data.get("phones", []))
-        parsed_record.social_links = json.dumps(data.get("social_links", []))
+        # --- FIX: Robust Save Logic ---
+        parsed_record.email = clean_and_dump(data, ["email", "emails"])
+        parsed_record.phone = clean_and_dump(data, ["phone", "phones"])
+        parsed_record.social_links = clean_and_dump(data, ["social_links", "links"])
+        parsed_record.skills = clean_and_dump(data, ["skills", "tech_stack"])
+        
+        # Education/History usually come as lists, but safe dump ensures string format
         parsed_record.education = json.dumps(data.get("education", []))
         parsed_record.job_history = json.dumps(data.get("job_history", []))
-        parsed_record.skills = json.dumps(data.get("skills", []))
 
-        # Fields
+        # Simple Fields
         parsed_record.address = data.get("address")
         parsed_record.age = data.get("age")
         parsed_record.marital_status = data.get("marital_status")

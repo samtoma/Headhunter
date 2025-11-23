@@ -10,7 +10,7 @@ router = APIRouter(prefix="/profiles", tags=["Profiles"])
 
 @router.get("/", response_model=List[CVResponse])
 def get_all_profiles(
-    job_id: Optional[int] = Query(None), # <--- New filter
+    job_id: Optional[int] = Query(None),
     db: Session = Depends(get_db)
 ):
     query = db.query(CV).options(joinedload(CV.parsed_data))
@@ -20,7 +20,6 @@ def get_all_profiles(
         
     results = query.all()
     
-    # Smart Experience Logic
     for cv in results:
         cv.years_since_upload = 0.0
         cv.projected_experience = 0
@@ -43,7 +42,9 @@ def update_profile(cv_id: int, update_data: UpdateProfile, db: Session = Depends
     if not parsed_record:
         raise HTTPException(404, "Profile data not found")
 
+    # exclude_unset=True ensures we only update what the frontend actually sent
     update_dict = update_data.dict(exclude_unset=True)
+    
     for key, value in update_dict.items():
         setattr(parsed_record, key, value)
 

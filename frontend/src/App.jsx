@@ -7,12 +7,13 @@ import {
   ChevronRight, Save, AlertCircle, Check, ChevronDown, Archive,
   Briefcase as BriefcaseIcon, Lock, Unlock, Flag, Heart,
   LayoutDashboard, TrendingUp, Users, Award, Pencil, Sparkles, Linkedin, ExternalLink,
-  CheckSquare, Square, Settings, Building2, Calendar
+  CheckSquare, Square, Settings, Building2, Calendar, PlayCircle, Bug,
+  Github // <--- ADDED GITHUB ICON IMPORT
 } from 'lucide-react'
 
 // --- Utility: Safe JSON Parse ---
 const safeList = (data) => {
-  if (!data) return []
+  if (data === undefined || data === null) return []
   if (Array.isArray(data)) return data
   try { 
       const parsed = JSON.parse(data)
@@ -39,24 +40,22 @@ function App() {
   const [selectedJob, setSelectedJob] = useState(null) 
   const [profiles, setProfiles] = useState([])
   const [uploading, setUploading] = useState(false)
-  const [uploadProgress, setUploadProgress] = useState("") // <--- NEW: Upload Progress
+  const [uploadProgress, setUploadProgress] = useState("")
   const [status, setStatus] = useState("")
   const [searchTerm, setSearchTerm] = useState("")
   const [selectedCv, setSelectedCv] = useState(null)
   const [viewMode, setViewMode] = useState("list")
   const [showNewJobModal, setShowNewJobModal] = useState(false)
   const [showCompanyModal, setShowCompanyModal] = useState(false)
-  const [uploadFiles, setUploadFiles] = useState(null) // <--- Changed to hold FileList
+  const [uploadFiles, setUploadFiles] = useState(null)
   const [showUploadModal, setShowUploadModal] = useState(false)
   
-  // Bulk Action State
   const [selectedIds, setSelectedIds] = useState([])
   const [showBulkAssignModal, setShowBulkAssignModal] = useState(false)
 
   const [currentView, setCurrentView] = useState("dashboard")
   const [showArchived, setShowArchived] = useState(false)
 
-  // --- API Calls ---
   const fetchJobs = useCallback(async () => {
     try { const res = await axios.get('/api/jobs/'); setJobs(res.data) } catch (err) { console.error(err) }
   }, [])
@@ -106,6 +105,16 @@ function App() {
       } catch (e) { alert("Bulk delete failed") }
   }
 
+  const performBulkReprocess = async () => {
+      if (!confirm(`Re-analyze ${selectedIds.length} candidates with AI? This may take a while.`)) return
+      try {
+          setProfiles(prev => prev.map(p => selectedIds.includes(p.id) ? { ...p, is_parsed: false } : p))
+          await Promise.all(selectedIds.map(id => axios.post(`/api/cv/${id}/reprocess`)))
+          alert("Reprocessing started! Updates will appear as they finish.")
+          setSelectedIds([])
+      } catch (e) { alert("Bulk reprocess failed") }
+  }
+
   const handleSidebarDrop = async (e, targetJobId) => {
       e.preventDefault()
       const cvId = e.dataTransfer.getData("cvId")
@@ -124,7 +133,6 @@ function App() {
       } catch (e) { alert("Failed to assign candidate") }
   }
 
-  // --- Actions ---
   const handleCreateJob = async (jobData, selectedCandidateIds) => {
     try { 
         const res = await axios.post('/api/jobs/', jobData); 
@@ -156,37 +164,27 @@ function App() {
       } catch (e) { alert("Failed to save job details") }
   }
 
-  // --- NEW: BULK UPLOAD HANDLER ---
   const performUpload = async (files, jobId) => {
     if (!files || files.length === 0) return
-    
     setUploading(true)
     setShowUploadModal(false)
-    
     let successCount = 0
-    // Iterate through FileList
     for (let i = 0; i < files.length; i++) {
         const file = files[i]
         setUploadProgress(`Uploading ${i + 1}/${files.length}: ${file.name}...`)
-        
         const formData = new FormData()
         formData.append('file', file)
         if (jobId) formData.append('job_id', jobId)
-        
         try {
             await axios.post('/api/cv/upload', formData)
             successCount++
-        } catch (err) {
-            console.error(`Failed to upload ${file.name}`, err)
-        }
+        } catch (err) { console.error(`Failed to upload ${file.name}`, err) }
     }
-    
     setUploadProgress("")
     setUploading(false)
     setUploadFiles(null)
     setStatus(`Uploaded ${successCount} files! Parsing in background...`)
     setTimeout(() => setStatus(""), 3000)
-    
     fetchProfiles()
     fetchJobs()
   }
@@ -234,7 +232,9 @@ function App() {
 
   const getStatus = (cv) => { if (!selectedJob) return "New"; const app = cv.applications?.find(a => a.job_id === selectedJob.id); return app ? app.status : "New" }
   const COLUMNS = ["New", "Screening", "Interview", "Offer", "Hired", "Silver Medalist", "Rejected"]
-  
+  const onDragStart = (e, id) => e.dataTransfer.setData("cvId", id)
+  const onDrop = async (e, newStatus) => { const id = parseInt(e.dataTransfer.getData("cvId")); const cv = profiles.find(p => p.id === id); const app = cv?.applications.find(a => a.job_id === selectedJob.id); if (app) { setProfiles(prev => prev.map(p => { if (p.id !== id) return p; const newApps = p.applications.map(a => a.id === app.id ? {...a, status: newStatus} : a); return {...p, applications: newApps} })); await axios.patch(`/api/applications/${app.id}`, { status: newStatus }) } }
+
   return (
     <div className="flex h-screen bg-[#F8FAFC] font-sans text-slate-800 overflow-hidden">
       {/* SIDEBAR */}
@@ -256,20 +256,19 @@ function App() {
                 <Layers size={18}/> General Pool
             </button>
 
-            {/* SIDEBAR JOB LIST - DROP TARGETS */}
             {displayedJobs.map(job => (
-                <button 
+                <div 
                     key={job.id} 
                     onClick={() => { setCurrentView("pipeline"); setSelectedJob(job); }}
                     onDragOver={(e) => e.preventDefault()}
                     onDrop={(e) => handleSidebarDrop(e, job.id)} 
-                    className={`w-full flex items-center justify-between p-2.5 rounded-lg text-sm font-medium transition border border-transparent ${currentView === "pipeline" && selectedJob?.id === job.id ? 'bg-indigo-50 text-indigo-700 ring-1 ring-indigo-200' : 'text-slate-600 hover:bg-slate-50 hover:border-slate-200'}`}
+                    className={`w-full flex items-center justify-between p-2.5 rounded-lg text-sm font-medium transition cursor-pointer border border-transparent ${currentView === "pipeline" && selectedJob?.id === job.id ? 'bg-indigo-50 text-indigo-700 ring-1 ring-indigo-200' : 'text-slate-600 hover:bg-slate-50 hover:border-slate-200'}`}
                 >
                     <span className={`truncate flex items-center gap-2 ${!job.is_active ? 'line-through opacity-70' : ''}`}>
                         {!job.is_active && <Lock size={12}/>} {job.title}
                     </span>
                     <span className={`text-[10px] px-2 py-0.5 rounded-full ${selectedJob?.id === job.id ? 'bg-white text-indigo-600 shadow-sm' : 'bg-slate-100 text-slate-500'}`}>{job.candidate_count}</span>
-                </button>
+                </div>
             ))}
             
             {!showArchived && <button onClick={() => setShowNewJobModal(true)} className="w-full flex items-center gap-2 p-2.5 text-sm text-slate-500 hover:text-indigo-600 mt-2 hover:bg-indigo-50 rounded-lg transition font-medium"><Plus size={16} /> New Pipeline</button>}
@@ -325,7 +324,6 @@ function App() {
                         <label className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg cursor-pointer flex items-center gap-2 transition shadow-md active:scale-95">
                             <Upload size={16} /> 
                             <span className="font-bold text-sm">{uploading ? "..." : "Add"}</span>
-                            {/* ADDED MULTIPLE ATTRIBUTE HERE */}
                             <input type="file" multiple className="hidden" onChange={(e) => {if(e.target.files.length > 0) selectedJob ? performUpload(e.target.files, selectedJob.id) : (setUploadFiles(e.target.files), setShowUploadModal(true))}} disabled={uploading} />
                         </label>
                     </div>
@@ -354,12 +352,12 @@ function App() {
                     )}
                 </div>
 
-                {/* BULK ACTION BAR */}
                 {selectedIds.length > 0 && (
                     <div className="absolute bottom-6 left-1/2 -translate-x-1/2 bg-white shadow-2xl border border-slate-200 rounded-full px-6 py-3 flex items-center gap-4 animate-in slide-in-from-bottom-4 fade-in z-40">
                         <span className="font-bold text-sm text-slate-800">{selectedIds.length} Selected</span>
                         <div className="h-4 w-px bg-slate-300"></div>
                         <button onClick={() => setShowBulkAssignModal(true)} className="text-sm font-bold text-indigo-600 hover:text-indigo-800 flex items-center gap-1"><Layers size={16}/> Assign to Pipeline</button>
+                        <button onClick={performBulkReprocess} className="text-sm font-bold text-blue-600 hover:text-blue-800 flex items-center gap-1"><PlayCircle size={16}/> Reprocess</button>
                         <button onClick={performBulkDelete} className="text-sm font-bold text-red-600 hover:text-red-800 flex items-center gap-1"><Trash2 size={16}/> Delete</button>
                         <button onClick={() => setSelectedIds([])} className="ml-2 p-1 hover:bg-slate-100 rounded-full"><X size={16} className="text-slate-400"/></button>
                     </div>
@@ -373,14 +371,11 @@ function App() {
         {showCompanyModal && <CompanyProfileModal onClose={() => setShowCompanyModal(false)} />}
         
         {showUploadModal && <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50"><div className="bg-white p-6 rounded-xl shadow-xl max-w-sm w-full"><h3 className="text-lg font-bold text-slate-900 mb-4">Select Pipeline</h3><div className="space-y-2 mb-6 max-h-60 overflow-y-auto">
-            {/* Filtered to only show active jobs for upload */}
             {jobs.filter(j => j.is_active).map(j => <button key={j.id} onClick={() => performUpload(uploadFiles, j.id)} className="w-full flex justify-between items-center p-3 rounded-lg border hover:bg-indigo-50 transition text-left text-sm font-medium text-slate-700">{j.title} <ChevronRight size={14} className="text-slate-400"/></button>)}
             <button onClick={() => performUpload(uploadFiles, null)} className="w-full p-3 rounded-lg border hover:bg-slate-50 transition text-left text-sm text-slate-500">General Pool</button></div><button onClick={() => setShowUploadModal(false)} className="w-full py-2 text-sm font-bold text-slate-500 hover:text-slate-700">Cancel</button></div></div>}
 
-        {/* BULK ASSIGN MODAL */}
         {showBulkAssignModal && <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50"><div className="bg-white p-6 rounded-xl shadow-xl max-w-sm w-full"><h3 className="text-lg font-bold text-slate-900 mb-4">Bulk Assign {selectedIds.length} Candidates</h3><div className="space-y-2 mb-6 max-h-60 overflow-y-auto">{jobs.filter(j => j.is_active).map(j => <button key={j.id} onClick={() => performBulkAssign(j.id)} className="w-full flex justify-between items-center p-3 rounded-lg border hover:bg-indigo-50 transition text-left text-sm font-medium text-slate-700">{j.title} <ChevronRight size={14} className="text-slate-400"/></button>)}</div><button onClick={() => setShowBulkAssignModal(false)} className="w-full py-2 text-sm font-bold text-slate-500 hover:text-slate-700">Cancel</button></div></div>}
         
-        {/* UPLOAD PROGRESS OVERLAY */}
         {uploading && (
             <div className="fixed bottom-6 right-6 bg-slate-900 text-white p-4 rounded-xl shadow-2xl z-50 flex items-center gap-3 animate-in slide-in-from-bottom-4">
                 <RefreshCw className="animate-spin text-indigo-400"/>
@@ -391,9 +386,6 @@ function App() {
     </div>
   )
 }
-
-// ... [Keep CompanyProfileModal, CreateJobModal, Dashboard, KPICard, JobInsightCard, CandidateList, getStatusColor, Card, Drawer components same as before] ...
-// Be sure to include them here!
 
 const CompanyProfileModal = ({ onClose }) => {
     const [data, setData] = useState({ name: "", industry: "", description: "", culture: "" })
@@ -769,7 +761,9 @@ const Drawer = ({ cv, onClose, updateApp, updateProfile, jobs, selectedJobId, as
       phone: safeList(d.phone)[0] || "",
       address: d.address,
       summary: d.summary,
-      skills: safeList(d.skills).join(", ")
+      skills: safeList(d.skills).join(", "),
+      age: d.age || "",
+      experience_years: cv.parsed_data?.experience_years || 0
   })
 
   const [notes, setNotes] = useState(app ? app.notes : "")
@@ -817,7 +811,9 @@ const Drawer = ({ cv, onClose, updateApp, updateProfile, jobs, selectedJobId, as
             summary: editData.summary,
             skills: editData.skills.split(",").map(s=>s.trim()).filter(s=>s),
             email: JSON.stringify([editData.email]),
-            phone: JSON.stringify([editData.phone])
+            phone: JSON.stringify([editData.phone]),
+            age: editData.age ? parseInt(editData.age) : null,
+            experience_years: editData.experience_years ? parseInt(editData.experience_years) : 0
         })
         setIsEditing(false)
     }
@@ -850,14 +846,23 @@ const Drawer = ({ cv, onClose, updateApp, updateProfile, jobs, selectedJobId, as
                 </p>
                 <div className="flex gap-4 mt-3 text-sm text-slate-500">
                     {isEditing ? <input className="border rounded p-1 text-xs" value={editData.address} onChange={e=>setEditData({...editData, address: e.target.value})}/> : <div className="flex items-center gap-1.5"><MapPin size={14}/> {d.address || "Remote"}</div>}
-                    <div className="flex items-center gap-1.5"><User size={14}/> {d.age ? `${d.age} yrs` : "N/A"}</div>
-                    <div className="flex items-center gap-1.5"><Briefcase size={14}/> {cv.projected_experience || 0}y Exp</div>
+                    
+                    <div className="flex items-center gap-1.5">
+                        <User size={14}/> 
+                        {isEditing ? <input type="number" className="w-12 border rounded p-1 text-xs" value={editData.age} onChange={e=>setEditData({...editData, age: e.target.value})}/> : <>{d.age ? `${d.age} yrs` : "N/A"}</>}
+                    </div>
+                    
+                    <div className="flex items-center gap-1.5">
+                        <Briefcase size={14}/> 
+                        {isEditing ? <input type="number" className="w-12 border rounded p-1 text-xs" value={editData.experience_years} onChange={e=>setEditData({...editData, experience_years: e.target.value})}/> : <>{cv.projected_experience || 0}y Exp</>}
+                    </div>
                 </div>
              </div>
              <div className="flex gap-3">
                 <div className="bg-slate-100 p-1 rounded-lg flex border border-slate-200">
                     <button onClick={() => setView("parsed")} className={`px-3 py-1.5 rounded-md text-sm font-bold transition ${view === "parsed" ? "bg-white shadow text-indigo-600" : "text-slate-500 hover:text-slate-700"}`}>Profile</button>
                     <button onClick={() => setView("pdf")} className={`px-3 py-1.5 rounded-md text-sm font-bold transition ${view === "pdf" ? "bg-white shadow text-indigo-600" : "text-slate-500 hover:text-slate-700"}`}>Original CV</button>
+                    <button onClick={() => setView("debug")} className={`px-3 py-1.5 rounded-md text-sm font-bold transition ${view === "debug" ? "bg-white shadow text-indigo-600" : "text-slate-500 hover:text-slate-700"}`}><Bug size={16}/></button>
                 </div>
                 <button onClick={() => setIsEditing(!isEditing)} className={`p-2.5 rounded-lg border transition ${isEditing ? 'bg-indigo-50 text-indigo-600 border-indigo-200' : 'bg-white text-slate-400 hover:text-indigo-600 border-slate-200'}`}>
                     <Pencil size={20}/>
@@ -868,9 +873,17 @@ const Drawer = ({ cv, onClose, updateApp, updateProfile, jobs, selectedJobId, as
 
           <div className="flex flex-1 overflow-hidden">
              <div className="flex-1 overflow-y-auto p-8 space-y-8">
-                {view === "pdf" ? (
+                {view === "debug" && (
+                    <div className="bg-slate-900 text-slate-300 p-6 rounded-xl font-mono text-xs overflow-auto h-full">
+                        <pre>{JSON.stringify(d, null, 2)}</pre>
+                    </div>
+                )}
+
+                {view === "pdf" && (
                     <iframe src={`/api/files/${cv.filename}`} className="w-full h-full rounded-xl border border-slate-200 shadow-sm bg-white min-h-[800px]" title="PDF"></iframe>
-                ) : (
+                )}
+
+                {view === "parsed" && (
                     <>
                         <section>
                             <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-3 flex items-center gap-2"><User size={14}/> Contact & Personal</h3>
@@ -881,14 +894,32 @@ const Drawer = ({ cv, onClose, updateApp, updateProfile, jobs, selectedJobId, as
                                 </div>
                             ) : (
                                 <div className="flex flex-wrap gap-4">
+                                    {/* LINK EXTRACTION & SMART ICONS */}
                                     <div className="px-4 py-2 bg-slate-50 text-slate-700 border border-slate-200 rounded-lg text-sm font-medium">{safeList(d.email)[0] || "No Email"}</div>
                                     <div className="px-4 py-2 bg-slate-50 text-slate-700 border border-slate-200 rounded-lg text-sm font-medium">{safeList(d.phone)[0] || "No Phone"}</div>
-                                    {safeList(d.social_links).map((link, i) => (
-                                        <a key={i} href={link} target="_blank" rel="noreferrer" className="px-4 py-2 bg-sky-50 text-sky-700 border border-sky-100 rounded-lg text-sm font-medium flex items-center gap-2 hover:bg-sky-100 transition">
-                                            {link.toLowerCase().includes("linkedin") ? <Linkedin size={14}/> : <ExternalLink size={14}/>} 
-                                            {link.toLowerCase().includes("linkedin") ? "LinkedIn" : "Link"}
-                                        </a>
-                                    ))}
+                                    
+                                    {safeList(d.social_links).map((link, i) => {
+                                        let Icon = ExternalLink
+                                        let label = "Link"
+                                        let style = "bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100"
+
+                                        const lower = link.toLowerCase()
+                                        if (lower.includes("linkedin.com")) {
+                                            Icon = Linkedin
+                                            label = "LinkedIn"
+                                            style = "bg-sky-50 text-sky-700 border-sky-200 hover:bg-sky-100"
+                                        } else if (lower.includes("github.com")) {
+                                            Icon = Github
+                                            label = "GitHub"
+                                            style = "bg-slate-800 text-white border-slate-900 hover:bg-slate-700"
+                                        }
+
+                                        return (
+                                            <a key={i} href={link} target="_blank" rel="noreferrer" className={`px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 transition border ${style}`}>
+                                                <Icon size={14}/> {label}
+                                            </a>
+                                        )
+                                    })}
                                 </div>
                             )}
                         </section>
@@ -940,7 +971,6 @@ const Drawer = ({ cv, onClose, updateApp, updateProfile, jobs, selectedJobId, as
                                         <div className="mb-4">
                                             <h4 className="text-lg font-bold text-indigo-900">{group.company}</h4>
                                         </div>
-                                        
                                         <div className="space-y-6 relative">
                                             {group.roles.map((job, j) => (
                                                 <div key={j} className="relative">
@@ -962,6 +992,7 @@ const Drawer = ({ cv, onClose, updateApp, updateProfile, jobs, selectedJobId, as
              </div>
 
              <div className="w-[22rem] bg-white border-l border-slate-200 p-6 flex flex-col overflow-y-auto shadow-[rgba(0,0,0,0.05)_0px_0px_20px]">
+                 {/* Action Panel */}
                  <div className={`p-4 rounded-xl mb-6 ${selectedJobId ? 'bg-indigo-50 border border-indigo-100' : 'bg-slate-50 border border-slate-100'}`}>
                      <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">Active Pipeline</div>
                      <div className="font-bold text-slate-900 flex items-center gap-2">

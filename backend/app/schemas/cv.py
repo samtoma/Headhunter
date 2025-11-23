@@ -1,13 +1,40 @@
 from pydantic import BaseModel, field_validator
-from typing import Optional, List, Any, Dict
+from typing import Optional, List, Any, Dict, Union
 from datetime import datetime
 import json
 
+# --- ROBUST JSON FIELD PARSER ---
 def parse_json_field(v):
+    """
+    Robustly parses JSON fields, handling:
+    1. Normal Lists
+    2. JSON Strings
+    3. Double-Encoded JSON Strings (The cause of your crash)
+    """
+    if v is None: return []
+    if isinstance(v, list): return v
+    
     if isinstance(v, str):
-        try: return json.loads(v)
-        except: return []
-    return v
+        if not v.strip(): return []
+        try: 
+            parsed = json.loads(v)
+            
+            # Handle Double Encoding (String inside String)
+            if isinstance(parsed, str):
+                try:
+                    parsed = json.loads(parsed)
+                except:
+                    # It was just a plain string, wrap it
+                    return [parsed]
+            
+            if isinstance(parsed, list): return parsed
+            if parsed is None: return []
+            return [str(parsed)]
+        except:
+            # If parsing fails completely, treat as a single text item
+            return [v]
+            
+    return [str(v)]
 
 class ApplicationOut(BaseModel):
     id: int
@@ -22,7 +49,7 @@ class ApplicationOut(BaseModel):
 
 class ParsedCVOut(BaseModel):
     name: Optional[str] = None
-    summary: Optional[str] = None # <--- Added Summary
+    summary: Optional[str] = None 
     last_job_title: Optional[str] = None
     last_company: Optional[str] = None
     address: Optional[str] = None
@@ -30,10 +57,13 @@ class ParsedCVOut(BaseModel):
     marital_status: Optional[str] = None
     military_status: Optional[str] = None
     bachelor_year: Optional[int] = None
-    email: List[str] = []
-    phone: List[str] = []
-    social_links: List[str] = []
-    skills: List[str] = []
+    
+    # Allow flexible inputs, the validator will clean them
+    email: Optional[Union[List[str], str]] = []
+    phone: Optional[Union[List[str], str]] = []
+    social_links: Optional[Union[List[str], str]] = []
+    skills: Optional[Union[List[str], str]] = []
+    
     education: List[Dict[str, Any]] = []
     job_history: List[Dict[str, Any]] = []
     experience_years: Optional[int] = 0
@@ -42,7 +72,8 @@ class ParsedCVOut(BaseModel):
 
     class Config: from_attributes = True
 
-    @field_validator('skills', 'social_links', 'education', 'job_history', 'email', 'phone', mode='before')
+    # Apply robust validator to all list fields
+    @field_validator('skills', 'social_links', 'email', 'phone', 'education', 'job_history', mode='before')
     @classmethod
     def parse_json(cls, v): return parse_json_field(v)
 
@@ -62,7 +93,23 @@ class CVResponse(BaseModel):
 class UpdateProfile(BaseModel):
     current_salary: Optional[str] = None
     expected_salary: Optional[str] = None
+    experience_years: Optional[int] = None
+    age: Optional[int] = None
+    name: Optional[str] = None
+    address: Optional[str] = None
+    summary: Optional[str] = None
     
+    skills: Optional[Union[List[str], str]] = None
+    email: Optional[Union[List[str], str]] = None
+    phone: Optional[Union[List[str], str]] = None
+
+    @field_validator('skills', 'email', 'phone', mode='before')
+    @classmethod
+    def to_json_string(cls, v):
+        if v is None: return None
+        if isinstance(v, str): return v 
+        return json.dumps(v)
+
 class ApplicationUpdate(BaseModel):
     status: Optional[str] = None
     rating: Optional[int] = None

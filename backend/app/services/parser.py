@@ -35,14 +35,35 @@ def get_local_llm():
             print(f"❌ Failed to load model: {e}")
     return _llm
 
+# --- UPGRADED TEXT EXTRACTOR (Finds Hidden Links) ---
 def extract_text(path: str) -> str:
     p = Path(path)
+    text_content = []
     try:
         if p.suffix.lower() == ".pdf":
             reader = PdfReader(str(path))
-            return "\n".join([page.extract_text() or "" for page in reader.pages])
+            for page in reader.pages:
+                # 1. Get the visible text
+                text_content.append(page.extract_text() or "")
+                
+                # 2. Hunt for hidden links (Annotations)
+                if "/Annots" in page:
+                    for annot in page["/Annots"]:
+                        try:
+                            obj = annot.get_object()
+                            # Check if it's a Link with a URI
+                            if "/A" in obj and "/URI" in obj["/A"]:
+                                uri = obj["/A"]["/URI"]
+                                # Append it so AI can see it
+                                text_content.append(f" [LINK: {uri}] ")
+                        except:
+                            continue # Skip broken links
+                            
+            return "\n".join(text_content)
+            
         elif p.suffix.lower() == ".docx":
             doc = docx.Document(str(path))
+            # DOCX link extraction is harder, but extracting text is standard
             return "\n".join([p.text for p in doc.paragraphs if p.text])
         return ""
     except Exception as e:
@@ -58,6 +79,20 @@ def repair_json(json_str: str) -> str:
                 json_str = part.replace("json", "").strip()
                 break
     return json_str
+
+def clean_contact_field(value):
+    """Ensures contact fields are always valid JSON lists of strings."""
+    if not value: return json.dumps([])
+    if isinstance(value, list): return json.dumps(value)
+    if isinstance(value, str):
+        value = value.strip()
+        if value.startswith("[") and value.endswith("]"):
+            try:
+                json.loads(value) 
+                return value 
+            except: pass
+        return json.dumps([value])
+    return json.dumps([])
 
 def generate_job_metadata(title: str, company_context: Dict[str, str] = None) -> Dict[str, Any]:
     context_str = ""
@@ -76,10 +111,9 @@ def generate_job_metadata(title: str, company_context: Dict[str, str] = None) ->
     {context_str}
     
     For the Job Title "{title}", generate a structured JSON response containing:
-    1. description: A professional, engaging job description (approx 150 words) suitable for LinkedIn.
-    2. skills_required: A list of exactly 8 key technical and soft skills. 
-       IMPORTANT: Each skill must be short (1-2 words maximum).
-    3. required_experience: An integer estimate of years of experience needed (e.g., Senior=5, Junior=1).
+    1. description: A professional, engaging job description (approx 150 words).
+    2. skills_required: A list of exactly 8 key technical and soft skills. Each skill must be 1-2 words max.
+    3. required_experience: An integer estimate of years of experience needed.
     
     JSON Structure:
     {{
@@ -105,35 +139,32 @@ def generate_job_metadata(title: str, company_context: Dict[str, str] = None) ->
             print(f"OpenAI Error: {e}")
             return {}
     else:
-        llm = get_local_llm()
-        if not llm: return {}
-        prompt = f"<|start_header_id|>system<|end_header_id|>\n{system_prompt}<|eot_id|><|start_header_id|>assistant<|end_header_id|>"
-        output = llm(prompt, max_tokens=1500, stop=["<|eot_id|>"], temperature=0.7, echo=False)
-        try:
-            return json.loads(repair_json(output['choices'][0]['text']))
-        except:
-            return {}
+        return {}
 
 def parse_cv_with_llm(text: str, filename: str) -> Dict[str, Any]:
     truncated_text = text[:25000]
     
     system_prompt = f"""You are an expert Headhunter. Extract details from the CV below into strict JSON.
+    
+    CRITICAL: 
+    1. Extract 'email' and 'phone' as LISTS of strings.
+    2. Look for 'LINK:' tags in text to find Social Links (LinkedIn, GitHub, Portfolio).
 
     Requirements:
-    1. **summary**: A short 2-3 sentence professional summary of the candidate.
-    2. **job_history**: List of jobs (Title, Company, Duration, Description).
+    1. **summary**: A short 2-3 sentence professional summary.
+    2. **job_history**: List of jobs.
     3. **bachelor_year**: Year of Bachelor's graduation (Int).
     4. **experience_years**: Total years of experience (Int).
     5. **personal**: Address, Age, Marital Status, Military Status.
-    6. **contact**: Emails, Phones, Social Links (LinkedIn, GitHub, etc).
+    6. **contact**: Emails, Phones, Social Links.
     7. **skills**: Technical & Soft Skills.
     
     JSON Structure:
     {{
       "name": "Name",
-      "summary": "Experienced software engineer...",
+      "summary": "...",
       "email": ["a@b.com"],
-      "phone": ["+123"],
+      "phone": ["+123456"],
       "address": "City",
       "age": 30,
       "marital_status": "Single",
@@ -142,12 +173,10 @@ def parse_cv_with_llm(text: str, filename: str) -> Dict[str, Any]:
       "experience_years": 8,
       "last_job_title": "Title",
       "last_company": "Company",
-      "social_links": ["linkedin..."],
+      "social_links": ["https://linkedin.com/in/..."],
       "skills": ["Python", "Java"],
-      "education": [{{"school": "MIT", "degree": "BSc", "year": "2015"}}],
-      "job_history": [
-        {{"title": "Dev", "company": "Google", "duration": "2020-Present"}}
-      ]
+      "education": [{{...}}],
+      "job_history": [{{...}}]
     }}
     """
 
@@ -166,22 +195,20 @@ def parse_cv_with_llm(text: str, filename: str) -> Dict[str, Any]:
             
             completion = client.chat.completions.create(**kwargs)
             raw = completion.choices[0].message.content
-            
             data = json.loads(repair_json(raw))
             
-            # --- FIX: NORMALIZE EMAIL/PHONE FIELDS ---
-            # The DB expects 'email' and 'phone' (singular keys) storing JSON lists
-            emails = data.get("emails") or data.get("email")
-            phones = data.get("phones") or data.get("phone")
+            # Normalize Fields
+            raw_email = data.get("email") or data.get("emails")
+            raw_phone = data.get("phone") or data.get("phones")
             
-            # Ensure they are lists
-            if emails and not isinstance(emails, list): emails = [emails]
-            if phones and not isinstance(phones, list): phones = [phones]
+            data["email"] = clean_contact_field(raw_email)
+            data["phone"] = clean_contact_field(raw_phone)
             
-            # Save back to data as JSON strings for the DB
-            data["email"] = json.dumps(emails) if emails else None
-            data["phone"] = json.dumps(phones) if phones else None
-            
+            if "skills" in data: data["skills"] = clean_contact_field(data["skills"])
+            if "social_links" in data: data["social_links"] = clean_contact_field(data["social_links"])
+            if "education" in data: data["education"] = json.dumps(data["education"])
+            if "job_history" in data: data["job_history"] = json.dumps(data["job_history"])
+
             return data
         except Exception as e:
             print(f"OpenAI Error: {e}")
@@ -194,15 +221,14 @@ def parse_cv_with_llm(text: str, filename: str) -> Dict[str, Any]:
         try:
             data = json.loads(repair_json(output['choices'][0]['text']))
             
-            # --- FIX: NORMALIZE EMAIL/PHONE FIELDS (Local LLM) ---
-            emails = data.get("emails") or data.get("email")
-            phones = data.get("phones") or data.get("phone")
+            raw_email = data.get("email") or data.get("emails")
+            raw_phone = data.get("phone") or data.get("phones")
             
-            if emails and not isinstance(emails, list): emails = [emails]
-            if phones and not isinstance(phones, list): phones = [phones]
+            final_emails = clean_list_field(raw_email)
+            final_phones = clean_list_field(raw_phone)
             
-            data["email"] = json.dumps(emails) if emails else None
-            data["phone"] = json.dumps(phones) if phones else None
+            data["email"] = json.dumps(final_emails)
+            data["phone"] = json.dumps(final_phones)
             
             return data
         except:
