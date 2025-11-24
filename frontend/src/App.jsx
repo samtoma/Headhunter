@@ -8,10 +8,10 @@ import {
   Briefcase as BriefcaseIcon, Lock, Unlock, Flag, Heart,
   LayoutDashboard, TrendingUp, Users, Award, Pencil, Sparkles, Linkedin, ExternalLink,
   CheckSquare, Square, Settings, Building2, Calendar, PlayCircle, Bug,
-  Github // <--- ADDED GITHUB ICON IMPORT
+  Github
 } from 'lucide-react'
 
-// --- Utility: Safe JSON Parse ---
+// --- Utility: Safe JSON Parse & List Normalizer ---
 const safeList = (data) => {
   if (data === undefined || data === null) return []
   if (Array.isArray(data)) return data
@@ -256,6 +256,7 @@ function App() {
                 <Layers size={18}/> General Pool
             </button>
 
+            {/* SIDEBAR JOB LIST - DROP TARGETS */}
             {displayedJobs.map(job => (
                 <div 
                     key={job.id} 
@@ -352,6 +353,7 @@ function App() {
                     )}
                 </div>
 
+                {/* BULK ACTION BAR */}
                 {selectedIds.length > 0 && (
                     <div className="absolute bottom-6 left-1/2 -translate-x-1/2 bg-white shadow-2xl border border-slate-200 rounded-full px-6 py-3 flex items-center gap-4 animate-in slide-in-from-bottom-4 fade-in z-40">
                         <span className="font-bold text-sm text-slate-800">{selectedIds.length} Selected</span>
@@ -386,6 +388,8 @@ function App() {
     </div>
   )
 }
+
+// --- COMPONENTS ---
 
 const CompanyProfileModal = ({ onClose }) => {
     const [data, setData] = useState({ name: "", industry: "", description: "", culture: "" })
@@ -707,14 +711,15 @@ const getStatusColor = (status) => {
 const Card = ({ cv, onClick, onDelete, onReprocess, status, compact, jobs, selectable, selected, onSelect }) => {
   const d = cv.parsed_data || {}
   const skills = safeList(d.skills).slice(0, 3)
+  const edu = safeList(d.education)[0]
+
   return (
     <div 
         draggable
         onDragStart={(e) => e.dataTransfer.setData("cvId", cv.id)}
         onClick={onClick} 
-        className={`bg-white p-4 rounded-xl shadow-[0_2px_8px_rgba(0,0,0,0.04)] border hover:shadow-[0_4px_12px_rgba(0,0,0,0.08)] hover:border-indigo-200 transition-all cursor-pointer group relative ${compact ? 'mb-0' : ''} ${selected ? 'border-indigo-500 ring-1 ring-indigo-500' : 'border-slate-100'}`}
+        className={`bg-white p-4 rounded-xl shadow-[0_2px_8px_rgba(0,0,0,0.04)] border hover:shadow-[0_4px_12px_rgba(0,0,0,0.08)] hover:border-indigo-200 transition-all cursor-pointer group relative flex flex-col h-full ${compact ? 'mb-0' : ''} ${selected ? 'border-indigo-500 ring-1 ring-indigo-500' : 'border-slate-100'}`}
     >
-       
        {selectable && (
            <div 
                 className={`absolute top-3 left-3 z-20 ${selected ? "opacity-100" : "opacity-0 group-hover:opacity-100 transition-opacity"}`}
@@ -728,20 +733,57 @@ const Card = ({ cv, onClick, onDelete, onReprocess, status, compact, jobs, selec
           <button onClick={(e) => onReprocess(e, cv.id)} className="p-1 text-slate-400 hover:text-indigo-600"><RotateCw size={14} /></button>
           <button onClick={(e) => onDelete(e, cv.id)} className="p-1 text-slate-400 hover:text-red-600"><Trash2 size={14} /></button>
        </div>
+
        {!cv.is_parsed && <div className="absolute inset-0 bg-white/90 flex items-center justify-center z-20"><RefreshCw className="animate-spin text-indigo-500" /></div>}
-       <div className={`mb-3 pr-8 ${selectable ? 'pl-6' : ''}`}>
-          <h3 className="text-[15px] font-bold text-slate-900 leading-tight line-clamp-1">{d.name || "Candidate"}</h3>
-          <div className="text-xs text-slate-500 mt-1 flex items-center gap-1.5"><Briefcase size={12} className="text-indigo-400" /><span className="truncate">{d.last_job_title || "Unknown Role"}</span></div>
+
+       <div className={`mb-2 pr-8 ${selectable ? 'pl-6' : ''}`}>
+          <h3 className="text-[15px] font-bold text-slate-900 leading-tight line-clamp-1" title={d.name}>{d.name || "Candidate"}</h3>
+          
+          {/* JOB & COMPANY (NEW LAYOUT) */}
+          <div className="text-xs text-slate-500 mt-1 flex items-center gap-1.5">
+            <Briefcase size={12} className="text-indigo-400 shrink-0" />
+            <span className="truncate" title={`${d.last_job_title || ""} ${d.last_company ? "@ " + d.last_company : ""}`}>
+                {d.last_job_title || "Unknown Role"} 
+                {d.last_company && <span className="text-slate-400 font-medium"> @ {d.last_company}</span>}
+            </span>
+          </div>
+
+          {/* EDUCATION (NEW LAYOUT) */}
+          {edu && (edu.school || edu.institution) && (
+              <div className="text-xs text-slate-500 mt-1 flex items-center gap-1.5">
+                <GraduationCap size={12} className="text-indigo-400 shrink-0" />
+                <span className="truncate" title={edu.school || edu.institution}>{edu.school || edu.institution}</span>
+              </div>
+          )}
        </div>
-       {!compact && skills.length > 0 && (
-         <div className="flex flex-wrap gap-1.5 mb-3">
-            {skills.map((s,i) => <span key={i} className="px-1.5 py-0.5 bg-slate-100 text-slate-600 text-[10px] rounded font-medium border border-slate-200">{s}</span>)}
+
+       {/* BADGES (Micro-Indicators) */}
+       {!compact && (
+         <div className="flex flex-wrap gap-1.5 mb-auto items-center">
+            {(d.marital_status && d.marital_status.toLowerCase() !== "n/a" && d.marital_status.toLowerCase() !== "not disclosed") && (
+                <span className="px-1.5 py-0.5 bg-pink-50 text-pink-600 text-[10px] rounded border border-pink-100 flex items-center gap-1" title={`Marital: ${d.marital_status}`}>
+                    <Heart size={10} /> {d.marital_status}
+                </span>
+            )}
+            {(d.military_status && d.military_status.toLowerCase() !== "n/a" && d.military_status.toLowerCase() !== "not disclosed") && (
+                <span className="px-1.5 py-0.5 bg-blue-50 text-blue-600 text-[10px] rounded border border-blue-100 flex items-center gap-1" title={`Military: ${d.military_status}`}>
+                    <Flag size={10} /> {d.military_status}
+                </span>
+            )}
+
+            {skills.map((s,i) => (
+                <span key={i} className="px-1.5 py-0.5 bg-slate-100 text-slate-600 text-[10px] rounded font-medium border border-slate-200">{s}</span>
+            ))}
          </div>
        )}
-       <div className="flex items-center justify-between mt-2 pt-2 border-t border-slate-50">
+
+       <div className="flex items-center justify-between mt-3 pt-2 border-t border-slate-50">
           <div className="flex items-baseline gap-1">
-            <span className="text-sm font-bold text-slate-700">{cv.projected_experience || 0}y</span>
-            {cv.years_since_upload > 1 && <span className="text-[10px] text-amber-600 font-medium" title="Projected">(+{Math.floor(cv.years_since_upload)})</span>}
+            <span className={`text-sm font-bold ${cv.projected_experience < 0 ? "text-red-500" : "text-slate-700"}`}>
+                {cv.projected_experience || 0}y
+            </span>
+            <span className="text-[10px] text-slate-400">exp</span>
+            {cv.projected_experience < 0 && <span className="text-[9px] bg-red-50 text-red-600 px-1 rounded ml-1 border border-red-100">Student</span>}
           </div>
           {status && <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${getStatusColor(status)}`}>{status}</span>}
        </div>
@@ -774,30 +816,30 @@ const Drawer = ({ cv, onClose, updateApp, updateProfile, jobs, selectedJobId, as
   const [saved, setSaved] = useState(false)
   const [assignOpen, setAssignOpen] = useState(false)
 
-  const history = safeList(d.job_history).sort((a, b) => {
-     const y = s => { const m = (s||"").match(/(\d{4})/); return m ? parseInt(m[0]) : 0 }
-     return y(b.duration) - y(a.duration)
-  })
   const education = safeList(d.education)
   const skills = safeList(d.skills)
 
   const groupedHistory = useMemo(() => {
       const sorted = safeList(d.job_history).sort((a, b) => {
-         const getYear = (s) => {
-             if(!s) return 0
-             const match = s.match(/(\d{4})/)
-             return match ? parseInt(match[0]) : 0
+         const getYear = (j) => {
+             if (j.duration) {
+                 const match = j.duration.match(/(\d{4})/)
+                 return match ? parseInt(match[0]) : 0
+             }
+             return 0
          }
-         return getYear(b.duration) - getYear(a.duration)
+         return getYear(b) - getYear(a)
       })
       const groups = []
       sorted.forEach(job => {
-          const last = groups[groups.length - 1]
-          if (last && last.company === job.company) {
-              last.roles.push(job)
-          } else {
-              groups.push({ company: job.company, roles: [job] })
+          const duration = job.duration || (job.start_date ? `${job.start_date} - ${job.end_date || 'Present'}` : "")
+          let description = job.description || ""
+          if (!description && job.highlights) {
+              if (Array.isArray(job.highlights)) description = job.highlights.join(". ")
+              else description = job.highlights
           }
+          const displayJob = { ...job, duration, description }
+          groups.push(displayJob)
       })
       return groups
   }, [d.job_history])
@@ -894,26 +936,15 @@ const Drawer = ({ cv, onClose, updateApp, updateProfile, jobs, selectedJobId, as
                                 </div>
                             ) : (
                                 <div className="flex flex-wrap gap-4">
-                                    {/* LINK EXTRACTION & SMART ICONS */}
                                     <div className="px-4 py-2 bg-slate-50 text-slate-700 border border-slate-200 rounded-lg text-sm font-medium">{safeList(d.email)[0] || "No Email"}</div>
                                     <div className="px-4 py-2 bg-slate-50 text-slate-700 border border-slate-200 rounded-lg text-sm font-medium">{safeList(d.phone)[0] || "No Phone"}</div>
-                                    
                                     {safeList(d.social_links).map((link, i) => {
                                         let Icon = ExternalLink
                                         let label = "Link"
                                         let style = "bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100"
-
                                         const lower = link.toLowerCase()
-                                        if (lower.includes("linkedin.com")) {
-                                            Icon = Linkedin
-                                            label = "LinkedIn"
-                                            style = "bg-sky-50 text-sky-700 border-sky-200 hover:bg-sky-100"
-                                        } else if (lower.includes("github.com")) {
-                                            Icon = Github
-                                            label = "GitHub"
-                                            style = "bg-slate-800 text-white border-slate-900 hover:bg-slate-700"
-                                        }
-
+                                        if (lower.includes("linkedin.com")) { Icon = Linkedin; label = "LinkedIn"; style = "bg-sky-50 text-sky-700 border-sky-200 hover:bg-sky-100" }
+                                        else if (lower.includes("github.com")) { Icon = Github; label = "GitHub"; style = "bg-slate-800 text-white border-slate-900 hover:bg-slate-700" }
                                         return (
                                             <a key={i} href={link} target="_blank" rel="noreferrer" className={`px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 transition border ${style}`}>
                                                 <Icon size={14}/> {label}
@@ -952,9 +983,9 @@ const Drawer = ({ cv, onClose, updateApp, updateProfile, jobs, selectedJobId, as
                                         <div key={i} className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex items-start gap-3">
                                             <div className="mt-0.5"><GraduationCap className="text-slate-300" size={20}/></div>
                                             <div>
-                                                <div className="font-bold text-slate-900">{edu.school || "University"}</div>
+                                                <div className="font-bold text-slate-900">{edu.school || edu.institution || "University"}</div>
                                                 <div className="text-sm text-indigo-600">{edu.degree}</div>
-                                                <div className="text-xs text-slate-400 mt-1">{edu.year}</div>
+                                                <div className="text-xs text-slate-400 mt-1">{edu.year || (edu.start_date + ' - ' + edu.end_date)}</div>
                                             </div>
                                         </div>
                                     ))}
@@ -965,23 +996,17 @@ const Drawer = ({ cv, onClose, updateApp, updateProfile, jobs, selectedJobId, as
                         <section>
                             <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-4 flex items-center gap-2"><Briefcase size={14}/> Work History</h3>
                             <div className="relative border-l-2 border-slate-200 ml-3 space-y-8 pb-2">
-                                {groupedHistory.map((group, i) => (
+                                {groupedHistory.map((job, i) => (
                                     <div key={i} className="relative pl-8">
                                         <div className="absolute -left-[9px] top-0 w-4 h-4 rounded-full bg-white border-4 border-indigo-500"></div>
-                                        <div className="mb-4">
-                                            <h4 className="text-lg font-bold text-indigo-900">{group.company}</h4>
+                                        <div className="mb-1">
+                                            <h4 className="text-lg font-bold text-slate-900">{job.title}</h4>
+                                            <div className="flex items-center gap-2 text-sm font-medium mt-0.5">
+                                                <span className="text-indigo-600">{job.company}</span>
+                                                {job.duration && <span className="text-xs text-slate-400 font-normal bg-slate-100 px-2 py-0.5 rounded">{job.duration}</span>}
+                                            </div>
                                         </div>
-                                        <div className="space-y-6 relative">
-                                            {group.roles.map((job, j) => (
-                                                <div key={j} className="relative">
-                                                    <div className="flex justify-between items-baseline mb-1">
-                                                        <h5 className="font-bold text-slate-800">{job.title}</h5>
-                                                        <span className="text-xs font-mono text-slate-500 bg-slate-100 px-2 py-0.5 rounded">{job.duration}</span>
-                                                    </div>
-                                                    {job.description && <p className="text-sm text-slate-600 leading-relaxed border-l-2 border-slate-100 pl-3">{job.description}</p>}
-                                                </div>
-                                            ))}
-                                        </div>
+                                        {job.description && <p className="text-sm text-slate-600 leading-relaxed mt-3 border-l-2 border-slate-100 pl-3">{job.description}</p>}
                                     </div>
                                 ))}
                                 {groupedHistory.length === 0 && <div className="pl-8 text-slate-400 italic">No experience detected.</div>}

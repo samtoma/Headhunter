@@ -20,6 +20,8 @@ def get_all_profiles(
         
     results = query.all()
     
+    current_year = datetime.now(timezone.utc).year
+
     for cv in results:
         cv.years_since_upload = 0.0
         cv.projected_experience = 0
@@ -31,8 +33,17 @@ def get_all_profiles(
             cv.years_since_upload = round(years_passed, 1)
             if years_passed > 2.0: cv.is_outdated = True
 
-            base_exp = cv.parsed_data.experience_years if (cv.parsed_data and cv.parsed_data.experience_years) else 0
-            cv.projected_experience = base_exp + int(years_passed)
+            # --- NEW LOGIC: NEGATIVE EXPERIENCE FOR STUDENTS ---
+            grad_year = cv.parsed_data.bachelor_year if (cv.parsed_data and cv.parsed_data.bachelor_year) else None
+            
+            if grad_year and grad_year > current_year:
+                 # Candidate is a student (Graduation in future)
+                 # e.g. Now=2024, Grad=2026 -> Exp = -2
+                 cv.projected_experience = current_year - grad_year
+            else:
+                 # Standard logic
+                 base_exp = cv.parsed_data.experience_years if (cv.parsed_data and cv.parsed_data.experience_years) else 0
+                 cv.projected_experience = base_exp + int(years_passed)
 
     return results
 
@@ -42,9 +53,7 @@ def update_profile(cv_id: int, update_data: UpdateProfile, db: Session = Depends
     if not parsed_record:
         raise HTTPException(404, "Profile data not found")
 
-    # exclude_unset=True ensures we only update what the frontend actually sent
     update_dict = update_data.dict(exclude_unset=True)
-    
     for key, value in update_dict.items():
         setattr(parsed_record, key, value)
 
