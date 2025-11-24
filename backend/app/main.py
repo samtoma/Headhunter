@@ -1,3 +1,4 @@
+import os
 import time
 import logging
 from fastapi import FastAPI
@@ -6,8 +7,13 @@ from sqlalchemy.exc import OperationalError
 from app.core.database import engine, Base
 from app.api.v1 import cv, profiles, jobs, applications # <--- Add applications
 
-# Configure Logging
-logging.basicConfig(level=logging.INFO)
+# Configure Logging via environment (default INFO)
+LOG_LEVEL = os.getenv("LOG_LEVEL", "DEBUG").upper()
+LOG_FORMAT = "%(asctime)s | %(levelname)-8s | %(name)s | %(message)s"
+logging.basicConfig(
+    level=getattr(logging, LOG_LEVEL, logging.INFO),
+    format=LOG_FORMAT,
+)
 logger = logging.getLogger(__name__)
 
 app = FastAPI(title="Headhunter API", version="1.0.0")

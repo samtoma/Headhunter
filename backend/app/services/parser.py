@@ -1,10 +1,13 @@
 import json
 import re
 import os
+import logging
 from pathlib import Path
 from typing import List, Optional, Dict, Any
 from pypdf import PdfReader
 import docx
+
+logger = logging.getLogger(__name__)
 
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-5-mini-2025-08-07")
@@ -12,17 +15,17 @@ OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-5-mini-2025-08-07")
 if OPENAI_API_KEY:
     from openai import OpenAI
     client = OpenAI(api_key=OPENAI_API_KEY)
-    print(f"🚀 AI Engine: OpenAI Cloud ({OPENAI_MODEL})")
+    logger.info("AI Engine: OpenAI Cloud (%s)", OPENAI_MODEL)
 else:
     from llama_cpp import Llama
-    print("🐢 AI Engine: Llama 3.1 (Local GPU Mode)")
+    logger.info("AI Engine: Llama 3.1 (Local GPU Mode)")
     _llm = None
     MODEL_PATH = "/app/models/llama-3.1-8b-instruct-q4_k_m.gguf"
 
 def get_local_llm():
     global _llm
     if _llm is None:
-        print("🤖 Loading Local Llama Model...")
+        logger.info("Loading Local Llama Model...")
         try:
             _llm = Llama(
                 model_path=MODEL_PATH,
@@ -32,15 +35,17 @@ def get_local_llm():
                 verbose=False
             )
         except Exception as e:
-            print(f"❌ Failed to load model: {e}")
+            logger.error("Failed to load local model: %s", e)
     return _llm
 
 def extract_text(path: str) -> str:
     p = Path(path)
     text_content = []
     try:
+        logger.debug("Extracting text from %s", path)
         if p.suffix.lower() == ".pdf":
             reader = PdfReader(str(path))
+            logger.debug("PDF detected with %d pages", len(reader.pages))
             for page in reader.pages:
                 text_content.append(page.extract_text() or "")
                 if "/Annots" in page:
@@ -53,11 +58,12 @@ def extract_text(path: str) -> str:
                         except: continue
             return "\n".join(text_content)
         elif p.suffix.lower() == ".docx":
+            logger.debug("DOCX detected, reading paragraphs")
             doc = docx.Document(str(path))
             return "\n".join([p.text for p in doc.paragraphs if p.text])
         return ""
     except Exception as e:
-        print(f"Error reading file {path}: {e}")
+        logger.error("Error reading file %s: %s", path, e)
         return ""
 
 def repair_json(json_str: str) -> str:
@@ -173,15 +179,22 @@ def generate_job_metadata(title: str, company_context: Dict[str, str] = None) ->
             if not OPENAI_MODEL.startswith("o1"):
                 kwargs["temperature"] = 1.0
                 kwargs["response_format"] = {"type": "json_object"}
+            logger.debug("Generating job metadata for '%s' using %s", title, OPENAI_MODEL)
             completion = client.chat.completions.create(**kwargs)
             return json.loads(completion.choices[0].message.content)
         except Exception as e:
-            print(f"OpenAI Error: {e}")
+            logger.error("OpenAI Error while generating job metadata: %s", e)
             return {}
     return {}
 
 def parse_cv_with_llm(text: str, filename: str) -> Dict[str, Any]:
     truncated_text = text[:25000]
+    logger.debug(
+        "Starting parse for '%s' (original len=%d, truncated len=%d)",
+        filename,
+        len(text),
+        len(truncated_text),
+    )
     system_prompt = f"""You are an expert Headhunter. Extract details from the CV below into strict JSON.
     CRITICAL: Extract 'email' and 'phone' as LISTS of strings.
     Requirements:
@@ -228,22 +241,27 @@ def parse_cv_with_llm(text: str, filename: str) -> Dict[str, Any]:
                 kwargs["temperature"] = 1.0
                 kwargs["response_format"] = {"type": "json_object"}
             
+            logger.debug("Calling OpenAI for '%s' using model %s", filename, OPENAI_MODEL)
             completion = client.chat.completions.create(**kwargs)
             raw = completion.choices[0].message.content
+            logger.debug("Raw response received for '%s' (%d chars)", filename, len(raw or ""))
             data = json.loads(repair_json(raw))
             
             # Normalize Contact
+            logger.debug("Normalizing contact info for '%s'", filename)
             data["email"] = clean_contact_field(data.get("email") or data.get("emails"))
             data["phone"] = clean_contact_field(data.get("phone") or data.get("phones"))
             if "skills" in data: data["skills"] = clean_contact_field(data["skills"])
             if "social_links" in data: data["social_links"] = clean_contact_field(data["social_links"])
             
             # Normalize Nested Structures
+            logger.debug("Normalizing nested structures for '%s'", filename)
             data["job_history"] = normalize_job_history(data.get("job_history", []))
             data["education"] = normalize_education(data.get("education", []))
 
+            logger.info("Parsed CV '%s' successfully. Keys: %s", filename, list(data.keys()))
             return data
         except Exception as e:
-            print(f"OpenAI Error: {e}")
+            logger.error("OpenAI Error while parsing CV '%s': %s", filename, e)
             return {}
     return {}
