@@ -1,10 +1,8 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react'; // Import waitFor
 import App from './App';
 import { describe, it, expect, vi } from 'vitest';
 
 // --- MOCK AXIOS ---
-// This tells the test: "When the app tries to use axios, 
-// just return empty lists instead of trying to hit the real internet."
 vi.mock('axios', () => ({
   default: {
     get: vi.fn(() => Promise.resolve({ data: [] })),
@@ -15,8 +13,11 @@ vi.mock('axios', () => ({
 }));
 
 describe('Headhunter App', () => {
-  it('renders the dashboard title', () => {
+  it('renders the dashboard title', async () => {
     render(<App />);
-    expect(screen.getByText(/Headhunter/i)).toBeInTheDocument();
+    
+    // Use findByText (async) instead of getByText.
+    // This waits for the component to finish its initial rendering cycle.
+    expect(await screen.findByText(/Headhunter/i)).toBeInTheDocument();
   });
 });

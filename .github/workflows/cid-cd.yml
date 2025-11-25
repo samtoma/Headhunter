@@ -22,7 +22,8 @@ jobs:
     - name: Run Backend Tests
       run: |
         cd backend
-        pytest
+        # FIXED: Use 'python -m pytest' to fix ModuleNotFoundError
+        python -m pytest
 
   test-frontend:
     runs-on: ubuntu-latest
