@@ -8,7 +8,7 @@ from app.models import models
 from app.services.parse_service import process_cv_background
 
 router = APIRouter(prefix="/cv", tags=["CV"])
-RAW_DIR = Path("/app/data/raw")
+RAW_DIR = Path("/data/raw")
 RAW_DIR.mkdir(parents=True, exist_ok=True)
 
 @router.post("/upload")

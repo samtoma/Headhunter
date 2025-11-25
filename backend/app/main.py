@@ -1,6 +1,7 @@
 import os
 import time
 import logging
+from pathlib import Path
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy.exc import OperationalError
@@ -20,7 +21,15 @@ app = FastAPI(title="Headhunter API", version="1.0.0")
 
 # --- Serve Raw Files ---
 # Allows frontend to access PDFs via http://localhost:30001/files/filename.pdf
-app.mount("/files", StaticFiles(directory="/app/data/raw"), name="files")
+#app.mount("/files", StaticFiles(directory="/app/data/raw"), name="files")
+BASE_DIR = Path(os.getcwd())
+RAW_DIR = BASE_DIR / "data" / "raw"
+
+# Create directory if it doesn't exist
+RAW_DIR.mkdir(parents=True, exist_ok=True)
+
+# Mount using the absolute string path
+app.mount("/files", StaticFiles(directory=str(RAW_DIR)), name="files")
 
 def wait_for_db():
     """
