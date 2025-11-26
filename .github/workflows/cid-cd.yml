@@ -11,32 +11,51 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v3
+    
     - name: Set up Python 3.13
       uses: actions/setup-python@v4
       with:
         python-version: "3.13"
+        cache: 'pip' # Enable caching for pip
+        
     - name: Install Backend Deps
       run: |
         cd backend
         pip install -r requirements.txt
+        pip install ruff pytest # Install linter and test runner
+        
+    - name: Lint with Ruff
+      run: |
+        cd backend
+        ruff check .
+        
     - name: Run Backend Tests
       run: |
         cd backend
-        # FIXED: Use 'python -m pytest' to fix ModuleNotFoundError
         python -m pytest
 
   test-frontend:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v3
+    
     - name: Set up Node
       uses: actions/setup-node@v3
       with:
         node-version: 18
+        cache: 'npm' # Enable caching for npm
+        cache-dependency-path: frontend/package.json # Fallback to package.json if lockfile missing
+        
     - name: Install Frontend Deps
       run: |
         cd frontend
-        npm install
+        npm install # Use install since lockfile might be missing
+        
+    - name: Lint Frontend
+      run: |
+        cd frontend
+        npm run lint
+        
     - name: Run Frontend Tests
       run: |
         cd frontend
@@ -48,6 +67,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
+      
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
       
       - name: Log in to Docker Hub
         uses: docker/login-action@v2
@@ -61,6 +83,8 @@ jobs:
           context: ./backend
           push: true
           tags: ${{ secrets.DOCKER_USERNAME }}/headhunter-backend:latest
+          cache-from: type=gha # Use GitHub Actions cache
+          cache-to: type=gha,mode=max
           
       - name: Build and Push Frontend
         uses: docker/build-push-action@v4
@@ -68,3 +92,5 @@ jobs:
           context: ./frontend
           push: true
           tags: ${{ secrets.DOCKER_USERNAME }}/headhunter-frontend:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
