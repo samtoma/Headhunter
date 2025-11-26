@@ -1,4 +1,5 @@
 
+import { useState, useMemo } from 'react'
 import {
     MapPin, User, Briefcase, Bug, Pencil, X, ExternalLink, Linkedin, Github,
     FileText, BrainCircuit, GraduationCap, Layers, LayoutGrid, DollarSign, Star,
