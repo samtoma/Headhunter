@@ -11,26 +11,30 @@ def parse_json_field(v):
     2. JSON Strings
     3. Double-Encoded JSON Strings (The cause of your crash)
     """
-    if v is None: return []
-    if isinstance(v, list): return v
+    if v is None:
+        return []
+    if isinstance(v, list):
+        return v
     
     if isinstance(v, str):
-        if not v.strip(): return []
+        if not v.strip():
+            return []
         try: 
             parsed = json.loads(v)
-            
-            # Handle Double Encoding (String inside String)
+            # Handle case where JSON is double-encoded string
             if isinstance(parsed, str):
                 try:
                     parsed = json.loads(parsed)
-                except:
+                except Exception:
                     # It was just a plain string, wrap it
                     return [parsed]
             
-            if isinstance(parsed, list): return parsed
-            if parsed is None: return []
+            if isinstance(parsed, list):
+                return parsed
+            if parsed is None:
+                return []
             return [str(parsed)]
-        except:
+        except Exception:
             # If parsing fails completely, treat as a single text item
             return [v]
             
@@ -45,7 +49,8 @@ class ApplicationOut(BaseModel):
     expected_salary: Optional[str] = None
     notes: Optional[str] = None
     applied_at: datetime
-    class Config: from_attributes = True
+    class Config:
+        from_attributes = True
 
 class ParsedCVOut(BaseModel):
     name: Optional[str] = None

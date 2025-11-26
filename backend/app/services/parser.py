@@ -195,7 +195,7 @@ def parse_cv_with_llm(text: str, filename: str) -> Dict[str, Any]:
         len(text),
         len(truncated_text),
     )
-    system_prompt = f"""You are an expert Headhunter. Extract details from the CV below into strict JSON.
+    system_prompt = """You are an expert Headhunter. Extract details from the CV below into strict JSON.
     CRITICAL: Extract 'email' and 'phone' as LISTS of strings.
     Requirements:
     1. **summary**: A short 2-3 sentence professional summary.
@@ -208,7 +208,7 @@ def parse_cv_with_llm(text: str, filename: str) -> Dict[str, Any]:
     8. **social_link**: linkedin link extraction, Github, any url refered to in the cv
     
     JSON Structure:
-    {{
+    {
       "name": "Name",
       "summary": "...",
       "email": ["a@b.com"],
@@ -223,9 +223,9 @@ def parse_cv_with_llm(text: str, filename: str) -> Dict[str, Any]:
       "last_company": "Company",
       "social_links": ["http://linkedin.com/samuel-toma..."],
       "skills": ["Python", "Java"],
-      "education": [{{ "school": "MIT", "degree": "BSc", "year": "2015" }}],
-      "job_history": [{{ "title": "Dev", "company": "Google", "duration": "2020-Present", "description": "..." }}]
-    }}
+      "education": [{ "school": "MIT", "degree": "BSc", "year": "2015" }],
+      "job_history": [{ "title": "Dev", "company": "Google", "duration": "2020-Present", "description": "..." }]
+    }
     """
 
     if OPENAI_API_KEY:

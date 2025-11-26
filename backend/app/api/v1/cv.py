@@ -71,7 +71,8 @@ def delete_cv(cv_id: int, db: Session = Depends(get_db)):
 @router.post("/{cv_id}/reprocess")
 def reprocess_cv(cv_id: int, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
     cv = db.query(models.CV).filter(models.CV.id == cv_id).first()
-    if not cv: raise HTTPException(404, "CV not found")
+    if not cv:
+        raise HTTPException(404, "CV not found")
     
     cv.is_parsed = False
     db.commit()

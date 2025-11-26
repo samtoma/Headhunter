@@ -35,7 +35,7 @@ def clean_and_dump(data, keys):
                 parsed = json.loads(cleaned)
                 if isinstance(parsed, list):
                     return cleaned
-            except:
+            except Exception:
                 pass
         # If it's just a raw string (e.g. "hello@world.com"), wrap it in a list
         return json.dumps([cleaned])
@@ -45,11 +45,13 @@ def clean_and_dump(data, keys):
 def process_cv_background(cv_id: int, db: Session):
     logger.info(f"Processing CV ID {cv_id}...")
     cv = db.query(CV).filter(CV.id == cv_id).first()
-    if not cv: return
+    if not cv:
+        return
 
     try:
         full_text = extract_text(cv.filepath)
-        if not full_text: return
+        if not full_text:
+            return
 
         data = parse_cv_with_llm(full_text, cv.filename)
         

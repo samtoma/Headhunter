@@ -193,10 +193,14 @@ def update_job(job_id: int, job_data: JobUpdate, db: Session = Depends(get_db)):
     if not job:
         raise HTTPException(404, "Job not found")
     
-    if job_data.is_active is not None: job.is_active = job_data.is_active
-    if job_data.title is not None: job.title = job_data.title
-    if job_data.description is not None: job.description = job_data.description
-    if job_data.required_experience is not None: job.required_experience = job_data.required_experience
+    if job_data.is_active is not None:
+        job.is_active = job_data.is_active
+    if job_data.title is not None:
+        job.title = job_data.title
+    if job_data.description is not None:
+        job.description = job_data.description
+    if job_data.required_experience is not None:
+        job.required_experience = job_data.required_experience
     
     if job_data.skills_required is not None: 
         job.skills_required = json.dumps(job_data.skills_required)

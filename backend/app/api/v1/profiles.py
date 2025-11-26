@@ -31,7 +31,8 @@ def get_all_profiles(
             delta = datetime.now(timezone.utc) - cv.uploaded_at
             years_passed = delta.days / 365.25
             cv.years_since_upload = round(years_passed, 1)
-            if years_passed > 2.0: cv.is_outdated = True
+            if years_passed > 2.0:
+                cv.is_outdated = True
 
             # --- NEW LOGIC: NEGATIVE EXPERIENCE FOR STUDENTS ---
             grad_year = cv.parsed_data.bachelor_year if (cv.parsed_data and cv.parsed_data.bachelor_year) else None

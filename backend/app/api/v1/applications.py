@@ -32,11 +32,15 @@ def create_application(data: ApplicationCreate, db: Session = Depends(get_db)):
 @router.patch("/{app_id}")
 def update_application(app_id: int, data: ApplicationUpdate, db: Session = Depends(get_db)):
     app = db.query(Application).filter(Application.id == app_id).first()
-    if not app: raise HTTPException(404, "Application not found")
+    if not app:
+        raise HTTPException(404, "Application not found")
     
-    if data.status is not None: app.status = data.status
-    if data.rating is not None: app.rating = data.rating
-    if data.notes is not None: app.notes = data.notes
+    if data.status is not None:
+        app.status = data.status
+    if data.rating is not None:
+        app.rating = data.rating
+    if data.notes is not None:
+        app.notes = data.notes
     
     db.commit()
     return app
@@ -44,7 +48,8 @@ def update_application(app_id: int, data: ApplicationUpdate, db: Session = Depen
 @router.delete("/{app_id}")
 def delete_application(app_id: int, db: Session = Depends(get_db)):
     app = db.query(Application).filter(Application.id == app_id).first()
-    if not app: raise HTTPException(404, "Application not found")
+    if not app:
+        raise HTTPException(404, "Application not found")
     db.delete(app)
     db.commit()
-    return {"status": "removed"}
+    return {"message": "Application deleted"}

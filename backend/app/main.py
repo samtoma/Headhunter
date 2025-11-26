@@ -43,7 +43,7 @@ def wait_for_db():
         try:
             logger.info(f"Connecting to DB (Attempt {i+1}/{max_retries})...")
             # We use Alembic for migrations now, but this check ensures connectivity
-            with engine.connect() as connection:
+            with engine.connect():
                 logger.info("✅ Database connected successfully.")
                 return
         except OperationalError as e:

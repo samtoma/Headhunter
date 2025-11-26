@@ -10,7 +10,7 @@ import sys
 # Add the app directory to python path so we can import models
 sys.path.append(os.getcwd()) 
 from app.core.database import Base
-from app.models.models import * # Import all your models
+from app.models import models # Import models to register them
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
