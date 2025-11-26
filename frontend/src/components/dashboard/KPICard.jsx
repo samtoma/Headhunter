@@ -1,4 +1,4 @@
-import React from 'react'
+
 
 const KPICard = ({ title, value, icon, color }) => (
     <div className="bg-white p-5 rounded-xl shadow-sm border border-slate-200 flex items-center gap-4">

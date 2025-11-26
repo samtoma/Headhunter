@@ -1,10 +1,10 @@
-import React from 'react'
+
 import {
     Briefcase, GraduationCap, Heart, Flag, CheckSquare, Square, RotateCw, Trash2, RefreshCw
 } from 'lucide-react'
 import { safeList, getStatusColor } from '../../utils/helpers'
 
-const CandidateCard = ({ cv, onClick, onDelete, onReprocess, status, compact, jobs, selectable, selected, onSelect }) => {
+const CandidateCard = ({ cv, onClick, onDelete, onReprocess, status, compact, selectable, selected, onSelect }) => {
     const d = cv.parsed_data || {}
     const skills = safeList(d.skills).slice(0, 3)
     const edu = safeList(d.education)[0]

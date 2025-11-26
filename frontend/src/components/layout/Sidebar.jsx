@@ -1,4 +1,4 @@
-import React from 'react'
+
 import { BrainCircuit, LayoutDashboard, Briefcase as BriefcaseIcon, Archive, Layers, Lock, Plus, Settings } from 'lucide-react'
 
 const Sidebar = ({

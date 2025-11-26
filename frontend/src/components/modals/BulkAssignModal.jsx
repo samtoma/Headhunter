@@ -1,4 +1,4 @@
-import React from 'react'
+
 import { ChevronRight } from 'lucide-react'
 
 const BulkAssignModal = ({ jobs, selectedCount, performBulkAssign, onClose }) => {

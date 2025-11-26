@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react'; // Import waitFor
+import { render, screen } from '@testing-library/react'; // Import waitFor
 import App from './App';
 import { describe, it, expect, vi } from 'vitest';
 
@@ -15,7 +15,7 @@ vi.mock('axios', () => ({
 describe('Headhunter App', () => {
   it('renders the dashboard title', async () => {
     render(<App />);
-    
+
     // Use findByText (async) instead of getByText.
     // This waits for the component to finish its initial rendering cycle.
     expect(await screen.findByText(/Headhunter/i)).toBeInTheDocument();

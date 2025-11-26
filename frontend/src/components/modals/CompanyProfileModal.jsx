@@ -1,13 +1,12 @@
-import React, { useState, useEffect } from 'react'
+
 import axios from 'axios'
 import { Building2, X } from 'lucide-react'
 
 const CompanyProfileModal = ({ onClose }) => {
     const [data, setData] = useState({ name: "", industry: "", description: "", culture: "" })
-    const [loading, setLoading] = useState(true)
 
     useEffect(() => {
-        axios.get('/api/jobs/company').then(res => { setData(res.data); setLoading(false) })
+        axios.get('/api/jobs/company').then(res => { setData(res.data) })
     }, [])
 
     const save = async () => {

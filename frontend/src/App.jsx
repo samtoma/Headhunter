@@ -37,7 +37,6 @@ function App() {
     const [uploading, setUploading] = useState(false)
     const [uploadProgress, setUploadProgress] = useState("")
     const [uploadFiles, setUploadFiles] = useState(null)
-    const [statusMsg, setStatusMsg] = useState("")
 
     // Selection State
     const [selectedIds, setSelectedIds] = useState([])
@@ -170,8 +169,6 @@ function App() {
         setUploadProgress("")
         setUploading(false)
         setUploadFiles(null)
-        setStatusMsg(`Uploaded ${successCount} files! Parsing in background...`)
-        setTimeout(() => setStatusMsg(""), 3000)
         fetchProfiles()
         fetchJobs()
     }
@@ -190,7 +187,7 @@ function App() {
     }
 
     const handleUpdateApp = async (appId, data) => {
-        try { await axios.patch(`/api/applications/${appId}`, data); fetchProfiles() } catch (e) { }
+        try { await axios.patch(`/api/applications/${appId}`, data); fetchProfiles() } catch (e) { console.error(e) }
     }
 
     const handleAssignJob = async (cvId, jobId) => {

@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react'
+
 import { Briefcase as BriefcaseIcon, Users, Check, Award, TrendingUp } from 'lucide-react'
 import KPICard from './KPICard'
 import JobInsightCard from './JobInsightCard'
