@@ -17,7 +17,7 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-app = FastAPI(title="Headhunter API", version="1.0.0")
+app = FastAPI(title="Headhunter API", version="1.2.0")
 
 # --- Serve Raw Files ---
 # Allows frontend to access PDFs via http://localhost:30001/files/filename.pdf
