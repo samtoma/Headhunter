@@ -58,8 +58,7 @@ class JobOut(BaseModel):
                 return []
         return v if isinstance(v, list) else []
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 class CandidateMatch(BaseModel):
     id: int
