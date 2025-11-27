@@ -8,7 +8,7 @@ import { RefreshCw } from 'lucide-react'
 import { FixedSizeGrid as Grid } from 'react-window'
 import AutoSizer from 'react-virtualized-auto-sizer'
 import { useHeadhunterData } from './hooks/useHeadhunterData'
-import { safeList } from './utils/helpers'
+
 
 // Components
 import Sidebar from './components/layout/Sidebar'

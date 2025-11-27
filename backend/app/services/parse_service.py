@@ -1,6 +1,6 @@
 import json
 import logging
-from sqlalchemy.orm import Session, sessionmaker
+from sqlalchemy.orm import sessionmaker
 from sqlalchemy.sql import func
 from app.models.models import CV, ParsedCV
 from app.services.parser import extract_text, parse_cv_with_llm

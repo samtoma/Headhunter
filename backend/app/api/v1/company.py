@@ -1,8 +1,8 @@
-from fastapi import APIRouter, Depends, HTTPException, Body
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.api.deps import get_current_user
-from app.models.models import User, Company, UserRole
+from app.models.models import User, UserRole
 from pydantic import BaseModel
 from typing import Optional
 import httpx
@@ -97,11 +97,16 @@ def update_company_profile(
     if not company:
         raise HTTPException(status_code=404, detail="Company not found")
     
-    if data.name: company.name = data.name
-    if data.website: company.website = data.website
-    if data.industry: company.industry = data.industry
-    if data.description: company.description = data.description
-    if data.culture: company.culture = data.culture
+    if data.name:
+        company.name = data.name
+    if data.website:
+        company.website = data.website
+    if data.industry:
+        company.industry = data.industry
+    if data.description:
+        company.description = data.description
+    if data.culture:
+        company.culture = data.culture
     
     db.commit()
     db.refresh(company)

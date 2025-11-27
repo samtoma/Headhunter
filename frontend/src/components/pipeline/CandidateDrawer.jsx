@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react'
+import { useState, useMemo, useEffect, useCallback } from 'react'
 import {
     MapPin, User, Briefcase, Bug, Pencil, X, ExternalLink, Linkedin, Github,
     FileText, BrainCircuit, GraduationCap, Layers, LayoutGrid, DollarSign, Star,
@@ -8,12 +8,10 @@ import axios from 'axios'
 import { safeList, getStatusColor } from '../../utils/helpers'
 
 const CandidateDrawer = ({ cv, onClose, updateApp, updateProfile, jobs, selectedJobId, assignJob, removeJob }) => {
-    if (!cv) return null
-
     const [view, setView] = useState("parsed")
     const [isEditing, setIsEditing] = useState(false)
-    const d = cv.parsed_data || {}
-    const app = selectedJobId ? cv.applications?.find(a => a.job_id === selectedJobId) : null
+    const d = cv?.parsed_data || {}
+    const app = selectedJobId ? cv?.applications?.find(a => a.job_id === selectedJobId) : null
 
     const [editData, setEditData] = useState({
         name: d.name,
@@ -23,7 +21,7 @@ const CandidateDrawer = ({ cv, onClose, updateApp, updateProfile, jobs, selected
         summary: d.summary,
         skills: safeList(d.skills).join(", "),
         age: d.age || "",
-        experience_years: cv.parsed_data?.experience_years || 0,
+        experience_years: cv?.parsed_data?.experience_years || 0,
         marital_status: d.marital_status,
         military_status: d.military_status
     })
@@ -41,13 +39,24 @@ const CandidateDrawer = ({ cv, onClose, updateApp, updateProfile, jobs, selected
     const [interviews, setInterviews] = useState([])
     const [companyStages, setCompanyStages] = useState([])
 
+    const fetchInterviews = useCallback(async () => {
+        if (!app || !app.id) return
+        try {
+            const res = await axios.get(`/api/interviews/application/${app.id}`)
+            setInterviews(Array.isArray(res.data) ? res.data : [])
+        } catch (err) {
+            console.error("Failed to fetch interviews", err)
+            setInterviews([])
+        }
+    }, [app])
+
     useEffect(() => {
         if (app && app.id) {
             fetchInterviews()
         } else {
             setInterviews([])
         }
-    }, [app ? app.id : null])
+    }, [app, fetchInterviews])
 
     useEffect(() => {
         fetchCompanySettings()
@@ -57,7 +66,7 @@ const CandidateDrawer = ({ cv, onClose, updateApp, updateProfile, jobs, selected
         if (showAddInterview && users.length === 0) {
             fetchUsers()
         }
-    }, [showAddInterview])
+    }, [showAddInterview, users])
 
     const fetchCompanySettings = async () => {
         try {
@@ -90,17 +99,6 @@ const CandidateDrawer = ({ cv, onClose, updateApp, updateProfile, jobs, selected
             setUsers(res.data)
         } catch (err) {
             console.error("Failed to fetch users", err)
-        }
-    }
-
-    const fetchInterviews = async () => {
-        if (!app || !app.id) return
-        try {
-            const res = await axios.get(`/api/interviews/application/${app.id}`)
-            setInterviews(Array.isArray(res.data) ? res.data : [])
-        } catch (err) {
-            console.error("Failed to fetch interviews", err)
-            setInterviews([])
         }
     }
 
@@ -186,6 +184,8 @@ const CandidateDrawer = ({ cv, onClose, updateApp, updateProfile, jobs, selected
         setSaved(true)
         setTimeout(() => setSaved(false), 2000)
     }
+
+    if (!cv) return null
 
     return (
         <div className="fixed inset-0 z-50 flex justify-end isolate">
@@ -503,7 +503,7 @@ const CandidateDrawer = ({ cv, onClose, updateApp, updateProfile, jobs, selected
                                         )}
 
                                         <div className="relative border-l-2 border-slate-200 ml-3 space-y-8 pb-2">
-                                            {interviews.map((int, i) => (
+                                            {interviews.map((int) => (
                                                 <div key={int.id} className="relative pl-8">
                                                     <div className={`absolute -left-[9px] top-0 w-4 h-4 rounded-full border-4 ${int.outcome === 'Failed' ? 'bg-white border-red-500' : int.outcome === 'Passed' ? 'bg-white border-emerald-500' : 'bg-white border-indigo-500'}`}></div>
                                                     <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm relative group">

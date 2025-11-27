@@ -18,7 +18,7 @@ class UserOut(BaseModel):
 
 @router.get("/", response_model=List[UserOut])
 def get_users(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
-    users = db.query(User).filter(User.is_active == True).all()
+    users = db.query(User).filter(User.is_active.is_(True)).all()
     return users
 
 class UserUpdate(BaseModel):

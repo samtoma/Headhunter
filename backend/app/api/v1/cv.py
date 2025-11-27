@@ -4,14 +4,12 @@ import uuid
 import aiofiles
 from pathlib import Path
 import os
-from typing import Optional
 from sqlalchemy.orm import Session
 from app.core.database import get_db, engine
 from app.models import models
 from app.models.models import User
 from app.api.deps import get_current_user
 from app.services.parse_service import process_cv_background, process_cv_batch_background
-import shutil
 
 router = APIRouter(prefix="/cv", tags=["CV"])
 RAW_DIR = Path("data/raw")
@@ -104,5 +102,5 @@ def get_processing_status(db: Session = Depends(get_db), current_user: User = De
     Returns a list of IDs for CVs that are currently processing (is_parsed=False).
     Used for lightweight polling.
     """
-    processing_cvs = db.query(models.CV.id).filter(models.CV.is_parsed == False, models.CV.company_id == current_user.company_id).all()
+    processing_cvs = db.query(models.CV.id).filter(models.CV.is_parsed.is_(False), models.CV.company_id == current_user.company_id).all()
     return {"processing_ids": [cv.id for cv in processing_cvs]}

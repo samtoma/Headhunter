@@ -1,16 +1,14 @@
-from fastapi import APIRouter, Depends, HTTPException, Body
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session, joinedload
 from typing import List, Optional
 from pydantic import BaseModel, ConfigDict
 from datetime import datetime
 from app.core.database import get_db
 from app.models.models import Interview, Application, User
+from app.api.deps import get_current_user
 
 router = APIRouter(prefix="/interviews", tags=["Interviews"])
 
-from app.api.deps import get_current_user
-
-# --- Schemas ---
 class InterviewCreate(BaseModel):
     application_id: int
     step: str # e.g. "Screening", "Technical"

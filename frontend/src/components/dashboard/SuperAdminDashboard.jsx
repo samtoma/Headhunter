@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import axios from 'axios'
-import { Building2, Users, TrendingUp, Search, Edit2, Check, X, Shield, Briefcase, Activity, ArrowLeft } from 'lucide-react'
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar } from 'recharts'
+import { Building2, Users, TrendingUp, Search, Edit2, Check, X, ArrowLeft } from 'lucide-react'
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
 
 const SuperAdminDashboard = () => {
     const [companies, setCompanies] = useState([])

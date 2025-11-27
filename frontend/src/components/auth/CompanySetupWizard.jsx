@@ -51,7 +51,7 @@ const CompanySetupWizard = ({ onComplete }) => {
                                 <Sparkles className="w-8 h-8 text-indigo-600" />
                             </div>
                             <h1 className="text-2xl font-bold text-slate-900">Welcome to {data.name}</h1>
-                            <p className="text-slate-500 mt-2">Let's set up your company profile using AI.</p>
+                            <p className="text-slate-500 mt-2">Let&apos;s set up your company profile using AI.</p>
                         </div>
 
                         <div>
@@ -66,7 +66,7 @@ const CompanySetupWizard = ({ onComplete }) => {
                                     onChange={e => setUrl(e.target.value)}
                                 />
                             </div>
-                            <p className="text-xs text-slate-400 mt-1">We'll scan your website to auto-fill your profile.</p>
+                            <p className="text-xs text-slate-400 mt-1">We&apos;ll scan your website to auto-fill your profile.</p>
                         </div>
 
                         <button

@@ -3,7 +3,6 @@ import axios from 'axios'
 import { Plus, Trash2, Save, GripVertical } from 'lucide-react'
 
 export default function Settings() {
-    const [company, setCompany] = useState(null)
     const [stages, setStages] = useState([])
     const [loading, setLoading] = useState(true)
     const [saving, setSaving] = useState(false)
@@ -15,7 +14,6 @@ export default function Settings() {
     const fetchSettings = async () => {
         try {
             const res = await axios.get('/api/companies/me')
-            setCompany(res.data)
             if (res.data.interview_stages) {
                 try {
                     setStages(JSON.parse(res.data.interview_stages))
