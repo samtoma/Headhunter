@@ -14,7 +14,9 @@ const PipelineHeader = ({
     uploading,
     performUpload,
     setUploadFiles,
-    setShowUploadModal
+    setShowUploadModal,
+    sortBy,
+    setSortBy
 }) => {
     return (
         <header className="bg-white border-b border-slate-200 px-8 py-4 flex justify-between items-center shrink-0 z-10">
@@ -38,6 +40,18 @@ const PipelineHeader = ({
                 )}
 
                 <div className="relative w-64"><Search className="absolute left-3 top-2.5 text-slate-400 w-4 h-4" /><input className="w-full pl-9 pr-4 py-2 text-sm rounded-lg border border-slate-200 bg-slate-50" placeholder="Search..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} /></div>
+
+                <select
+                    className="pl-3 pr-8 py-2 text-sm rounded-lg border border-slate-200 bg-slate-50 text-slate-700 font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                    value={sortBy}
+                    onChange={(e) => setSortBy(e.target.value)}
+                >
+                    <option value="newest">Newest First</option>
+                    <option value="oldest">Oldest First</option>
+                    <option value="experience">Experience (High-Low)</option>
+                    {selectedJob && <option value="score">Match Score</option>}
+                    <option value="name">Name (A-Z)</option>
+                </select>
 
                 {selectedJob && (
                     <div className="bg-slate-100 p-1 rounded-lg flex">

@@ -14,25 +14,25 @@ const CandidateCard = ({ cv, onClick, onDelete, onReprocess, status, compact, se
             draggable
             onDragStart={(e) => e.dataTransfer.setData("cvId", cv.id)}
             onClick={onClick}
-            className={`bg-white p-4 rounded-xl shadow-[0_2px_8px_rgba(0,0,0,0.04)] border hover:shadow-[0_4px_12px_rgba(0,0,0,0.08)] hover:border-indigo-200 transition-all cursor-pointer group relative flex flex-col h-full ${compact ? 'mb-0' : ''} ${selected ? 'border-indigo-500 ring-1 ring-indigo-500' : 'border-slate-100'}`}
+            className={`bg-white p-3 rounded-xl shadow-[0_2px_8px_rgba(0,0,0,0.04)] border hover:shadow-[0_4px_12px_rgba(0,0,0,0.08)] hover:border-indigo-200 transition-all cursor-pointer group relative flex flex-col h-full ${compact ? 'mb-0' : ''} ${selected ? 'border-indigo-500 ring-1 ring-indigo-500' : 'border-slate-100'}`}
         >
             {selectable && (
                 <div
-                    className={`absolute top-3 left-3 z-20 ${selected ? "opacity-100" : "opacity-0 group-hover:opacity-100 transition-opacity"}`}
+                    className={`absolute top-3 left-3 z-30 ${selected ? "opacity-100" : "opacity-0 group-hover:opacity-100 transition-opacity"}`}
                     onClick={(e) => { e.stopPropagation(); onSelect(); }}
                 >
                     {selected ? <CheckSquare className="text-indigo-600 bg-white rounded" size={20} /> : <Square className="text-slate-300 hover:text-indigo-400 bg-white rounded" size={20} />}
                 </div>
             )}
 
-            <div className="absolute top-3 right-3 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity z-10 bg-white/80 backdrop-blur rounded-md p-0.5">
+            <div className="absolute top-3 right-3 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity z-30 bg-white/80 backdrop-blur rounded-md p-0.5">
                 <button onClick={(e) => onReprocess(e, cv.id)} className="p-1 text-slate-400 hover:text-indigo-600"><RotateCw size={14} /></button>
                 <button onClick={(e) => onDelete(e, cv.id)} className="p-1 text-slate-400 hover:text-red-600"><Trash2 size={14} /></button>
             </div>
 
             {!cv.is_parsed && <div className="absolute inset-0 bg-white/90 flex items-center justify-center z-20"><RefreshCw className="animate-spin text-indigo-500" /></div>}
 
-            <div className={`mb-2 pr-8 ${selectable ? 'pl-6' : ''}`}>
+            <div className={`mb-1 pr-8 ${selectable ? 'pl-6' : ''}`}>
                 <h3 className="text-[15px] font-bold text-slate-900 leading-tight line-clamp-1" title={d.name}>{d.name || "Candidate"}</h3>
 
                 {/* JOB & COMPANY (NEW LAYOUT) */}
@@ -55,7 +55,7 @@ const CandidateCard = ({ cv, onClick, onDelete, onReprocess, status, compact, se
 
             {/* BADGES (Micro-Indicators) */}
             {!compact && (
-                <div className="flex flex-wrap gap-1.5 mb-auto items-center">
+                <div className="flex flex-wrap gap-1 mb-auto items-center">
                     {(d.marital_status && d.marital_status.toLowerCase() !== "n/a" && d.marital_status.toLowerCase() !== "not disclosed") && (
                         <span className="px-1.5 py-0.5 bg-pink-50 text-pink-600 text-[10px] rounded border border-pink-100 flex items-center gap-1" title={`Marital: ${d.marital_status}`}>
                             <Heart size={10} /> {d.marital_status}
@@ -73,7 +73,7 @@ const CandidateCard = ({ cv, onClick, onDelete, onReprocess, status, compact, se
                 </div>
             )}
 
-            <div className="flex items-center justify-between mt-3 pt-2 border-t border-slate-50">
+            <div className="flex items-center justify-between mt-2 pt-1.5 border-t border-slate-50">
                 <div className="flex items-baseline gap-1">
                     <span className={`text-sm font-bold ${cv.projected_experience < 0 ? "text-red-500" : "text-slate-700"}`}>
                         {cv.projected_experience || 0}y
@@ -81,7 +81,12 @@ const CandidateCard = ({ cv, onClick, onDelete, onReprocess, status, compact, se
                     <span className="text-[10px] text-slate-400">exp</span>
                     {cv.projected_experience < 0 && <span className="text-[9px] bg-red-50 text-red-600 px-1 rounded ml-1 border border-red-100">Student</span>}
                 </div>
-                {status && <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${getStatusColor(status)}`}>{status}</span>}
+                <div className="flex items-center gap-2">
+                    <span className="text-[10px] text-slate-400 font-medium">
+                        {new Date(cv.uploaded_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
+                    </span>
+                    {status && <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${getStatusColor(status)}`}>{status}</span>}
+                </div>
             </div>
         </div>
     )

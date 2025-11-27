@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, Body
+from fastapi.concurrency import run_in_threadpool
 from sqlalchemy.orm import Session, joinedload
 from typing import List, Optional, Any, Dict
 from pydantic import BaseModel, field_validator, ConfigDict
@@ -101,11 +102,11 @@ def update_company_profile(data: CompanySchema, db: Session = Depends(get_db)):
 
 # 2. ANALYZE (With Company Context)
 @router.post("/analyze", response_model=Dict[str, Any])
-def analyze_job_request(title: str = Body(..., embed=True), db: Session = Depends(get_db)):
+async def analyze_job_request(title: str = Body(..., embed=True), db: Session = Depends(get_db)):
     """AI Endpoint to generate job description and skills from a title."""
     
-    # Fetch Company Context
-    company = db.query(Company).first()
+    # Fetch Company Context (blocking DB call)
+    company = await run_in_threadpool(lambda: db.query(Company).first())
     context = {}
     if company:
         context = {
@@ -114,7 +115,7 @@ def analyze_job_request(title: str = Body(..., embed=True), db: Session = Depend
             "culture": company.culture
         }
     
-    return generate_job_metadata(title, context)
+    return await generate_job_metadata(title, context)
 
 @router.post("/matches", response_model=List[CandidateMatch])
 def match_candidates_for_new_job(

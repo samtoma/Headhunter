@@ -3,22 +3,53 @@ from sqlalchemy.orm import Session, joinedload
 from typing import List, Optional
 from datetime import datetime, timezone
 from app.core.database import get_db
-from app.models.models import CV, ParsedCV
-from app.schemas.cv import CVResponse, UpdateProfile
+from app.models.models import CV, ParsedCV, Application
+from app.schemas.cv import CVResponse, UpdateProfile, PaginatedResponse
+from sqlalchemy import or_, desc, asc
 
 router = APIRouter(prefix="/profiles", tags=["Profiles"])
 
-@router.get("/", response_model=List[CVResponse])
+@router.get("/", response_model=PaginatedResponse)
 def get_all_profiles(
+    page: int = Query(1, ge=1),
+    limit: int = Query(50, ge=1, le=100),
+    search: Optional[str] = Query(None),
+    sort_by: Optional[str] = Query(None),
     job_id: Optional[int] = Query(None),
     db: Session = Depends(get_db)
 ):
     query = db.query(CV).options(joinedload(CV.parsed_data))
     
+    # --- FILTERS ---
     if job_id:
-        query = query.filter(CV.job_id == job_id)
-        
-    results = query.all()
+        query = query.join(Application).filter(Application.job_id == job_id)
+
+    if search:
+        search_term = f"%{search}%"
+        query = query.join(ParsedCV).filter(
+            or_(
+                ParsedCV.name.ilike(search_term),
+                ParsedCV.skills.ilike(search_term),
+                ParsedCV.last_job_title.ilike(search_term),
+                ParsedCV.last_company.ilike(search_term)
+            )
+        )
+
+    # --- SORTING ---
+    if sort_by == "oldest":
+        query = query.order_by(asc(CV.uploaded_at))
+    elif sort_by == "experience":
+        query = query.join(ParsedCV).order_by(desc(ParsedCV.experience_years))
+    elif sort_by == "name":
+        query = query.join(ParsedCV).order_by(asc(ParsedCV.name))
+    else:
+        # Default: Newest first
+        query = query.order_by(desc(CV.uploaded_at))
+
+    # --- PAGINATION ---
+    total = query.count()
+    offset = (page - 1) * limit
+    results = query.offset(offset).limit(limit).all()
     
     current_year = datetime.now(timezone.utc).year
 
@@ -46,7 +77,14 @@ def get_all_profiles(
                  base_exp = cv.parsed_data.experience_years if (cv.parsed_data and cv.parsed_data.experience_years) else 0
                  cv.projected_experience = base_exp + int(years_passed)
 
-    return results
+    import math
+    return {
+        "items": results,
+        "total": total,
+        "page": page,
+        "pages": math.ceil(total / limit),
+        "limit": limit
+    }
 
 @router.patch("/{cv_id}", response_model=CVResponse)
 def update_profile(cv_id: int, update_data: UpdateProfile, db: Session = Depends(get_db)):
