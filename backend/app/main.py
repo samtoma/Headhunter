@@ -6,10 +6,10 @@ from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy.exc import OperationalError
 from app.core.database import engine
-from app.api.v1 import cv, profiles, jobs, applications, auth
+from app.api.v1 import cv, profiles, jobs, applications, auth, company, sso, interviews, companies, logs
 from app.models import models
 from app.services.parse_service import process_cv_background
-from app.core.security import get_password_hash
+
 from sqlalchemy.orm import Session
 import asyncio
 
@@ -22,7 +22,7 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-app = FastAPI(title="Headhunter API", version="1.2.0")
+app = FastAPI(title="Headhunter API", version="1.3.0")
 
 # --- Serve Raw Files ---
 # Allows frontend to access PDFs via http://localhost:30001/files/filename.pdf
@@ -73,7 +73,7 @@ async def startup_event():
         with engine.begin() as conn:
             # We need a session to query ORM models
             session = Session(bind=conn)
-            stuck_cvs = session.query(models.CV).filter(models.CV.is_parsed == False).all()
+            stuck_cvs = session.query(models.CV).filter(models.CV.is_parsed.is_(False)).all()
             
             if stuck_cvs:
                 logger.info(f"⚠️ Found {len(stuck_cvs)} interrupted tasks. Re-queueing...")
@@ -88,24 +88,7 @@ async def startup_event():
             
             session.close()
 
-        # Create Default Admin User
-        try:
-            from app.core.database import SessionLocal
-            session = SessionLocal()
-            admin_email = "admin@headhunter.ai"
-            admin = session.query(models.User).filter(models.User.email == admin_email).first()
-            if not admin:
-                logger.info("👤 Creating default admin user...")
-                hashed_pwd = get_password_hash("admin")
-                new_admin = models.User(email=admin_email, hashed_password=hashed_pwd, is_active=True)
-                session.add(new_admin)
-                session.commit()
-                logger.info(f"✅ Default admin created: {admin_email} / admin")
-            else:
-                logger.info("✅ Admin user already exists.")
-            session.close()
-        except Exception as e:
-            logger.error(f"❌ Error creating admin user: {e}")
+
 
     except Exception as e:
         logger.error(f"❌ Error during startup task recovery: {e}")
@@ -115,7 +98,12 @@ app.include_router(cv.router)
 app.include_router(profiles.router)
 app.include_router(jobs.router)
 app.include_router(applications.router)
+app.include_router(interviews.router)
+app.include_router(companies.router)
 app.include_router(auth.router, prefix="/auth")
+app.include_router(company.router, prefix="/company")
+app.include_router(sso.router, prefix="/auth") # SSO endpoints under /auth/microsoft/...
+app.include_router(logs.router)
 
 @app.get("/")
 def root():

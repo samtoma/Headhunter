@@ -1,5 +1,6 @@
 import json
 import os
+from openai import AsyncOpenAI
 import logging
 from pathlib import Path
 from typing import List, Dict, Any
@@ -8,7 +9,6 @@ import docx
 
 logger = logging.getLogger(__name__)
 
-from fastapi.concurrency import run_in_threadpool
 
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-5-mini-2025-08-07")
@@ -16,7 +16,7 @@ OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-5-mini-2025-08-07")
 if not OPENAI_API_KEY:
     logger.warning("OPENAI_API_KEY not set. AI features will fail.")
 
-from openai import AsyncOpenAI
+
 client = AsyncOpenAI(api_key=OPENAI_API_KEY)
 logger.info("AI Engine: OpenAI Cloud (%s)", OPENAI_MODEL)
 

@@ -8,7 +8,7 @@ import { RefreshCw } from 'lucide-react'
 import { FixedSizeGrid as Grid } from 'react-window'
 import AutoSizer from 'react-virtualized-auto-sizer'
 import { useHeadhunterData } from './hooks/useHeadhunterData'
-import { safeList } from './utils/helpers'
+
 
 // Components
 import Sidebar from './components/layout/Sidebar'
@@ -23,6 +23,9 @@ import UploadModal from './components/modals/UploadModal'
 import BulkAssignModal from './components/modals/BulkAssignModal'
 import Login from './components/auth/Login'
 import Signup from './components/auth/Signup'
+import CompanySetupWizard from './components/auth/CompanySetupWizard'
+import Settings from './pages/Settings'
+import SuperAdminDashboard from './components/dashboard/SuperAdminDashboard'
 
 function App() {
     const {
@@ -38,6 +41,27 @@ function App() {
     // Auth State
     const [token, setToken] = useState(localStorage.getItem('token'))
     const [authView, setAuthView] = useState("login")
+
+    // Check for SSO token in URL
+    useEffect(() => {
+        const params = new URLSearchParams(window.location.search)
+        const ssoToken = params.get('token')
+        if (ssoToken) {
+            localStorage.setItem('token', ssoToken)
+            setToken(ssoToken)
+            // Clean URL
+            window.history.replaceState({}, document.title, window.location.pathname)
+        }
+    }, [])
+
+    // Set global axios header
+    useEffect(() => {
+        if (token) {
+            axios.defaults.headers.common['Authorization'] = `Bearer ${token}`
+        } else {
+            delete axios.defaults.headers.common['Authorization']
+        }
+    }, [token])
 
     // UI State
     const [currentView, setCurrentView] = useState("dashboard")
@@ -290,9 +314,13 @@ function App() {
         setAuthView("login")
     }
 
+    if (authView === "setup") {
+        return <CompanySetupWizard onComplete={() => { setAuthView("dashboard"); fetchJobs(); fetchProfiles(); }} />
+    }
+
     if (!token) {
         if (authView === "signup") {
-            return <Signup onLogin={handleLogin} onSwitchToLogin={() => setAuthView("login")} />
+            return <Signup onLogin={handleLogin} onSwitchToLogin={() => setAuthView("login")} onSetup={(t) => { setToken(t); setAuthView("setup") }} />
         }
         return <Login onLogin={handleLogin} onSwitchToSignup={() => setAuthView("signup")} />
     }
@@ -315,6 +343,10 @@ function App() {
 
             <div className="flex-1 flex flex-col h-full overflow-hidden bg-slate-50 relative">
 
+
+
+
+
                 {currentView === "dashboard" && (
                     <DashboardView
                         jobs={jobs}
@@ -324,6 +356,8 @@ function App() {
                         onViewProfile={(cv) => setSelectedCv(cv)}
                     />
                 )}
+
+                {currentView === "super_admin" && <SuperAdminDashboard />}
 
                 {currentView === "pipeline" && (
                     <>
@@ -420,6 +454,8 @@ function App() {
                         />
                     </>
                 )}
+
+                {currentView === "settings" && <Settings />}
 
                 {selectedCv && (
                     <CandidateDrawer

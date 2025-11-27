@@ -2,7 +2,7 @@ import { useState } from 'react'
 import axios from 'axios'
 import { Lock, Mail } from 'lucide-react'
 
-const Signup = ({ onLogin, onSwitchToLogin }) => {
+const Signup = ({ onLogin, onSwitchToLogin, onSetup }) => {
     const [email, setEmail] = useState("")
     const [password, setPassword] = useState("")
     const [error, setError] = useState("")
@@ -16,7 +16,14 @@ const Signup = ({ onLogin, onSwitchToLogin }) => {
         try {
             const res = await axios.post('/api/auth/signup', { email, password })
             localStorage.setItem('token', res.data.access_token)
-            onLogin(res.data.access_token)
+            localStorage.setItem('role', res.data.role)
+            localStorage.setItem('company_name', res.data.company_name || "")
+
+            if (res.data.is_new_company) {
+                onSetup(res.data.access_token)
+            } else {
+                onLogin(res.data.access_token)
+            }
         } catch (err) {
             console.error(err)
             setError(err.response?.data?.detail || "Signup failed")

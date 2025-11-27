@@ -7,11 +7,11 @@ const CompanyProfileModal = ({ onClose }) => {
     const [data, setData] = useState({ name: "", industry: "", description: "", culture: "" })
 
     useEffect(() => {
-        axios.get('/api/jobs/company').then(res => { setData(res.data) })
+        axios.get('/api/company/profile').then(res => { setData(res.data) })
     }, [])
 
     const save = async () => {
-        await axios.post('/api/jobs/company', data)
+        await axios.put('/api/company/profile', data)
         onClose()
     }
 

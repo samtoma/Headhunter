@@ -4,12 +4,12 @@ import uuid
 import aiofiles
 from pathlib import Path
 import os
-from typing import Optional
 from sqlalchemy.orm import Session
 from app.core.database import get_db, engine
 from app.models import models
+from app.models.models import User
+from app.api.deps import get_current_user
 from app.services.parse_service import process_cv_background, process_cv_batch_background
-import shutil
 
 router = APIRouter(prefix="/cv", tags=["CV"])
 RAW_DIR = Path("data/raw")
@@ -21,6 +21,7 @@ async def upload_bulk(
     files: List[UploadFile] = File(...),
     job_id: Optional[int] = Form(None),
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
 ):
     # Validate file extensions
     for f in files:
@@ -36,7 +37,7 @@ async def upload_bulk(
             await out.write(await f.read())
 
         # Create CV record (batched later)
-        cv = models.CV(filename=f.filename, filepath=str(save_path))
+        cv = models.CV(filename=f.filename, filepath=str(save_path), company_id=current_user.company_id)
         db.add(cv)
         db.flush()  # obtain cv.id without committing yet
         created_ids.append(cv.id)
@@ -55,8 +56,8 @@ async def upload_bulk(
     return {"ids": created_ids, "status": "queued"}
 
 @router.delete("/{cv_id}")
-def delete_cv(cv_id: int, db: Session = Depends(get_db)):
-    cv = db.query(models.CV).filter(models.CV.id == cv_id).first()
+def delete_cv(cv_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    cv = db.query(models.CV).filter(models.CV.id == cv_id, models.CV.company_id == current_user.company_id).first()
     if not cv:
         raise HTTPException(404, "CV not found")
     
@@ -71,8 +72,8 @@ def delete_cv(cv_id: int, db: Session = Depends(get_db)):
     return {"status": "deleted", "id": cv_id}
 
 @router.post("/{cv_id}/reprocess")
-def reprocess_cv(cv_id: int, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
-    cv = db.query(models.CV).filter(models.CV.id == cv_id).first()
+def reprocess_cv(cv_id: int, background_tasks: BackgroundTasks, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    cv = db.query(models.CV).filter(models.CV.id == cv_id, models.CV.company_id == current_user.company_id).first()
     if not cv:
         raise HTTPException(404, "CV not found")
     
@@ -83,10 +84,10 @@ def reprocess_cv(cv_id: int, background_tasks: BackgroundTasks, db: Session = De
     return {"status": "re-queued", "id": cv_id}
 
 @router.post("/reprocess_bulk")
-def reprocess_bulk(background_tasks: BackgroundTasks, db: Session = Depends(get_db), cv_ids: List[int] = Body(...)):
+def reprocess_bulk(background_tasks: BackgroundTasks, db: Session = Depends(get_db), cv_ids: List[int] = Body(...), current_user: User = Depends(get_current_user)):
     # Reset parsed flag for each CV
     for cv_id in cv_ids:
-        cv = db.query(models.CV).filter(models.CV.id == cv_id).first()
+        cv = db.query(models.CV).filter(models.CV.id == cv_id, models.CV.company_id == current_user.company_id).first()
         if cv:
             cv.is_parsed = False
     db.commit()
@@ -96,10 +97,10 @@ def reprocess_bulk(background_tasks: BackgroundTasks, db: Session = Depends(get_
     return {"status": "re-queued", "ids": cv_ids}
 
 @router.get("/status")
-def get_processing_status(db: Session = Depends(get_db)):
+def get_processing_status(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     """
     Returns a list of IDs for CVs that are currently processing (is_parsed=False).
     Used for lightweight polling.
     """
-    processing_cvs = db.query(models.CV.id).filter(models.CV.is_parsed == False).all()
+    processing_cvs = db.query(models.CV.id).filter(models.CV.is_parsed.is_(False), models.CV.company_id == current_user.company_id).all()
     return {"processing_ids": [cv.id for cv in processing_cvs]}

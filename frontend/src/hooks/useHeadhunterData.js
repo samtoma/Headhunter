@@ -41,6 +41,7 @@ export const useHeadhunterData = () => {
     const processingIdsRef = useRef(new Set())
 
     const fetchJobs = useCallback(async () => {
+        if (!localStorage.getItem('token')) return
         try {
             const res = await axios.get('/api/jobs/')
             setJobs(res.data)
@@ -58,6 +59,8 @@ export const useHeadhunterData = () => {
     }, [])
 
     const fetchProfiles = useCallback(async (pageNum = 1, append = false) => {
+        if (!localStorage.getItem('token')) return
+
         try {
             if (pageNum === 1) setLoading(true)
             else setIsFetchingMore(true)
@@ -115,6 +118,7 @@ export const useHeadhunterData = () => {
     // Smart Polling
     useEffect(() => {
         const pollStatus = async () => {
+            if (!localStorage.getItem('token')) return
             try {
                 const res = await axios.get('/api/cv/status')
                 const currentIds = new Set(res.data.processing_ids)
