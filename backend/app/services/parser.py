@@ -1,9 +1,8 @@
 import json
-import re
 import os
 import logging
 from pathlib import Path
-from typing import List, Optional, Dict, Any
+from typing import List, Dict, Any
 from pypdf import PdfReader
 import docx
 

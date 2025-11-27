@@ -5,7 +5,7 @@ from pydantic import BaseModel, field_validator
 from datetime import datetime
 import json
 from app.core.database import get_db
-from app.models.models import Job, CV, ParsedCV, Company # <--- Added Company
+from app.models.models import Job, ParsedCV, Company # <--- Added Company
 from app.services.parser import generate_job_metadata
 
 router = APIRouter(prefix="/jobs", tags=["Jobs"])
@@ -134,7 +134,8 @@ def match_candidates_for_new_job(
         
         cand_skills = []
         if cand.skills:
-            try: cand_skills = json.loads(cand.skills)
+            try:
+                cand_skills = json.loads(cand.skills)
             except Exception:
                 pass
             
