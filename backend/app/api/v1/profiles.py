@@ -54,7 +54,7 @@ def update_profile(cv_id: int, update_data: UpdateProfile, db: Session = Depends
     if not parsed_record:
         raise HTTPException(404, "Profile data not found")
 
-    update_dict = update_data.dict(exclude_unset=True)
+    update_dict = update_data.model_dump(exclude_unset=True)
     for key, value in update_dict.items():
         setattr(parsed_record, key, value)
 

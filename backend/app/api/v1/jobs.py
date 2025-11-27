@@ -171,7 +171,7 @@ def match_candidates_for_new_job(
 
 @router.post("/", response_model=JobOut)
 def create_job(job: JobCreate, db: Session = Depends(get_db)):
-    job_dict = job.dict()
+    job_dict = job.model_dump()
     if job.skills_required is not None:
         job_dict['skills_required'] = json.dumps(job.skills_required)
     
