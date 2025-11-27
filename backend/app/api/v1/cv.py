@@ -1,4 +1,7 @@
-from fastapi import APIRouter, UploadFile, File, Form, HTTPException, BackgroundTasks, Depends
+from fastapi import APIRouter, UploadFile, File, Form, HTTPException, BackgroundTasks, Depends, Body
+from typing import List, Optional
+import uuid
+import aiofiles
 from pathlib import Path
 import os
 from typing import Optional
@@ -11,46 +14,43 @@ router = APIRouter(prefix="/cv", tags=["CV"])
 RAW_DIR = Path("data/raw")
 RAW_DIR.mkdir(parents=True, exist_ok=True)
 
-@router.post("/upload")
-async def upload_cv(
+@router.post("/upload_bulk")
+async def upload_bulk(
     background_tasks: BackgroundTasks,
-    file: UploadFile = File(...),
-    job_id: Optional[int] = Form(None), # <--- Added this to accept the ID
-    db: Session = Depends(get_db)
+    files: List[UploadFile] = File(...),
+    job_id: Optional[int] = Form(None),
+    db: Session = Depends(get_db),
 ):
-    if not file.filename.lower().endswith((".pdf", ".docx")):
-        raise HTTPException(400, "Only PDF/DOCX allowed")
+    # Validate file extensions
+    for f in files:
+        if not f.filename.lower().endswith((".pdf", ".docx")):
+            raise HTTPException(400, f"Unsupported file: {f.filename}")
 
-    save_path = RAW_DIR / file.filename
-    with open(save_path, "wb") as f:
-        f.write(await file.read())
+    created_ids: List[int] = []
+    for f in files:
+        # Generate a unique filename to avoid collisions
+        unique_name = f"{uuid.uuid4().hex}_{f.filename}"
+        save_path = RAW_DIR / unique_name
+        async with aiofiles.open(save_path, "wb") as out:
+            await out.write(await f.read())
 
-    # 1. Create CV Record
-    new_cv = models.CV(
-        filename=file.filename, 
-        filepath=str(save_path)
-    )
-    db.add(new_cv)
-    db.commit()
-    db.refresh(new_cv)
+        # Create CV record (batched later)
+        cv = models.CV(filename=f.filename, filepath=str(save_path))
+        db.add(cv)
+        db.flush()  # obtain cv.id without committing yet
+        created_ids.append(cv.id)
 
-    # 2. Link to Job (if uploaded to a track)
-    if job_id:
-        # Check if job exists first
-        job = db.query(models.Job).filter(models.Job.id == job_id).first()
-        if job:
-            application = models.Application(
-                cv_id=new_cv.id, 
-                job_id=job_id, 
-                status="New"
-            )
-            db.add(application)
-            db.commit()
+        # Optional job link per CV
+        if job_id:
+            job = db.query(models.Job).filter(models.Job.id == job_id).first()
+            if job:
+                db.add(models.Application(cv_id=cv.id, job_id=job_id, status="New"))
 
-    # 3. Queue AI Parsing
-    background_tasks.add_task(process_cv_background, new_cv.id, db)
-    
-    return {"id": new_cv.id, "status": "queued"}
+        # Schedule parsing with a fresh engine/session
+        background_tasks.add_task(process_cv_background, cv.id, db.get_bind())
+
+    db.commit()  # single commit for all inserts
+    return {"ids": created_ids, "status": "queued"}
 
 @router.delete("/{cv_id}")
 def delete_cv(cv_id: int, db: Session = Depends(get_db)):
@@ -77,5 +77,18 @@ def reprocess_cv(cv_id: int, background_tasks: BackgroundTasks, db: Session = De
     cv.is_parsed = False
     db.commit()
     
-    background_tasks.add_task(process_cv_background, cv.id, db)
+    background_tasks.add_task(process_cv_background, cv.id, db.get_bind())
     return {"status": "re-queued", "id": cv_id}
+
+@router.post("/reprocess_bulk")
+def reprocess_bulk(cv_ids: List[int] = Body(...), background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
+    # Reset parsed flag for each CV
+    for cv_id in cv_ids:
+        cv = db.query(models.CV).filter(models.CV.id == cv_id).first()
+        if cv:
+            cv.is_parsed = False
+    db.commit()
+    # Queue parsing for each CV using fresh engine/session
+    for cv_id in cv_ids:
+        background_tasks.add_task(process_cv_background, cv_id, db.get_bind())
+    return {"status": "re-queued", "ids": cv_ids}
