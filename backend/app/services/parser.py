@@ -55,7 +55,8 @@ def extract_text(path: str) -> str:
                             if "/A" in obj and "/URI" in obj["/A"]:
                                 uri = obj["/A"]["/URI"]
                                 text_content.append(f" [LINK: {uri}] ")
-                        except: continue
+                        except Exception:
+                            continue
             return "\n".join(text_content)
         elif p.suffix.lower() == ".docx":
             logger.debug("DOCX detected, reading paragraphs")
@@ -139,10 +140,12 @@ def normalize_job_history(jobs: List[Dict]) -> str:
 def normalize_education(edu: List[Dict]) -> str:
     """Standardizes education into a consistent List[Dict] JSON string."""
     cleaned = []
-    if not isinstance(edu, list): return json.dumps([])
+    if not isinstance(edu, list):
+        return json.dumps([])
     
     for e in edu:
-        if not isinstance(e, dict): continue
+        if not isinstance(e, dict):
+            continue
         
         # 1. School
         school = e.get("school") or e.get("institution") or e.get("university") or "Unknown Institution"
@@ -260,8 +263,10 @@ def parse_cv_with_llm(text: str, filename: str) -> Dict[str, Any]:
             logger.debug("Normalizing contact info for '%s'", filename)
             data["email"] = clean_contact_field(data.get("email") or data.get("emails"))
             data["phone"] = clean_contact_field(data.get("phone") or data.get("phones"))
-            if "skills" in data: data["skills"] = clean_contact_field(data["skills"])
-            if "social_links" in data: data["social_links"] = clean_contact_field(data["social_links"])
+            if "skills" in data:
+                data["skills"] = clean_contact_field(data["skills"])
+            if "social_links" in data:
+                data["social_links"] = clean_contact_field(data["social_links"])
             
             # Normalize Nested Structures
             logger.debug("Normalizing nested structures for '%s'", filename)

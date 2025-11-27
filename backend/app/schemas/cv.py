@@ -75,7 +75,8 @@ class ParsedCVOut(BaseModel):
     current_salary: Optional[str] = None
     expected_salary: Optional[str] = None
 
-    class Config: from_attributes = True
+    class Config:
+        from_attributes = True
 
     # Apply robust validator to all list fields
     @field_validator('skills', 'social_links', 'email', 'phone', 'education', 'job_history', mode='before')
@@ -93,7 +94,8 @@ class CVResponse(BaseModel):
     projected_experience: Optional[int] = 0
     is_outdated: bool = False
     years_since_upload: float = 0.0
-    class Config: from_attributes = True
+    class Config:
+        from_attributes = True
 
 class UpdateProfile(BaseModel):
     current_salary: Optional[str] = None
@@ -114,8 +116,10 @@ class UpdateProfile(BaseModel):
     @field_validator('skills', 'email', 'phone', mode='before')
     @classmethod
     def to_json_string(cls, v):
-        if v is None: return None
-        if isinstance(v, str): return v 
+        if v is None:
+            return None
+        if isinstance(v, str):
+            return v 
         return json.dumps(v)
 
 class ApplicationUpdate(BaseModel):

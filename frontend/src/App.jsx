@@ -154,7 +154,6 @@ function App() {
         if (!files || files.length === 0) return
         setUploading(true)
         setShowUploadModal(false)
-        let successCount = 0
         for (let i = 0; i < files.length; i++) {
             const file = files[i]
             setUploadProgress(`Uploading ${i + 1}/${files.length}: ${file.name}...`)
@@ -163,7 +162,6 @@ function App() {
             if (jobId) formData.append('job_id', jobId)
             try {
                 await axios.post('/api/cv/upload', formData)
-                successCount++
             } catch (err) { console.error(`Failed to upload ${file.name}`, err) }
         }
         setUploadProgress("")

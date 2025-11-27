@@ -25,7 +25,8 @@ class JobCreate(BaseModel):
             try: 
                 parsed = json.loads(v)
                 return parsed if isinstance(parsed, list) else []
-            except: return []
+            except Exception:
+                return []
         return v if isinstance(v, list) else []
 
 class JobUpdate(BaseModel):
@@ -134,7 +135,8 @@ def match_candidates_for_new_job(
         cand_skills = []
         if cand.skills:
             try: cand_skills = json.loads(cand.skills)
-            except: pass
+            except Exception:
+                pass
             
         for s in cand_skills:
             if s.lower() in req_skills_set:
@@ -153,7 +155,8 @@ def match_candidates_for_new_job(
                 is_silver = True
                 break
         
-        if is_silver: score += 15
+        if is_silver:
+            score += 15
         
         if score > 0:
             matches.append({
