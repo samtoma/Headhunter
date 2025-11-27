@@ -1,3 +1,7 @@
+/*
+ * Copyright (c) 2025 Headhunter AI Engineering Team
+ */
+
 import { useState, useMemo } from 'react'
 import axios from 'axios'
 import { RefreshCw } from 'lucide-react'
@@ -78,7 +82,10 @@ function App() {
             setShowBulkAssignModal(false)
             fetchProfiles()
             fetchJobs()
-        } catch (e) { alert("Bulk assign failed") }
+        } catch (e) { 
+            console.error(e);
+            alert("Bulk assign failed") 
+        }
     }
 
     const performBulkDelete = async () => {
@@ -88,7 +95,10 @@ function App() {
             setProfiles(prev => prev.filter(p => !selectedIds.includes(p.id)))
             setSelectedIds([])
             fetchJobs()
-        } catch (e) { alert("Bulk delete failed") }
+        } catch (e) { 
+            console.error(e);
+            alert("Bulk delete failed") 
+        }
     }
 
     const performBulkReprocess = async () => {
@@ -98,7 +108,10 @@ function App() {
             await Promise.all(selectedIds.map(id => axios.post(`/api/cv/${id}/reprocess`)))
             alert("Reprocessing started! Updates will appear as they finish.")
             setSelectedIds([])
-        } catch (e) { alert("Bulk reprocess failed") }
+        } catch (e) { 
+            console.error(e);
+            alert("Bulk reprocess failed") 
+        }
     }
 
     const handleSidebarDrop = async (e, targetJobId) => {
@@ -116,7 +129,10 @@ function App() {
             await axios.post('/api/applications/', { cv_id: parseInt(cvId), job_id: targetJobId })
             fetchProfiles()
             fetchJobs()
-        } catch (e) { alert("Failed to assign candidate") }
+        } catch (e) { 
+            console.error(e);
+            alert("Failed to assign candidate") 
+        }
     }
 
     const handleCreateJob = async (jobData, selectedCandidateIds) => {
@@ -133,21 +149,30 @@ function App() {
             setCurrentView("pipeline");
             setSelectedJob(newJob);
             fetchProfiles();
-        } catch (err) { alert("Failed to create job pipeline") }
+        } catch (err) { 
+            console.error(err);
+            alert("Failed to create job pipeline") 
+        }
     }
 
     const handleToggleArchive = async (job) => {
         try {
             const res = await axios.patch(`/api/jobs/${job.id}`, { is_active: !job.is_active })
             setJobs(prev => prev.map(j => j.id === job.id ? res.data : j))
-        } catch (e) { alert("Failed to update status") }
+        } catch (e) { 
+            console.error(e);
+            alert("Failed to update status") 
+        }
     }
 
     const handleUpdateJobDetails = async (id, data) => {
         try {
             const res = await axios.patch(`/api/jobs/${id}`, data)
             setJobs(prev => prev.map(j => j.id === id ? res.data : j))
-        } catch (e) { alert("Failed to save job details") }
+        } catch (e) { 
+            console.error(e);
+            alert("Failed to save job details") 
+        }
     }
 
     const performUpload = async (files, jobId) => {
@@ -173,15 +198,36 @@ function App() {
 
     const handleDeleteCV = async (e, id) => {
         e.stopPropagation(); if (!confirm("Delete candidate?")) return
-        try { await axios.delete(`/api/cv/${id}`); setProfiles(prev => prev.filter(p => p.id !== id)); if (selectedCv?.id === id) setSelectedCv(null); fetchJobs() } catch (err) { alert("Failed") }
+        try { 
+            await axios.delete(`/api/cv/${id}`); 
+            setProfiles(prev => prev.filter(p => p.id !== id)); 
+            if (selectedCv?.id === id) setSelectedCv(null); 
+            fetchJobs() 
+        } catch (err) { 
+            console.error(err);
+            alert("Failed") 
+        }
     }
 
     const handleReprocess = async (e, id) => {
-        e.stopPropagation(); try { await axios.post(`/api/cv/${id}/reprocess`); setProfiles(prev => prev.map(p => p.id === id ? { ...p, is_parsed: false } : p)) } catch (err) { alert("Failed") }
+        e.stopPropagation(); 
+        try { 
+            await axios.post(`/api/cv/${id}/reprocess`); 
+            setProfiles(prev => prev.map(p => p.id === id ? { ...p, is_parsed: false } : p)) 
+        } catch (err) { 
+            console.error(err);
+            alert("Failed") 
+        }
     }
 
     const handleUpdateProfile = async (id, data) => {
-        try { setProfiles(prev => prev.map(p => p.id === id ? { ...p, parsed_data: { ...p.parsed_data, ...data } } : p)); await axios.patch(`/api/profiles/${id}`, data) } catch (err) { fetchProfiles() }
+        try { 
+            setProfiles(prev => prev.map(p => p.id === id ? { ...p, parsed_data: { ...p.parsed_data, ...data } } : p)); 
+            await axios.patch(`/api/profiles/${id}`, data) 
+        } catch (err) { 
+            console.error(err);
+            fetchProfiles() 
+        }
     }
 
     const handleUpdateApp = async (appId, data) => {
@@ -189,7 +235,10 @@ function App() {
     }
 
     const handleAssignJob = async (cvId, jobId) => {
-        try { await axios.post('/api/applications/', { cv_id: cvId, job_id: jobId }); fetchProfiles(); fetchJobs() } catch (e) { alert("Failed") }
+        try { await axios.post('/api/applications/', { cv_id: cvId, job_id: jobId }); fetchProfiles(); fetchJobs() } catch (e) { 
+            console.error(e);
+            alert("Failed") 
+        }
     }
 
     const handleRemoveJob = async (cvId, jobId) => {

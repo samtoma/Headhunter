@@ -1,10 +1,15 @@
+/*
+ * Copyright (c) 2025 Headhunter AI Engineering Team
+ */
+
 export const safeList = (data) => {
     if (data === undefined || data === null) return []
     if (Array.isArray(data)) return data
     try {
         const parsed = JSON.parse(data)
         return Array.isArray(parsed) ? parsed : [parsed]
-    } catch (e) {
+    } catch {
+        // Fallback to returning the data as a single-item list if parsing fails
         return [data]
     }
 }

@@ -1,3 +1,6 @@
+/*
+ * Copyright (c) 2025 Headhunter AI Engineering Team
+ */
 
 import { useState } from 'react'
 import axios from 'axios'
@@ -21,7 +24,10 @@ const CreateJobModal = ({ onClose, onCreate }) => {
             await refreshCandidates({ ...data, ...res.data })
 
             setStep(2)
-        } catch (e) { alert("AI Analysis Failed") }
+        } catch (e) { 
+            console.error("Analysis Error:", e);
+            alert("AI Analysis Failed") 
+        }
         setLoading(false)
     }
 
