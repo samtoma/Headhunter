@@ -89,7 +89,11 @@ def get_company_profile(db: Session = Depends(get_db)):
 def update_company_profile(data: CompanySchema, db: Session = Depends(get_db)):
     company = db.query(Company).first()
     if not company:
-        company = Company(name=data.name)
+        # Domain is required by DB, but not in schema. Infer or use placeholder.
+        # In a real app, we'd ask for it or infer from user email.
+        # For now, use a placeholder based on name.
+        domain = f"{data.name.lower().replace(' ', '')}.com"
+        company = Company(name=data.name, domain=domain)
         db.add(company)
     
     company.name = data.name

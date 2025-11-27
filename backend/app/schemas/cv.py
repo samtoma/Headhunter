@@ -109,6 +109,8 @@ class UpdateProfile(BaseModel):
     name: Optional[str] = None
     address: Optional[str] = None
     summary: Optional[str] = None
+    marital_status: Optional[str] = None
+    military_status: Optional[str] = None
     
     skills: Optional[Union[List[str], str]] = None
     email: Optional[Union[List[str], str]] = None

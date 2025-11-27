@@ -1,13 +1,15 @@
-
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import {
     MapPin, User, Briefcase, Bug, Pencil, X, ExternalLink, Linkedin, Github,
     FileText, BrainCircuit, GraduationCap, Layers, LayoutGrid, DollarSign, Star,
-    AlertCircle, Check, Save, ChevronDown
+    AlertCircle, Check, Save, ChevronDown, Heart, Flag, MessageSquare, Clock, Plus
 } from 'lucide-react'
+import axios from 'axios'
 import { safeList, getStatusColor } from '../../utils/helpers'
 
 const CandidateDrawer = ({ cv, onClose, updateApp, updateProfile, jobs, selectedJobId, assignJob, removeJob }) => {
+    if (!cv) return null
+
     const [view, setView] = useState("parsed")
     const [isEditing, setIsEditing] = useState(false)
     const d = cv.parsed_data || {}
@@ -21,7 +23,9 @@ const CandidateDrawer = ({ cv, onClose, updateApp, updateProfile, jobs, selected
         summary: d.summary,
         skills: safeList(d.skills).join(", "),
         age: d.age || "",
-        experience_years: cv.parsed_data?.experience_years || 0
+        experience_years: cv.parsed_data?.experience_years || 0,
+        marital_status: d.marital_status,
+        military_status: d.military_status
     })
 
     const [notes, setNotes] = useState(app ? app.notes : "")
@@ -31,6 +35,64 @@ const CandidateDrawer = ({ cv, onClose, updateApp, updateProfile, jobs, selected
     const [exp, setExp] = useState(app ? app.expected_salary : d.expected_salary || "")
     const [saved, setSaved] = useState(false)
     const [assignOpen, setAssignOpen] = useState(false)
+    const [users, setUsers] = useState([])
+    const [newInterview, setNewInterview] = useState({ step: "Screening", outcome: "Pending", feedback: "", rating: 5, interviewer_id: "" })
+    const [showAddInterview, setShowAddInterview] = useState(false)
+    const [interviews, setInterviews] = useState([])
+
+    useEffect(() => {
+        if (app && app.id) {
+            fetchInterviews()
+        } else {
+            setInterviews([])
+        }
+    }, [app ? app.id : null])
+
+    useEffect(() => {
+        if (showAddInterview && users.length === 0) {
+            fetchUsers()
+        }
+    }, [showAddInterview])
+
+    const fetchUsers = async () => {
+        try {
+            const res = await axios.get('/api/users/')
+            setUsers(res.data)
+        } catch (err) {
+            console.error("Failed to fetch users", err)
+        }
+    }
+
+    const fetchInterviews = async () => {
+        if (!app || !app.id) return
+        try {
+            const res = await axios.get(`/api/interviews/application/${app.id}`)
+            setInterviews(Array.isArray(res.data) ? res.data : [])
+        } catch (err) {
+            console.error("Failed to fetch interviews", err)
+            setInterviews([])
+        }
+    }
+
+    const addInterview = async () => {
+        if (!newInterview.feedback) return
+        try {
+            await axios.post('/api/interviews/', {
+                application_id: app.id,
+                step: newInterview.step,
+                outcome: newInterview.outcome,
+                feedback: newInterview.feedback,
+                rating: parseInt(newInterview.rating),
+                scheduled_at: new Date().toISOString(),
+                interviewer_id: newInterview.interviewer_id ? parseInt(newInterview.interviewer_id) : null
+            })
+            setNewInterview({ step: "Screening", outcome: "Pending", feedback: "", rating: 5, interviewer_id: "" })
+            setShowAddInterview(false)
+            fetchInterviews()
+        } catch (err) {
+            console.error("Failed to add interview", err)
+        }
+    }
 
     const education = safeList(d.education)
     const skills = safeList(d.skills)
@@ -62,8 +124,15 @@ const CandidateDrawer = ({ cv, onClose, updateApp, updateProfile, jobs, selected
 
     const save = async () => {
         setSaved(false)
+
+        // Always update profile with salary info
+        const profileUpdates = {
+            current_salary: curr,
+            expected_salary: exp
+        }
+
         if (isEditing) {
-            await updateProfile(cv.id, {
+            Object.assign(profileUpdates, {
                 name: editData.name,
                 address: editData.address,
                 summary: editData.summary,
@@ -71,15 +140,17 @@ const CandidateDrawer = ({ cv, onClose, updateApp, updateProfile, jobs, selected
                 email: JSON.stringify([editData.email]),
                 phone: JSON.stringify([editData.phone]),
                 age: editData.age ? parseInt(editData.age) : null,
-                experience_years: editData.experience_years ? parseInt(editData.experience_years) : 0
+                experience_years: editData.experience_years ? parseInt(editData.experience_years) : 0,
+                marital_status: editData.marital_status,
+                military_status: editData.military_status
             })
             setIsEditing(false)
         }
 
+        await updateProfile(cv.id, profileUpdates)
+
         if (selectedJobId && app) {
-            await updateApp(app.id, { notes, rating: parseInt(rating), status, current_salary: curr, expected_salary: exp })
-        } else {
-            await updateProfile(cv.id, { current_salary: curr, expected_salary: exp })
+            await updateApp(app.id, { notes, rating: parseInt(rating), status })
         }
         setSaved(true)
         setTimeout(() => setSaved(false), 2000)
@@ -149,11 +220,15 @@ const CandidateDrawer = ({ cv, onClose, updateApp, updateProfile, jobs, selected
                                         <div className="grid grid-cols-2 gap-4 bg-slate-50 p-4 rounded-xl border border-slate-200">
                                             <div><label className="text-xs font-bold block mb-1">Email</label><input className="w-full p-2 rounded border" value={editData.email} onChange={e => setEditData({ ...editData, email: e.target.value })} /></div>
                                             <div><label className="text-xs font-bold block mb-1">Phone</label><input className="w-full p-2 rounded border" value={editData.phone} onChange={e => setEditData({ ...editData, phone: e.target.value })} /></div>
+                                            <div><label className="text-xs font-bold block mb-1">Marital Status</label><input className="w-full p-2 rounded border" value={editData.marital_status || ""} onChange={e => setEditData({ ...editData, marital_status: e.target.value })} /></div>
+                                            <div><label className="text-xs font-bold block mb-1">Military Status</label><input className="w-full p-2 rounded border" value={editData.military_status || ""} onChange={e => setEditData({ ...editData, military_status: e.target.value })} /></div>
                                         </div>
                                     ) : (
                                         <div className="flex flex-wrap gap-4">
                                             <div className="px-4 py-2 bg-slate-50 text-slate-700 border border-slate-200 rounded-lg text-sm font-medium">{safeList(d.email)[0] || "No Email"}</div>
                                             <div className="px-4 py-2 bg-slate-50 text-slate-700 border border-slate-200 rounded-lg text-sm font-medium">{safeList(d.phone)[0] || "No Phone"}</div>
+                                            {d.marital_status && <div className="px-4 py-2 bg-pink-50 text-pink-700 border border-pink-200 rounded-lg text-sm font-medium flex items-center gap-2"><Heart size={14} /> {d.marital_status}</div>}
+                                            {d.military_status && <div className="px-4 py-2 bg-blue-50 text-blue-700 border border-blue-200 rounded-lg text-sm font-medium flex items-center gap-2"><Flag size={14} /> {d.military_status}</div>}
                                             {safeList(d.social_links).map((link, i) => {
                                                 let Icon = ExternalLink
                                                 let label = "Link"
@@ -232,6 +307,8 @@ const CandidateDrawer = ({ cv, onClose, updateApp, updateProfile, jobs, selected
                         )}
                     </div>
 
+
+
                     <div className="w-[22rem] bg-white border-l border-slate-200 p-6 flex flex-col overflow-y-auto shadow-[rgba(0,0,0,0.05)_0px_0px_20px]">
                         {/* Action Panel */}
                         <div className={`p-4 rounded-xl mb-6 ${selectedJobId ? 'bg-indigo-50 border border-indigo-100' : 'bg-slate-50 border border-slate-100'}`}>
@@ -294,6 +371,95 @@ const CandidateDrawer = ({ cv, onClose, updateApp, updateProfile, jobs, selected
                                     <div className="flex-1 flex flex-col">
                                         <h4 className="text-xs font-bold text-slate-900 uppercase mb-3 flex items-center gap-2"><FileText size={14} /> Notes</h4>
                                         <textarea value={notes} onChange={e => setNotes(e.target.value)} className="flex-1 w-full p-3 bg-yellow-50/50 border border-yellow-200/60 rounded-xl text-sm text-slate-700 resize-none focus:bg-yellow-50 focus:border-yellow-300 outline-none transition" placeholder="Interviewer feedback..."></textarea>
+                                    </div>
+                                    <div className="mt-6 pt-6 border-t border-slate-100">
+                                        <div className="flex justify-between items-center mb-3">
+                                            <h4 className="text-xs font-bold text-slate-900 uppercase flex items-center gap-2"><MessageSquare size={14} /> Interview History</h4>
+                                            <button onClick={() => setShowAddInterview(!showAddInterview)} className="p-1 hover:bg-slate-100 rounded text-indigo-600 transition"><Plus size={16} /></button>
+                                        </div>
+
+                                        {showAddInterview && (
+                                            <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 mb-6 animate-in fade-in slide-in-from-top-2 shadow-sm">
+                                                <h5 className="text-xs font-bold text-slate-900 uppercase mb-3">Log Interview</h5>
+                                                <div className="grid grid-cols-2 gap-3 mb-3">
+                                                    <div>
+                                                        <label className="text-[10px] font-bold text-slate-500 uppercase mb-1 block">Stage</label>
+                                                        <select className="w-full text-xs p-2 rounded-lg border border-slate-200 bg-white focus:border-indigo-500 outline-none" value={newInterview.step} onChange={e => setNewInterview({ ...newInterview, step: e.target.value })}>
+                                                            {["Screening", "Technical", "Manager", "Final", "Offer"].map(s => <option key={s} value={s}>{s}</option>)}
+                                                        </select>
+                                                    </div>
+                                                    <div>
+                                                        <label className="text-[10px] font-bold text-slate-500 uppercase mb-1 block">Outcome</label>
+                                                        <select className="w-full text-xs p-2 rounded-lg border border-slate-200 bg-white focus:border-indigo-500 outline-none" value={newInterview.outcome || "Pending"} onChange={e => setNewInterview({ ...newInterview, outcome: e.target.value })}>
+                                                            {["Pending", "Passed", "Failed", "Rescheduled", "Cancelled"].map(s => <option key={s} value={s}>{s}</option>)}
+                                                        </select>
+                                                    </div>
+                                                </div>
+                                                <div className="mb-3">
+                                                    <label className="text-[10px] font-bold text-slate-500 uppercase mb-1 block">Assign Interviewer</label>
+                                                    <select className="w-full text-xs p-2 rounded-lg border border-slate-200 bg-white focus:border-indigo-500 outline-none" value={newInterview.interviewer_id} onChange={e => setNewInterview({ ...newInterview, interviewer_id: e.target.value })}>
+                                                        <option value="">Me (Current User)</option>
+                                                        {users.map(u => <option key={u.id} value={u.id}>{u.email} ({u.role})</option>)}
+                                                    </select>
+                                                </div>
+                                                <div className="mb-3">
+                                                    <label className="text-[10px] font-bold text-slate-500 uppercase mb-1 block">Rating (1-10)</label>
+                                                    <div className="flex items-center gap-3">
+                                                        <input type="range" min="1" max="10" className="flex-1 accent-indigo-600 h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer" value={newInterview.rating} onChange={e => setNewInterview({ ...newInterview, rating: e.target.value })} />
+                                                        <span className="font-bold text-indigo-600 w-8 text-center bg-white py-1 rounded border border-slate-200 text-xs">{newInterview.rating}</span>
+                                                    </div>
+                                                </div>
+                                                <div className="mb-3">
+                                                    <label className="text-[10px] font-bold text-slate-500 uppercase mb-1 block">Feedback / Notes</label>
+                                                    <textarea className="w-full p-3 text-xs border border-slate-200 rounded-lg h-20 resize-none focus:border-indigo-500 outline-none" placeholder="Detailed feedback..." value={newInterview.feedback} onChange={e => setNewInterview({ ...newInterview, feedback: e.target.value })}></textarea>
+                                                </div>
+                                                <div className="flex justify-end gap-2">
+                                                    <button onClick={() => setShowAddInterview(false)} className="px-3 py-1.5 text-slate-500 hover:text-slate-700 text-xs font-bold">Cancel</button>
+                                                    <button onClick={addInterview} className="px-4 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-bold transition shadow-sm">Save Log</button>
+                                                </div>
+                                            </div>
+                                        )}
+
+                                        <div className="relative border-l-2 border-slate-200 ml-3 space-y-8 pb-2">
+                                            {interviews.map((int, i) => (
+                                                <div key={int.id} className="relative pl-8">
+                                                    <div className={`absolute -left-[9px] top-0 w-4 h-4 rounded-full border-4 ${int.outcome === 'Failed' ? 'bg-white border-red-500' : int.outcome === 'Passed' ? 'bg-white border-emerald-500' : 'bg-white border-indigo-500'}`}></div>
+                                                    <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm relative group">
+                                                        <div className="flex justify-between items-start mb-2">
+                                                            <div>
+                                                                <div className="flex items-center gap-2">
+                                                                    <span className="text-sm font-bold text-slate-900">{int.step}</span>
+                                                                    {int.outcome && (
+                                                                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${int.outcome === 'Passed' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
+                                                                            int.outcome === 'Failed' ? 'bg-red-50 text-red-700 border-red-200' :
+                                                                                'bg-slate-100 text-slate-600 border-slate-200'
+                                                                            }`}>{int.outcome}</span>
+                                                                    )}
+                                                                </div>
+                                                                <span className="text-[10px] text-slate-400 flex items-center gap-1 mt-1"><Clock size={10} /> {new Date(int.created_at).toLocaleString()}</span>
+                                                            </div>
+                                                            <div className="flex flex-col items-end gap-1">
+                                                                <div className="px-2 py-1 bg-indigo-50 text-indigo-700 rounded-lg text-xs font-bold border border-indigo-100 flex items-center gap-1">
+                                                                    <Star size={10} className="fill-indigo-700" /> {int.rating}/10
+                                                                </div>
+                                                            </div>
+                                                        </div>
+
+                                                        <p className="text-xs text-slate-600 leading-relaxed whitespace-pre-wrap">{int.feedback}</p>
+
+                                                        {int.interviewer_name && (
+                                                            <div className="mt-3 pt-3 border-t border-slate-100 flex items-center gap-2">
+                                                                <div className="w-5 h-5 rounded-full bg-indigo-100 flex items-center justify-center text-[10px] font-bold text-indigo-700">
+                                                                    {int.interviewer_name.charAt(0).toUpperCase()}
+                                                                </div>
+                                                                <span className="text-[10px] text-slate-500 font-medium">{int.interviewer_name}</span>
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            ))}
+                                            {interviews.length === 0 && !showAddInterview && <div className="pl-8 text-slate-400 italic text-sm py-2">No interviews logged yet. Start the process!</div>}
+                                        </div>
                                     </div>
                                 </>
                             ) : (

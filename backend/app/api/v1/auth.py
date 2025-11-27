@@ -49,3 +49,43 @@ def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(), db:
         data={"sub": user.email}, expires_delta=access_token_expires
     )
     return {"access_token": access_token, "token_type": "bearer"}
+    return {"access_token": access_token, "token_type": "bearer"}
+
+@router.post("/send-verification")
+async def send_verification(email: str, db: Session = Depends(get_db)):
+    user = db.query(User).filter(User.email == email).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    # In a real app, generate a secure random token and store it in DB or Redis with expiration
+    # For simplicity, we'll use a dummy token or a signed JWT
+    # Let's use a signed JWT for verification
+    verification_token = create_access_token(data={"sub": user.email, "type": "verification"}, expires_delta=timedelta(hours=24))
+    
+    from app.core.email import send_verification_email
+    await send_verification_email(user.email, verification_token)
+    
+    return {"message": "Verification email sent"}
+
+@router.get("/verify")
+async def verify_email(token: str, db: Session = Depends(get_db)):
+    from jose import jwt, JWTError
+    from app.core.security import SECRET_KEY, ALGORITHM
+    
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        email: str = payload.get("sub")
+        token_type: str = payload.get("type")
+        if email is None or token_type != "verification":
+            raise HTTPException(status_code=400, detail="Invalid token")
+    except JWTError:
+        raise HTTPException(status_code=400, detail="Invalid token")
+    
+    user = db.query(User).filter(User.email == email).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+        
+    user.is_verified = True
+    db.commit()
+    
+    return {"message": "Email verified successfully"}

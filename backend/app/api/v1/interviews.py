@@ -1,0 +1,122 @@
+from fastapi import APIRouter, Depends, HTTPException, Body
+from sqlalchemy.orm import Session, joinedload
+from typing import List, Optional
+from pydantic import BaseModel, ConfigDict
+from datetime import datetime
+from app.core.database import get_db
+from app.models.models import Interview, Application, User
+
+router = APIRouter(prefix="/interviews", tags=["Interviews"])
+
+from app.api.deps import get_current_user
+
+# --- Schemas ---
+class InterviewCreate(BaseModel):
+    application_id: int
+    step: str # e.g. "Screening", "Technical"
+    outcome: Optional[str] = None
+    feedback: Optional[str] = None
+    rating: Optional[int] = None
+    scheduled_at: Optional[datetime] = None
+    interviewer_id: Optional[int] = None
+
+class InterviewUpdate(BaseModel):
+    step: Optional[str] = None
+    outcome: Optional[str] = None
+    feedback: Optional[str] = None
+    rating: Optional[int] = None
+    scheduled_at: Optional[datetime] = None
+
+class InterviewOut(BaseModel):
+    id: int
+    application_id: int
+    step: str
+    outcome: Optional[str] = None
+    feedback: Optional[str] = None
+    rating: Optional[int] = None
+    scheduled_at: Optional[datetime] = None
+    created_at: datetime
+    interviewer_id: Optional[int] = None
+    interviewer_name: Optional[str] = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+@router.post("/", response_model=InterviewOut)
+def create_interview(
+    interview: InterviewCreate, 
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    # Verify application exists
+    app = db.query(Application).filter(Application.id == interview.application_id).first()
+    if not app:
+        raise HTTPException(404, "Application not found")
+
+    # Determine interviewer
+    interviewer_id = interview.interviewer_id if interview.interviewer_id else current_user.id
+
+    # Create interview
+    new_interview = Interview(
+        application_id=interview.application_id,
+        step=interview.step,
+        outcome=interview.outcome,
+        feedback=interview.feedback,
+        rating=interview.rating,
+        scheduled_at=interview.scheduled_at,
+        interviewer_id=interviewer_id
+    )
+    db.add(new_interview)
+    db.commit()
+    db.refresh(new_interview)
+    
+    # Populate interviewer name for response
+    # We need to fetch the assigned interviewer if it's not the current user
+    if interviewer_id == current_user.id:
+        new_interview.interviewer_name = current_user.email
+    else:
+        assigned_user = db.query(User).filter(User.id == interviewer_id).first()
+        new_interview.interviewer_name = assigned_user.email if assigned_user else "Unknown"
+    
+    return new_interview
+
+@router.get("/application/{application_id}", response_model=List[InterviewOut])
+def get_application_interviews(application_id: int, db: Session = Depends(get_db)):
+    interviews = db.query(Interview).options(joinedload(Interview.interviewer)).filter(Interview.application_id == application_id).order_by(Interview.created_at.desc()).all()
+    
+    results = []
+    for i in interviews:
+        i.interviewer_name = i.interviewer.email if i.interviewer else "Unknown"
+        results.append(i)
+        
+    return results
+
+@router.patch("/{interview_id}", response_model=InterviewOut)
+def update_interview(interview_id: int, data: InterviewUpdate, db: Session = Depends(get_db)):
+    interview = db.query(Interview).filter(Interview.id == interview_id).first()
+    if not interview:
+        raise HTTPException(404, "Interview not found")
+        
+    if data.feedback is not None:
+        interview.feedback = data.feedback
+    if data.rating is not None:
+        interview.rating = data.rating
+    if data.step is not None:
+        interview.step = data.step
+    if data.outcome is not None:
+        interview.outcome = data.outcome
+    if data.scheduled_at is not None:
+        interview.scheduled_at = data.scheduled_at
+        
+    db.commit()
+    db.refresh(interview)
+    return interview
+
+@router.delete("/{interview_id}")
+def delete_interview(interview_id: int, db: Session = Depends(get_db)):
+    interview = db.query(Interview).filter(Interview.id == interview_id).first()
+    if not interview:
+        raise HTTPException(404, "Interview not found")
+    
+    db.delete(interview)
+    db.commit()
+    return {"status": "deleted"}

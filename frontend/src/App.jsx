@@ -39,6 +39,27 @@ function App() {
     const [token, setToken] = useState(localStorage.getItem('token'))
     const [authView, setAuthView] = useState("login")
 
+    // Check for SSO token in URL
+    useEffect(() => {
+        const params = new URLSearchParams(window.location.search)
+        const ssoToken = params.get('token')
+        if (ssoToken) {
+            localStorage.setItem('token', ssoToken)
+            setToken(ssoToken)
+            // Clean URL
+            window.history.replaceState({}, document.title, window.location.pathname)
+        }
+    }, [])
+
+    // Set global axios header
+    useEffect(() => {
+        if (token) {
+            axios.defaults.headers.common['Authorization'] = `Bearer ${token}`
+        } else {
+            delete axios.defaults.headers.common['Authorization']
+        }
+    }, [token])
+
     // UI State
     const [currentView, setCurrentView] = useState("dashboard")
     const [selectedJob, setSelectedJob] = useState(null)

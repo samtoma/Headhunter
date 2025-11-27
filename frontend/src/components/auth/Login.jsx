@@ -81,6 +81,29 @@ const Login = ({ onLogin, onSwitchToSignup }) => {
                     >
                         {loading ? "Signing in..." : "Sign In"}
                     </button>
+
+                    <div className="relative my-6">
+                        <div className="absolute inset-0 flex items-center">
+                            <div className="w-full border-t border-slate-200"></div>
+                        </div>
+                        <div className="relative flex justify-center text-sm">
+                            <span className="px-2 bg-white text-slate-500">Or continue with</span>
+                        </div>
+                    </div>
+
+                    <button
+                        type="button"
+                        onClick={() => window.location.href = "/api/auth/microsoft/login"}
+                        className="w-full bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 font-bold py-2.5 rounded-lg transition flex items-center justify-center gap-2"
+                    >
+                        <svg className="w-5 h-5" viewBox="0 0 21 21">
+                            <rect x="1" y="1" width="9" height="9" fill="#f25022" />
+                            <rect x="1" y="11" width="9" height="9" fill="#00a4ef" />
+                            <rect x="11" y="1" width="9" height="9" fill="#7fba00" />
+                            <rect x="11" y="11" width="9" height="9" fill="#ffb900" />
+                        </svg>
+                        Login with Microsoft
+                    </button>
                 </form>
 
                 <div className="mt-6 text-center text-sm text-slate-500">

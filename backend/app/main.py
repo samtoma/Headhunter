@@ -6,7 +6,7 @@ from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy.exc import OperationalError
 from app.core.database import engine
-from app.api.v1 import cv, profiles, jobs, applications, auth
+from app.api.v1 import cv, profiles, jobs, applications, auth, sso, interviews, users
 from app.models import models
 from app.services.parse_service import process_cv_background
 from app.core.security import get_password_hash
@@ -22,7 +22,7 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-app = FastAPI(title="Headhunter API", version="1.2.0")
+app = FastAPI(title="Headhunter API", version="1.3.0")
 
 # --- Serve Raw Files ---
 # Allows frontend to access PDFs via http://localhost:30001/files/filename.pdf
@@ -115,7 +115,9 @@ app.include_router(cv.router)
 app.include_router(profiles.router)
 app.include_router(jobs.router)
 app.include_router(applications.router)
+app.include_router(interviews.router)
 app.include_router(auth.router, prefix="/auth")
+app.include_router(sso.router, prefix="/auth") # SSO endpoints under /auth/microsoft/...
 
 @app.get("/")
 def root():

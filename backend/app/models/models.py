@@ -32,6 +32,11 @@ class User(Base):
     company_id = Column(Integer, ForeignKey("companies.id"), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     
+    # SSO and Verification
+    sso_provider = Column(String, nullable=True)
+    sso_id = Column(String, nullable=True)
+    is_verified = Column(Boolean, default=False)
+    
     company = relationship("Company", back_populates="users")
 
 class Job(Base):
@@ -74,6 +79,22 @@ class Application(Base):
     applied_at = Column(DateTime(timezone=True), server_default=func.now())
     cv = relationship("CV", back_populates="applications")
     job = relationship("Job", back_populates="applications")
+    interviews = relationship("Interview", back_populates="application", cascade="all, delete-orphan")
+
+class Interview(Base):
+    __tablename__ = "interviews"
+    id = Column(Integer, primary_key=True, index=True)
+    application_id = Column(Integer, ForeignKey("applications.id", ondelete="CASCADE"))
+    interviewer_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    step = Column(String, nullable=False) # e.g. "Screening", "Technical"
+    outcome = Column(String, nullable=True) # e.g. "Passed", "Failed", "Pending"
+    scheduled_at = Column(DateTime(timezone=True), nullable=True)
+    feedback = Column(Text, nullable=True)
+    rating = Column(Integer, nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    application = relationship("Application", back_populates="interviews")
+    interviewer = relationship("User")
 
 class ParsedCV(Base):
     __tablename__ = "parsed_cvs"
