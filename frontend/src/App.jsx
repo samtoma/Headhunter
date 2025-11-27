@@ -23,6 +23,9 @@ import UploadModal from './components/modals/UploadModal'
 import BulkAssignModal from './components/modals/BulkAssignModal'
 import Login from './components/auth/Login'
 import Signup from './components/auth/Signup'
+import CompanySetupWizard from './components/auth/CompanySetupWizard'
+import Settings from './pages/Settings'
+import SuperAdminDashboard from './components/dashboard/SuperAdminDashboard'
 
 function App() {
     const {
@@ -311,9 +314,13 @@ function App() {
         setAuthView("login")
     }
 
+    if (authView === "setup") {
+        return <CompanySetupWizard onComplete={() => { setAuthView("dashboard"); fetchJobs(); fetchProfiles(); }} />
+    }
+
     if (!token) {
         if (authView === "signup") {
-            return <Signup onLogin={handleLogin} onSwitchToLogin={() => setAuthView("login")} />
+            return <Signup onLogin={handleLogin} onSwitchToLogin={() => setAuthView("login")} onSetup={(t) => { setToken(t); setAuthView("setup") }} />
         }
         return <Login onLogin={handleLogin} onSwitchToSignup={() => setAuthView("signup")} />
     }
@@ -336,6 +343,10 @@ function App() {
 
             <div className="flex-1 flex flex-col h-full overflow-hidden bg-slate-50 relative">
 
+
+
+
+
                 {currentView === "dashboard" && (
                     <DashboardView
                         jobs={jobs}
@@ -345,6 +356,8 @@ function App() {
                         onViewProfile={(cv) => setSelectedCv(cv)}
                     />
                 )}
+
+                {currentView === "super_admin" && <SuperAdminDashboard />}
 
                 {currentView === "pipeline" && (
                     <>
@@ -441,6 +454,8 @@ function App() {
                         />
                     </>
                 )}
+
+                {currentView === "settings" && <Settings />}
 
                 {selectedCv && (
                     <CandidateDrawer

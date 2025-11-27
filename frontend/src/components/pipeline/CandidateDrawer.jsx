@@ -36,9 +36,10 @@ const CandidateDrawer = ({ cv, onClose, updateApp, updateProfile, jobs, selected
     const [saved, setSaved] = useState(false)
     const [assignOpen, setAssignOpen] = useState(false)
     const [users, setUsers] = useState([])
-    const [newInterview, setNewInterview] = useState({ step: "Screening", outcome: "Pending", feedback: "", rating: 5, interviewer_id: "" })
+    const [newInterview, setNewInterview] = useState({ step: "", outcome: "Pending", feedback: "", rating: 5, interviewer_id: "", custom_data: {} })
     const [showAddInterview, setShowAddInterview] = useState(false)
     const [interviews, setInterviews] = useState([])
+    const [companyStages, setCompanyStages] = useState([])
 
     useEffect(() => {
         if (app && app.id) {
@@ -49,10 +50,39 @@ const CandidateDrawer = ({ cv, onClose, updateApp, updateProfile, jobs, selected
     }, [app ? app.id : null])
 
     useEffect(() => {
+        fetchCompanySettings()
+    }, [])
+
+    useEffect(() => {
         if (showAddInterview && users.length === 0) {
             fetchUsers()
         }
     }, [showAddInterview])
+
+    const fetchCompanySettings = async () => {
+        try {
+            const res = await axios.get('/api/companies/me')
+            if (res.data.interview_stages) {
+                const stages = JSON.parse(res.data.interview_stages)
+                setCompanyStages(stages)
+                if (stages.length > 0) {
+                    setNewInterview(prev => ({ ...prev, step: stages[0].name }))
+                }
+            } else {
+                // Default fallback
+                setCompanyStages([
+                    { name: "Screening", fields: [] },
+                    { name: "Technical", fields: [] },
+                    { name: "Manager", fields: [] },
+                    { name: "Final", fields: [] },
+                    { name: "Offer", fields: [] }
+                ])
+                setNewInterview(prev => ({ ...prev, step: "Screening" }))
+            }
+        } catch (err) {
+            console.error("Failed to fetch settings", err)
+        }
+    }
 
     const fetchUsers = async () => {
         try {
@@ -84,9 +114,10 @@ const CandidateDrawer = ({ cv, onClose, updateApp, updateProfile, jobs, selected
                 feedback: newInterview.feedback,
                 rating: parseInt(newInterview.rating),
                 scheduled_at: new Date().toISOString(),
-                interviewer_id: newInterview.interviewer_id ? parseInt(newInterview.interviewer_id) : null
+                interviewer_id: newInterview.interviewer_id ? parseInt(newInterview.interviewer_id) : null,
+                custom_data: JSON.stringify(newInterview.custom_data)
             })
-            setNewInterview({ step: "Screening", outcome: "Pending", feedback: "", rating: 5, interviewer_id: "" })
+            setNewInterview({ step: companyStages[0]?.name || "Screening", outcome: "Pending", feedback: "", rating: 5, interviewer_id: "", custom_data: {} })
             setShowAddInterview(false)
             fetchInterviews()
         } catch (err) {
@@ -384,8 +415,8 @@ const CandidateDrawer = ({ cv, onClose, updateApp, updateProfile, jobs, selected
                                                 <div className="grid grid-cols-2 gap-3 mb-3">
                                                     <div>
                                                         <label className="text-[10px] font-bold text-slate-500 uppercase mb-1 block">Stage</label>
-                                                        <select className="w-full text-xs p-2 rounded-lg border border-slate-200 bg-white focus:border-indigo-500 outline-none" value={newInterview.step} onChange={e => setNewInterview({ ...newInterview, step: e.target.value })}>
-                                                            {["Screening", "Technical", "Manager", "Final", "Offer"].map(s => <option key={s} value={s}>{s}</option>)}
+                                                        <select className="w-full text-xs p-2 rounded-lg border border-slate-200 bg-white focus:border-indigo-500 outline-none" value={newInterview.step} onChange={e => setNewInterview({ ...newInterview, step: e.target.value, custom_data: {} })}>
+                                                            {companyStages.map(s => <option key={s.name} value={s.name}>{s.name}</option>)}
                                                         </select>
                                                     </div>
                                                     <div>
@@ -402,6 +433,57 @@ const CandidateDrawer = ({ cv, onClose, updateApp, updateProfile, jobs, selected
                                                         {users.map(u => <option key={u.id} value={u.id}>{u.email} ({u.role})</option>)}
                                                     </select>
                                                 </div>
+
+                                                {/* Dynamic Fields */}
+                                                {(() => {
+                                                    const currentStage = companyStages.find(s => s.name === newInterview.step)
+                                                    if (!currentStage || !currentStage.fields || currentStage.fields.length === 0) return null
+                                                    return (
+                                                        <div className="mb-3 grid grid-cols-2 gap-3 bg-slate-100 p-3 rounded-lg border border-slate-200">
+                                                            {currentStage.fields.map((field, idx) => (
+                                                                <div key={idx} className={field.type === 'text' ? 'col-span-2' : ''}>
+                                                                    <label className="text-[10px] font-bold text-slate-500 uppercase mb-1 block">{field.name}</label>
+                                                                    {field.type === 'text' && (
+                                                                        <input
+                                                                            className="w-full text-xs p-2 rounded border border-slate-200"
+                                                                            value={newInterview.custom_data[field.name] || ""}
+                                                                            onChange={e => setNewInterview({ ...newInterview, custom_data: { ...newInterview.custom_data, [field.name]: e.target.value } })}
+                                                                        />
+                                                                    )}
+                                                                    {field.type === 'number' && (
+                                                                        <input
+                                                                            type="number"
+                                                                            className="w-full text-xs p-2 rounded border border-slate-200"
+                                                                            value={newInterview.custom_data[field.name] || ""}
+                                                                            onChange={e => setNewInterview({ ...newInterview, custom_data: { ...newInterview.custom_data, [field.name]: e.target.value } })}
+                                                                        />
+                                                                    )}
+                                                                    {field.type === 'rating' && (
+                                                                        <select
+                                                                            className="w-full text-xs p-2 rounded border border-slate-200"
+                                                                            value={newInterview.custom_data[field.name] || ""}
+                                                                            onChange={e => setNewInterview({ ...newInterview, custom_data: { ...newInterview.custom_data, [field.name]: e.target.value } })}
+                                                                        >
+                                                                            <option value="">-</option>
+                                                                            {[1, 2, 3, 4, 5].map(n => <option key={n} value={n}>{n}</option>)}
+                                                                        </select>
+                                                                    )}
+                                                                    {field.type === 'boolean' && (
+                                                                        <select
+                                                                            className="w-full text-xs p-2 rounded border border-slate-200"
+                                                                            value={newInterview.custom_data[field.name] || ""}
+                                                                            onChange={e => setNewInterview({ ...newInterview, custom_data: { ...newInterview.custom_data, [field.name]: e.target.value } })}
+                                                                        >
+                                                                            <option value="">-</option>
+                                                                            <option value="Yes">Yes</option>
+                                                                            <option value="No">No</option>
+                                                                        </select>
+                                                                    )}
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                    )
+                                                })()}
                                                 <div className="mb-3">
                                                     <label className="text-[10px] font-bold text-slate-500 uppercase mb-1 block">Rating (1-10)</label>
                                                     <div className="flex items-center gap-3">
@@ -438,25 +520,34 @@ const CandidateDrawer = ({ cv, onClose, updateApp, updateProfile, jobs, selected
                                                                 </div>
                                                                 <span className="text-[10px] text-slate-400 flex items-center gap-1 mt-1"><Clock size={10} /> {new Date(int.created_at).toLocaleString()}</span>
                                                             </div>
-                                                            <div className="flex flex-col items-end gap-1">
-                                                                <div className="px-2 py-1 bg-indigo-50 text-indigo-700 rounded-lg text-xs font-bold border border-indigo-100 flex items-center gap-1">
-                                                                    <Star size={10} className="fill-indigo-700" /> {int.rating}/10
-                                                                </div>
+                                                            <div className="px-2 py-1 bg-indigo-50 text-indigo-700 rounded-lg text-xs font-bold border border-indigo-100 flex items-center gap-1">
+                                                                <Star size={10} className="fill-indigo-700" /> {int.rating}/10
                                                             </div>
                                                         </div>
-
-                                                        <p className="text-xs text-slate-600 leading-relaxed whitespace-pre-wrap">{int.feedback}</p>
-
-                                                        {int.interviewer_name && (
-                                                            <div className="mt-3 pt-3 border-t border-slate-100 flex items-center gap-2">
-                                                                <div className="w-5 h-5 rounded-full bg-indigo-100 flex items-center justify-center text-[10px] font-bold text-indigo-700">
-                                                                    {int.interviewer_name.charAt(0).toUpperCase()}
-                                                                </div>
-                                                                <span className="text-[10px] text-slate-500 font-medium">{int.interviewer_name}</span>
-                                                            </div>
-                                                        )}
                                                     </div>
+
+                                                    {int.custom_data && (
+                                                        <div className="mb-3 grid grid-cols-2 gap-2 bg-slate-50 p-2 rounded border border-slate-100">
+                                                            {Object.entries(JSON.parse(int.custom_data)).map(([key, val]) => (
+                                                                <div key={key} className="text-xs">
+                                                                    <span className="font-bold text-slate-500">{key}:</span> <span className="text-slate-700">{val}</span>
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                    )}
+
+                                                    <p className="text-xs text-slate-600 leading-relaxed whitespace-pre-wrap">{int.feedback}</p>
+
+                                                    {int.interviewer_name && (
+                                                        <div className="mt-3 pt-3 border-t border-slate-100 flex items-center gap-2">
+                                                            <div className="w-5 h-5 rounded-full bg-indigo-100 flex items-center justify-center text-[10px] font-bold text-indigo-700">
+                                                                {int.interviewer_name.charAt(0).toUpperCase()}
+                                                            </div>
+                                                            <span className="text-[10px] text-slate-500 font-medium">{int.interviewer_name}</span>
+                                                        </div>
+                                                    )}
                                                 </div>
+
                                             ))}
                                             {interviews.length === 0 && !showAddInterview && <div className="pl-8 text-slate-400 italic text-sm py-2">No interviews logged yet. Start the process!</div>}
                                         </div>
@@ -502,7 +593,7 @@ const CandidateDrawer = ({ cv, onClose, updateApp, updateProfile, jobs, selected
                     </div>
                 </div>
             </div>
-        </div>
+        </div >
     )
 }
 

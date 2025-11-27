@@ -19,6 +19,7 @@ class InterviewCreate(BaseModel):
     rating: Optional[int] = None
     scheduled_at: Optional[datetime] = None
     interviewer_id: Optional[int] = None
+    custom_data: Optional[str] = None # JSON string
 
 class InterviewUpdate(BaseModel):
     step: Optional[str] = None
@@ -26,6 +27,7 @@ class InterviewUpdate(BaseModel):
     feedback: Optional[str] = None
     rating: Optional[int] = None
     scheduled_at: Optional[datetime] = None
+    custom_data: Optional[str] = None
 
 class InterviewOut(BaseModel):
     id: int
@@ -38,6 +40,7 @@ class InterviewOut(BaseModel):
     created_at: datetime
     interviewer_id: Optional[int] = None
     interviewer_name: Optional[str] = None
+    custom_data: Optional[str] = None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -63,7 +66,8 @@ def create_interview(
         feedback=interview.feedback,
         rating=interview.rating,
         scheduled_at=interview.scheduled_at,
-        interviewer_id=interviewer_id
+        interviewer_id=interviewer_id,
+        custom_data=interview.custom_data
     )
     db.add(new_interview)
     db.commit()
@@ -106,6 +110,8 @@ def update_interview(interview_id: int, data: InterviewUpdate, db: Session = Dep
         interview.outcome = data.outcome
     if data.scheduled_at is not None:
         interview.scheduled_at = data.scheduled_at
+    if data.custom_data is not None:
+        interview.custom_data = data.custom_data
         
     db.commit()
     db.refresh(interview)

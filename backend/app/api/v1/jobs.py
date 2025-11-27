@@ -6,7 +6,8 @@ from pydantic import BaseModel, field_validator, ConfigDict
 from datetime import datetime
 import json
 from app.core.database import get_db
-from app.models.models import Job, ParsedCV, Company # <--- Added Company
+from app.models.models import Job, ParsedCV, Company, User
+from app.api.deps import get_current_user
 from app.services.parser import generate_job_metadata
 
 router = APIRouter(prefix="/jobs", tags=["Jobs"])
@@ -77,40 +78,19 @@ class CompanySchema(BaseModel):
 
 # --- Endpoints ---
 
-# 1. COMPANY PROFILE ENDPOINTS
-@router.get("/company", response_model=CompanySchema)
-def get_company_profile(db: Session = Depends(get_db)):
-    company = db.query(Company).first()
-    if not company:
-        return CompanySchema(name="My Company", description="Tech company", culture="Innovative")
-    return company
-
-@router.post("/company", response_model=CompanySchema)
-def update_company_profile(data: CompanySchema, db: Session = Depends(get_db)):
-    company = db.query(Company).first()
-    if not company:
-        # Domain is required by DB, but not in schema. Infer or use placeholder.
-        # In a real app, we'd ask for it or infer from user email.
-        # For now, use a placeholder based on name.
-        domain = f"{data.name.lower().replace(' ', '')}.com"
-        company = Company(name=data.name, domain=domain)
-        db.add(company)
-    
-    company.name = data.name
-    company.industry = data.industry
-    company.description = data.description
-    company.culture = data.culture
-    db.commit()
-    db.refresh(company)
-    return company
+# 1. COMPANY PROFILE ENDPOINTS REMOVED (Moved to company.py)
 
 # 2. ANALYZE (With Company Context)
 @router.post("/analyze", response_model=Dict[str, Any])
-async def analyze_job_request(title: str = Body(..., embed=True), db: Session = Depends(get_db)):
+async def analyze_job_request(
+    title: str = Body(..., embed=True), 
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
     """AI Endpoint to generate job description and skills from a title."""
     
-    # Fetch Company Context (blocking DB call)
-    company = await run_in_threadpool(lambda: db.query(Company).first())
+    # Fetch Company Context from current user
+    company = current_user.company
     context = {}
     if company:
         context = {
@@ -125,9 +105,11 @@ async def analyze_job_request(title: str = Body(..., embed=True), db: Session = 
 def match_candidates_for_new_job(
     required_experience: int = Body(...),
     skills_required: List[str] = Body(...),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
 ):
-    candidates = db.query(ParsedCV).options(joinedload(ParsedCV.cv)).all()
+    # Filter candidates by company
+    candidates = db.query(ParsedCV).join(ParsedCV.cv).filter(CV.company_id == current_user.company_id).options(joinedload(ParsedCV.cv)).all()
     matches = []
     req_skills_set = set(s.lower() for s in skills_required)
     
@@ -175,20 +157,20 @@ def match_candidates_for_new_job(
     return matches[:10]
 
 @router.post("/", response_model=JobOut)
-def create_job(job: JobCreate, db: Session = Depends(get_db)):
+def create_job(job: JobCreate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     job_dict = job.model_dump()
     if job.skills_required is not None:
         job_dict['skills_required'] = json.dumps(job.skills_required)
     
-    new_job = Job(**job_dict)
+    new_job = Job(**job_dict, company_id=current_user.company_id)
     db.add(new_job)
     db.commit()
     db.refresh(new_job)
     return new_job
 
 @router.get("/", response_model=List[JobOut])
-def list_jobs(db: Session = Depends(get_db)):
-    jobs = db.query(Job).options(joinedload(Job.applications)).all()
+def list_jobs(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    jobs = db.query(Job).filter(Job.company_id == current_user.company_id).options(joinedload(Job.applications)).all()
     results = []
     for j in jobs:
         j_dict = j.__dict__.copy()
@@ -197,8 +179,8 @@ def list_jobs(db: Session = Depends(get_db)):
     return results
 
 @router.patch("/{job_id}", response_model=JobOut)
-def update_job(job_id: int, job_data: JobUpdate, db: Session = Depends(get_db)):
-    job = db.query(Job).filter(Job.id == job_id).first()
+def update_job(job_id: int, job_data: JobUpdate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    job = db.query(Job).filter(Job.id == job_id, Job.company_id == current_user.company_id).first()
     if not job:
         raise HTTPException(404, "Job not found")
     
@@ -219,8 +201,8 @@ def update_job(job_id: int, job_data: JobUpdate, db: Session = Depends(get_db)):
     return job
 
 @router.delete("/{job_id}")
-def delete_job(job_id: int, db: Session = Depends(get_db)):
-    job = db.query(Job).filter(Job.id == job_id).first()
+def delete_job(job_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    job = db.query(Job).filter(Job.id == job_id, Job.company_id == current_user.company_id).first()
     if not job:
         raise HTTPException(404, "Job not found")
     db.delete(job)

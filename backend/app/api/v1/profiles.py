@@ -3,7 +3,8 @@ from sqlalchemy.orm import Session, joinedload
 from typing import List, Optional
 from datetime import datetime, timezone
 from app.core.database import get_db
-from app.models.models import CV, ParsedCV, Application
+from app.models.models import CV, ParsedCV, Application, User
+from app.api.deps import get_current_user
 from app.schemas.cv import CVResponse, UpdateProfile, PaginatedResponse
 from sqlalchemy import or_, desc, asc
 
@@ -16,9 +17,10 @@ def get_all_profiles(
     search: Optional[str] = Query(None),
     sort_by: Optional[str] = Query(None),
     job_id: Optional[int] = Query(None),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
 ):
-    query = db.query(CV).options(joinedload(CV.parsed_data))
+    query = db.query(CV).options(joinedload(CV.parsed_data)).filter(CV.company_id == current_user.company_id)
     
     # --- FILTERS ---
     if job_id:
@@ -87,8 +89,12 @@ def get_all_profiles(
     }
 
 @router.patch("/{cv_id}", response_model=CVResponse)
-def update_profile(cv_id: int, update_data: UpdateProfile, db: Session = Depends(get_db)):
-    parsed_record = db.query(ParsedCV).filter(ParsedCV.cv_id == cv_id).first()
+def update_profile(cv_id: int, update_data: UpdateProfile, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    cv = db.query(CV).filter(CV.id == cv_id, CV.company_id == current_user.company_id).first()
+    if not cv:
+        raise HTTPException(404, "Profile not found")
+    
+    parsed_record = cv.parsed_data
     if not parsed_record:
         raise HTTPException(404, "Profile data not found")
 

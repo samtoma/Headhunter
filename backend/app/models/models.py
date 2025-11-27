@@ -7,6 +7,7 @@ import enum
 class UserRole(str, enum.Enum):
     ADMIN = "admin"
     RECRUITER = "recruiter"
+    SUPER_ADMIN = "super_admin"
 
 class Company(Base):
     __tablename__ = "companies"
@@ -17,6 +18,7 @@ class Company(Base):
     industry = Column(String, nullable=True)
     description = Column(Text, nullable=True)
     culture = Column(Text, nullable=True)
+    interview_stages = Column(Text, nullable=True) # JSON string of stages and fields
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     
     users = relationship("User", back_populates="company")
@@ -38,6 +40,16 @@ class User(Base):
     is_verified = Column(Boolean, default=False)
     
     company = relationship("Company", back_populates="users")
+    login_count = Column(Integer, default=0)
+
+class ActivityLog(Base):
+    __tablename__ = "activity_logs"
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    company_id = Column(Integer, ForeignKey("companies.id"), nullable=True)
+    action = Column(String, nullable=False) # e.g. "login", "view_candidate"
+    details = Column(Text, nullable=True) # JSON string
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
 
 class Job(Base):
     __tablename__ = "jobs"
@@ -91,6 +103,7 @@ class Interview(Base):
     scheduled_at = Column(DateTime(timezone=True), nullable=True)
     feedback = Column(Text, nullable=True)
     rating = Column(Integer, nullable=True)
+    custom_data = Column(Text, nullable=True) # JSON string of custom field values
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     application = relationship("Application", back_populates="interviews")

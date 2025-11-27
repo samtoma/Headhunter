@@ -20,6 +20,8 @@ const Login = ({ onLogin, onSwitchToSignup }) => {
 
             const res = await axios.post('/api/auth/login', formData)
             localStorage.setItem('token', res.data.access_token)
+            localStorage.setItem('role', res.data.role)
+            if (res.data.company_name) localStorage.setItem('company_name', res.data.company_name)
             onLogin(res.data.access_token)
         } catch (err) {
             console.error(err)

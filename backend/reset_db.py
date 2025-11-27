@@ -1,26 +1,48 @@
-import sys
-import os
-
-# Add the current directory to sys.path
-sys.path.append(os.getcwd())
-
-from app.core.database import engine, Base
-from app.models import models  # Import models to register them with Base
+from app.core.database import SessionLocal, engine, Base
+from app.models.models import User, Company, UserRole
+from app.core.security import get_password_hash
 
 def reset_db():
-    print("⚠️  WARNING: This will DELETE ALL DATA in the database.")
-    confirmation = input("Type 'yes' to confirm: ")
-    if confirmation != 'yes':
-        print("❌ Aborted.")
-        return
-
-    print("🗑️  Dropping all tables...")
+    print("Dropping all tables...")
     Base.metadata.drop_all(bind=engine)
-    print("✅ All tables dropped.")
     
-    print("🔄 Recreating tables with new schema...")
+    print("Creating all tables...")
     Base.metadata.create_all(bind=engine)
-    print("✅ Tables recreated successfully.")
+    
+    db = SessionLocal()
+    try:
+        print("Creating Headhunter company...")
+        company = Company(
+            name="Headhunter AI",
+            domain="headhunter.ai",
+            description="The AI-powered recruitment platform.",
+            industry="Technology"
+        )
+        db.add(company)
+        db.commit()
+        db.refresh(company)
+        
+        print("Creating Super Admin...")
+        hashed_password = get_password_hash("admin")
+        admin = User(
+            email="admin@headhunter.ai",
+            hashed_password=hashed_password,
+            role=UserRole.SUPER_ADMIN,
+            company_id=company.id,
+            is_verified=True,
+            is_active=True
+        )
+        db.add(admin)
+        db.commit()
+        
+        print("Database reset complete.")
+        print("User: admin@headhunter.ai")
+        print("Pass: admin")
+        
+    except Exception as e:
+        print(f"Error: {e}")
+    finally:
+        db.close()
 
 if __name__ == "__main__":
     reset_db()

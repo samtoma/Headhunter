@@ -15,5 +15,6 @@ httpx
 ruff
 passlib[argon2]
 python-jose[cryptography]
+beautifulsoup4
 fastapi-sso>=0.7.0
 fastapi-mail>=1.4.1

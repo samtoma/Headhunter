@@ -6,7 +6,7 @@ from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy.exc import OperationalError
 from app.core.database import engine
-from app.api.v1 import cv, profiles, jobs, applications, auth, sso, interviews, users
+from app.api.v1 import cv, profiles, jobs, applications, auth, company, sso, interviews, users, companies, logs
 from app.models import models
 from app.services.parse_service import process_cv_background
 from app.core.security import get_password_hash
@@ -116,8 +116,11 @@ app.include_router(profiles.router)
 app.include_router(jobs.router)
 app.include_router(applications.router)
 app.include_router(interviews.router)
+app.include_router(companies.router)
 app.include_router(auth.router, prefix="/auth")
+app.include_router(company.router, prefix="/company")
 app.include_router(sso.router, prefix="/auth") # SSO endpoints under /auth/microsoft/...
+app.include_router(logs.router)
 
 @app.get("/")
 def root():

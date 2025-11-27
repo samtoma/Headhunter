@@ -4,7 +4,7 @@ from fastapi.responses import RedirectResponse
 from fastapi_sso.sso.microsoft import MicrosoftSSO
 from sqlalchemy.orm import Session
 from app.core.database import get_db
-from app.models.models import User
+from app.models.models import User, Company, UserRole
 from app.core.security import create_access_token
 from datetime import timedelta
 from app.core.security import ACCESS_TOKEN_EXPIRE_MINUTES
@@ -46,6 +46,23 @@ async def microsoft_callback(request: Request, db: Session = Depends(get_db)):
     
     if not db_user:
         # Create new user
+        # Domain Extraction & Company Logic
+        if "@" not in user.email:
+             raise HTTPException(status_code=400, detail="Invalid email format from SSO provider")
+        
+        domain = user.email.split("@")[1]
+        company = db.query(Company).filter(Company.domain == domain).first()
+        
+        user_role = UserRole.RECRUITER
+        
+        if not company:
+            # New Domain -> Create Company -> Admin Role
+            company = Company(domain=domain, name=domain) # Default name to domain
+            db.add(company)
+            db.commit()
+            db.refresh(company)
+            user_role = UserRole.ADMIN
+        
         # We need a password for the model, but for SSO users it's not used.
         # We'll set a random unusable password or handle it in model (nullable password).
         # Existing model has nullable=False for hashed_password.
@@ -61,7 +78,9 @@ async def microsoft_callback(request: Request, db: Session = Depends(get_db)):
             hashed_password=hashed_password,
             sso_provider="microsoft",
             sso_id=user.id,
-            is_verified=True # SSO users are verified by provider
+            is_verified=True, # SSO users are verified by provider
+            company_id=company.id,
+            role=user_role
         )
         db.add(db_user)
         db.commit()
