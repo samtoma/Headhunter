@@ -17,7 +17,10 @@ const Sidebar = ({
         <div className="w-64 bg-white border-r border-slate-200 flex flex-col shrink-0 z-20">
             <div className="p-6 border-b border-slate-100"><h1 className="text-xl font-extrabold text-indigo-600 flex items-center gap-2"><BrainCircuit className="w-7 h-7" /> Headhunter</h1></div>
             <div className="flex-1 overflow-y-auto p-3 space-y-1">
-                <button onClick={() => { setCurrentView("dashboard"); setSelectedJob(null); }} className={`w-full flex items-center gap-3 p-2.5 rounded-lg text-sm font-medium transition ${currentView === "dashboard" ? 'bg-indigo-50 text-indigo-700 ring-1 ring-indigo-200' : 'text-slate-600 hover:bg-slate-50'}`}>
+                <button onClick={() => {
+                    setCurrentView("dashboard")
+                    setSelectedJob(null)
+                }} className={`w-full flex items-center gap-3 p-2.5 rounded-lg text-sm font-medium transition ${currentView === "dashboard" ? 'bg-indigo-50 text-indigo-700 ring-1 ring-indigo-200' : 'text-slate-600 hover:bg-slate-50'}`}>
                     <LayoutDashboard size={18} /> Dashboard
                 </button>
 
@@ -28,7 +31,10 @@ const Sidebar = ({
                     </button>
                 </div>
 
-                <button onClick={() => { setCurrentView("pipeline"); setSelectedJob(null); }} className={`w-full flex items-center gap-3 p-2.5 rounded-lg text-sm font-medium transition ${currentView === "pipeline" && !selectedJob ? 'bg-indigo-50 text-indigo-700 ring-1 ring-indigo-200' : 'text-slate-600 hover:bg-slate-50'}`}>
+                <button onClick={() => {
+                    setCurrentView("pipeline")
+                    setSelectedJob(null)
+                }} className={`w-full flex items-center gap-3 p-2.5 rounded-lg text-sm font-medium transition ${currentView === "pipeline" && !selectedJob ? 'bg-indigo-50 text-indigo-700 ring-1 ring-indigo-200' : 'text-slate-600 hover:bg-slate-50'}`}>
                     <Layers size={18} /> General Pool
                 </button>
 
@@ -36,7 +42,10 @@ const Sidebar = ({
                 {displayedJobs.map(job => (
                     <div
                         key={job.id}
-                        onClick={() => { setCurrentView("pipeline"); setSelectedJob(job); }}
+                        onClick={() => {
+                            setCurrentView("pipeline")
+                            setSelectedJob(job)
+                        }}
                         onDragOver={(e) => e.preventDefault()}
                         onDrop={(e) => handleSidebarDrop(e, job.id)}
                         className={`w-full flex items-center justify-between p-2.5 rounded-lg text-sm font-medium transition cursor-pointer border border-transparent ${currentView === "pipeline" && selectedJob?.id === job.id ? 'bg-indigo-50 text-indigo-700 ring-1 ring-indigo-200' : 'text-slate-600 hover:bg-slate-50 hover:border-slate-200'}`}

@@ -108,6 +108,9 @@ class UpdateProfile(BaseModel):
     email: Optional[Union[List[str], str]] = None
     phone: Optional[Union[List[str], str]] = None
 
+    class Config:
+        from_attributes = True
+
     @field_validator('skills', 'email', 'phone', mode='before')
     @classmethod
     def to_json_string(cls, v):

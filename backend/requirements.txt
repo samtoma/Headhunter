@@ -11,3 +11,4 @@ openai>=1.30.0
 alembic>=1.13.0  # <--- CRITICAL ADDITION
 pytest
 httpx
+ruff

@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 from pydantic import BaseModel
 from typing import Optional
 from app.core.database import get_db
-from app.models.models import Application, CV, Job
+from app.models.models import Application
 
 router = APIRouter(prefix="/applications", tags=["Applications"])
 

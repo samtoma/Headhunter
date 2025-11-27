@@ -49,7 +49,16 @@ const PipelineHeader = ({
                 <label className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg cursor-pointer flex items-center gap-2 transition shadow-md active:scale-95">
                     <Upload size={16} />
                     <span className="font-bold text-sm">{uploading ? "..." : "Add"}</span>
-                    <input type="file" multiple className="hidden" onChange={(e) => { if (e.target.files.length > 0) selectedJob ? performUpload(e.target.files, selectedJob.id) : (setUploadFiles(e.target.files), setShowUploadModal(true)) }} disabled={uploading} />
+                    <input type="file" multiple className="hidden" onChange={(e) => {
+                        if (e.target.files.length > 0) {
+                            if (selectedJob) {
+                                performUpload(e.target.files, selectedJob.id)
+                            } else {
+                                setUploadFiles(e.target.files)
+                                setShowUploadModal(true)
+                            }
+                        }
+                    }} disabled={uploading} />
                 </label>
             </div>
         </header>

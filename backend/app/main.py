@@ -5,7 +5,7 @@ from pathlib import Path
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy.exc import OperationalError
-from app.core.database import engine, Base
+from app.core.database import engine
 from app.api.v1 import cv, profiles, jobs, applications # <--- Add applications
 
 # Configure Logging via environment (default INFO)

@@ -53,7 +53,8 @@ class JobOut(BaseModel):
             try: 
                 parsed = json.loads(v)
                 return parsed if isinstance(parsed, list) else []
-            except: return []
+            except Exception:
+                return []
         return v if isinstance(v, list) else []
 
     class Config:
@@ -71,7 +72,8 @@ class CompanySchema(BaseModel):
     industry: Optional[str] = None
     description: Optional[str] = None
     culture: Optional[str] = None
-    class Config: from_attributes = True
+    class Config:
+        from_attributes = True
 
 # --- Endpoints ---
 

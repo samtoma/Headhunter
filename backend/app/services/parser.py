@@ -77,13 +77,18 @@ def repair_json(json_str: str) -> str:
     return json_str
 
 def clean_contact_field(value):
-    if not value: return json.dumps([])
-    if isinstance(value, list): return json.dumps(value)
+    if not value:
+        return json.dumps([])
+    if isinstance(value, list):
+        return json.dumps(value)
     if isinstance(value, str):
         value = value.strip()
         if value.startswith("[") and value.endswith("]"):
-            try: json.loads(value); return value 
-            except: pass
+            try:
+                json.loads(value)
+                return value
+            except Exception:
+                pass
         return json.dumps([value])
     return json.dumps([])
 
@@ -91,25 +96,29 @@ def clean_contact_field(value):
 def normalize_job_history(jobs: List[Dict]) -> str:
     """Standardizes job history into a consistent List[Dict] JSON string."""
     cleaned = []
-    if not isinstance(jobs, list): return json.dumps([])
-    
+    if not isinstance(jobs, list):
+        return json.dumps([])
+
     for j in jobs:
-        if not isinstance(j, dict): continue
-        
+        if not isinstance(j, dict):
+            continue
+
         # 1. Title
         title = j.get("title") or j.get("role") or j.get("position") or "Unknown Role"
-        
+
         # 2. Company
         company = j.get("company") or j.get("organization") or "Unknown Company"
-        
+
         # 3. Duration (Merge start/end if duration missing)
         duration = j.get("duration")
         if not duration:
             start = j.get("start_date") or j.get("start") or ""
             end = j.get("end_date") or j.get("end") or "Present"
-            if start: duration = f"{start} - {end}"
-            else: duration = ""
-            
+            if start:
+                duration = f"{start} - {end}"
+            else:
+                duration = ""
+
         # 4. Description (Merge highlights if description missing)
         desc = j.get("description") or j.get("summary") or ""
         if not desc:
