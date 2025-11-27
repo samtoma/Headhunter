@@ -4,6 +4,11 @@ from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.sql import func
 from app.models.models import CV, ParsedCV
 from app.services.parser import extract_text, parse_cv_with_llm
+from fastapi.concurrency import run_in_threadpool
+import asyncio
+
+# Limit concurrency to avoid DB pool exhaustion or API rate limits
+CONCURRENCY_LIMIT = 5
 
 logger = logging.getLogger(__name__)
 
@@ -43,7 +48,7 @@ def clean_and_dump(data, keys):
     return json.dumps([])
 
 
-def process_cv_background(cv_id: int, engine):
+async def process_cv_background(cv_id: int, engine):
     """Background task that creates its own DB session.
     `engine` is the SQLAlchemy engine (passed via `db.get_bind()` from the request).
     """
@@ -57,12 +62,13 @@ def process_cv_background(cv_id: int, engine):
             logger.warning(f"CV with ID {cv_id} not found.")
             return
 
-        full_text = extract_text(cv.filepath)
+        # Offload blocking file I/O to threadpool
+        full_text = await run_in_threadpool(extract_text, cv.filepath)
         if not full_text:
             logger.warning(f"No text extracted for CV ID {cv_id}.")
             return
 
-        data = parse_cv_with_llm(full_text, cv.filename)
+        data = await parse_cv_with_llm(full_text, cv.filename)
         logger.info(f"Parsed Data for CV {cv_id}: Keys={list(data.keys())}")
 
         parsed_record = db.query(ParsedCV).filter(ParsedCV.cv_id == cv.id).first()
@@ -97,3 +103,19 @@ def process_cv_background(cv_id: int, engine):
         logger.error(f"Error processing CV {cv_id}: {e}")
     finally:
         db.close()
+
+async def process_cv_batch_background(cv_ids: list[int], engine):
+    """
+    Process a batch of CVs concurrently using a semaphore to limit parallelism.
+    This ensures we don't overwhelm the DB or OpenAI API.
+    """
+    semaphore = asyncio.Semaphore(CONCURRENCY_LIMIT)
+    logger.info(f"🚀 Starting batch processing for {len(cv_ids)} CVs with concurrency {CONCURRENCY_LIMIT}")
+
+    async def sem_task(cv_id):
+        async with semaphore:
+            await process_cv_background(cv_id, engine)
+
+    # Run all tasks concurrently
+    await asyncio.gather(*[sem_task(cv_id) for cv_id in cv_ids])
+    logger.info(f"✅ Batch processing complete for {len(cv_ids)} CVs")

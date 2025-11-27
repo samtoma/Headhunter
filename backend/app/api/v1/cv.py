@@ -6,9 +6,10 @@ from pathlib import Path
 import os
 from typing import Optional
 from sqlalchemy.orm import Session
-from app.core.database import get_db
+from app.core.database import get_db, engine
 from app.models import models
-from app.services.parse_service import process_cv_background
+from app.services.parse_service import process_cv_background, process_cv_batch_background
+import shutil
 
 router = APIRouter(prefix="/cv", tags=["CV"])
 RAW_DIR = Path("data/raw")
@@ -46,10 +47,11 @@ async def upload_bulk(
             if job:
                 db.add(models.Application(cv_id=cv.id, job_id=job_id, status="New"))
 
-        # Schedule parsing with a fresh engine/session
-        background_tasks.add_task(process_cv_background, cv.id, db.get_bind())
-
     db.commit()  # single commit for all inserts
+
+    # Schedule parsing with a fresh engine/session for all uploaded CVs
+    background_tasks.add_task(process_cv_batch_background, created_ids, engine)
+
     return {"ids": created_ids, "status": "queued"}
 
 @router.delete("/{cv_id}")
@@ -81,14 +83,23 @@ def reprocess_cv(cv_id: int, background_tasks: BackgroundTasks, db: Session = De
     return {"status": "re-queued", "id": cv_id}
 
 @router.post("/reprocess_bulk")
-def reprocess_bulk(cv_ids: List[int] = Body(...), background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
+def reprocess_bulk(background_tasks: BackgroundTasks, db: Session = Depends(get_db), cv_ids: List[int] = Body(...)):
     # Reset parsed flag for each CV
     for cv_id in cv_ids:
         cv = db.query(models.CV).filter(models.CV.id == cv_id).first()
         if cv:
             cv.is_parsed = False
     db.commit()
-    # Queue parsing for each CV using fresh engine/session
-    for cv_id in cv_ids:
-        background_tasks.add_task(process_cv_background, cv_id, db.get_bind())
+    # Queue parsing for all CVs in a single batch task
+    # Instead of adding N tasks (which run sequentially), we add ONE task that runs them concurrently
+    background_tasks.add_task(process_cv_batch_background, cv_ids, engine)
     return {"status": "re-queued", "ids": cv_ids}
+
+@router.get("/status")
+def get_processing_status(db: Session = Depends(get_db)):
+    """
+    Returns a list of IDs for CVs that are currently processing (is_parsed=False).
+    Used for lightweight polling.
+    """
+    processing_cvs = db.query(models.CV.id).filter(models.CV.is_parsed == False).all()
+    return {"processing_ids": [cv.id for cv in processing_cvs]}

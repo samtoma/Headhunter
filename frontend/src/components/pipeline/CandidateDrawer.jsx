@@ -138,7 +138,7 @@ const CandidateDrawer = ({ cv, onClose, updateApp, updateProfile, jobs, selected
                         )}
 
                         {view === "pdf" && (
-                            <iframe src={`/api/files/${cv.filename}`} className="w-full h-full rounded-xl border border-slate-200 shadow-sm bg-white min-h-[800px]" title="PDF"></iframe>
+                            <iframe src={`/api/files/${cv.filepath ? cv.filepath.split(/[/\\]/).pop() : cv.filename}`} className="w-full h-full rounded-xl border border-slate-200 shadow-sm bg-white min-h-[800px]" title="PDF"></iframe>
                         )}
 
                         {view === "parsed" && (

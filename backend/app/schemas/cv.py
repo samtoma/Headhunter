@@ -94,6 +94,13 @@ class CVResponse(BaseModel):
     years_since_upload: float = 0.0
     model_config = ConfigDict(from_attributes=True)
 
+class PaginatedResponse(BaseModel):
+    items: List[CVResponse]
+    total: int
+    page: int
+    pages: int
+    limit: int
+
 class UpdateProfile(BaseModel):
     current_salary: Optional[str] = None
     expected_salary: Optional[str] = None

@@ -1,18 +1,38 @@
-from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Text, Boolean
+from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Text, Boolean, Enum
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
 from app.core.database import Base
+import enum
 
-# --- NEW MODEL ---
+class UserRole(str, enum.Enum):
+    ADMIN = "admin"
+    RECRUITER = "recruiter"
+
 class Company(Base):
-    __tablename__ = "company"
+    __tablename__ = "companies"
     id = Column(Integer, primary_key=True, index=True)
-    name = Column(String, default="TPAY")
+    name = Column(String, nullable=True) # Can be inferred from domain or set manually
+    domain = Column(String, unique=True, index=True, nullable=False) # e.g. "tpaymobile.com"
+    website = Column(String, nullable=True)
     industry = Column(String, nullable=True)
-    description = Column(Text, nullable=True) # "Leading payments provider in MEA..."
-    culture = Column(Text, nullable=True)     # "Performance driven, agile..."
-    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
-# -----------------
+    description = Column(Text, nullable=True)
+    culture = Column(Text, nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    
+    users = relationship("User", back_populates="company")
+    jobs = relationship("Job", back_populates="company")
+
+class User(Base):
+    __tablename__ = "users"
+    id = Column(Integer, primary_key=True, index=True)
+    email = Column(String, unique=True, index=True, nullable=False)
+    hashed_password = Column(String, nullable=False)
+    is_active = Column(Boolean, default=True)
+    role = Column(String, default=UserRole.RECRUITER) # "admin" or "recruiter"
+    company_id = Column(Integer, ForeignKey("companies.id"), nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    
+    company = relationship("Company", back_populates="users")
 
 class Job(Base):
     __tablename__ = "jobs"
@@ -23,7 +43,10 @@ class Job(Base):
     required_experience = Column(Integer, default=0)
     skills_required = Column(Text, nullable=True)
     is_active = Column(Boolean, default=True)
+    company_id = Column(Integer, ForeignKey("companies.id"), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
+    
+    company = relationship("Company", back_populates="jobs")
     applications = relationship("Application", back_populates="job", cascade="all, delete-orphan")
 
 class CV(Base):
@@ -33,6 +56,8 @@ class CV(Base):
     filepath = Column(String, nullable=False)
     uploaded_at = Column(DateTime(timezone=True), server_default=func.now())
     is_parsed = Column(Boolean, default=False)
+    company_id = Column(Integer, ForeignKey("companies.id"), nullable=True)
+    
     applications = relationship("Application", back_populates="cv", cascade="all, delete-orphan")
     parsed_data = relationship("ParsedCV", back_populates="cv", uselist=False, cascade="all, delete-orphan")
 

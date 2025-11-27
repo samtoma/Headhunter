@@ -1,5 +1,5 @@
 
-import { BrainCircuit, LayoutDashboard, Briefcase as BriefcaseIcon, Archive, Layers, Lock, Plus, Settings } from 'lucide-react'
+import { BrainCircuit, LayoutDashboard, Briefcase as BriefcaseIcon, Archive, Layers, Lock, Plus, Settings, LogOut } from 'lucide-react'
 
 const Sidebar = ({
     currentView,
@@ -11,7 +11,8 @@ const Sidebar = ({
     selectedJob,
     handleSidebarDrop,
     setShowNewJobModal,
-    setShowCompanyModal
+    setShowCompanyModal,
+    onLogout
 }) => {
     return (
         <div className="w-64 bg-white border-r border-slate-200 flex flex-col shrink-0 z-20">
@@ -61,6 +62,7 @@ const Sidebar = ({
             </div>
             <div className="p-4 border-t border-slate-100">
                 <button onClick={() => setShowCompanyModal(true)} className="w-full flex items-center gap-2 p-2.5 text-sm text-slate-500 hover:text-slate-700 hover:bg-slate-50 rounded-lg transition"><Settings size={16} /> Settings & Company</button>
+                <button onClick={onLogout} className="w-full flex items-center gap-2 p-2.5 text-sm text-red-500 hover:text-red-700 hover:bg-red-50 rounded-lg transition mt-1"><LogOut size={16} /> Sign Out</button>
             </div>
         </div>
     )

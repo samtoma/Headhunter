@@ -8,34 +8,17 @@ import docx
 
 logger = logging.getLogger(__name__)
 
+from fastapi.concurrency import run_in_threadpool
+
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-5-mini-2025-08-07")
 
-if OPENAI_API_KEY:
-    from openai import OpenAI
-    client = OpenAI(api_key=OPENAI_API_KEY)
-    logger.info("AI Engine: OpenAI Cloud (%s)", OPENAI_MODEL)
-else:
-    from llama_cpp import Llama
-    logger.info("AI Engine: Llama 3.1 (Local GPU Mode)")
-    _llm = None
-    MODEL_PATH = "/app/models/llama-3.1-8b-instruct-q4_k_m.gguf"
+if not OPENAI_API_KEY:
+    logger.warning("OPENAI_API_KEY not set. AI features will fail.")
 
-def get_local_llm():
-    global _llm
-    if _llm is None:
-        logger.info("Loading Local Llama Model...")
-        try:
-            _llm = Llama(
-                model_path=MODEL_PATH,
-                n_ctx=8192,
-                n_threads=4,
-                n_gpu_layers=-1,
-                verbose=False
-            )
-        except Exception as e:
-            logger.error("Failed to load local model: %s", e)
-    return _llm
+from openai import AsyncOpenAI
+client = AsyncOpenAI(api_key=OPENAI_API_KEY)
+logger.info("AI Engine: OpenAI Cloud (%s)", OPENAI_MODEL)
 
 def extract_text(path: str) -> str:
     p = Path(path)
@@ -162,7 +145,7 @@ def normalize_education(edu: List[Dict]) -> str:
         })
     return json.dumps(cleaned)
 
-def generate_job_metadata(title: str, company_context: Dict[str, str] = None) -> Dict[str, Any]:
+async def generate_job_metadata(title: str, company_context: Dict[str, str] = None) -> Dict[str, Any]:
     context_str = ""
     if company_context:
         name = company_context.get("name", "Our Company")
@@ -191,14 +174,14 @@ def generate_job_metadata(title: str, company_context: Dict[str, str] = None) ->
                 kwargs["temperature"] = 1.0
                 kwargs["response_format"] = {"type": "json_object"}
             logger.debug("Generating job metadata for '%s' using %s", title, OPENAI_MODEL)
-            completion = client.chat.completions.create(**kwargs)
+            completion = await client.chat.completions.create(**kwargs)
             return json.loads(completion.choices[0].message.content)
         except Exception as e:
             logger.error("OpenAI Error while generating job metadata: %s", e)
             return {}
     return {}
 
-def parse_cv_with_llm(text: str, filename: str) -> Dict[str, Any]:
+async def parse_cv_with_llm(text: str, filename: str) -> Dict[str, Any]:
     truncated_text = text[:25000]
     logger.debug(
         "Starting parse for '%s' (original len=%d, truncated len=%d)",
@@ -212,10 +195,10 @@ def parse_cv_with_llm(text: str, filename: str) -> Dict[str, Any]:
     1. **summary**: A short 2-3 sentence professional summary.
     2. **job_history**: List of jobs (Title, Company, Duration, Description).
     3. **bachelor_year**: Year of Bachelor's graduation (Int).
-    4. **experience_years**: Total years of experience, based on actual working years (most propably will be after graduation) (Int).
+    4. **experience_years**: Total years of experience, based on actual working years (most propably will be after graduation, you have to count the years spent in each job) (Int).
     5. **personal**: Address, Age, Marital Status, Military Status.
     6. **contact**: Emails, Phones, Social Links.
-    7. **skills**: Technical & Soft Skills.
+    7. **skills**: Technical & Soft Skills, the key word should not exceed 2 words.
     8. **social_link**: linkedin link extraction, Github, any url refered to in the cv
     
     JSON Structure:
@@ -253,7 +236,7 @@ def parse_cv_with_llm(text: str, filename: str) -> Dict[str, Any]:
                 kwargs["response_format"] = {"type": "json_object"}
             
             logger.debug("Calling OpenAI for '%s' using model %s", filename, OPENAI_MODEL)
-            completion = client.chat.completions.create(**kwargs)
+            completion = await client.chat.completions.create(**kwargs)
             raw = completion.choices[0].message.content
             logger.debug("Raw response received for '%s' (%d chars)", filename, len(raw or ""))
             data = json.loads(repair_json(raw))

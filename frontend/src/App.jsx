@@ -2,9 +2,11 @@
  * Copyright (c) 2025 Headhunter AI Engineering Team
  */
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import axios from 'axios'
 import { RefreshCw } from 'lucide-react'
+import { FixedSizeGrid as Grid } from 'react-window'
+import AutoSizer from 'react-virtualized-auto-sizer'
 import { useHeadhunterData } from './hooks/useHeadhunterData'
 import { safeList } from './utils/helpers'
 
@@ -19,9 +21,23 @@ import CreateJobModal from './components/modals/CreateJobModal'
 import CompanyProfileModal from './components/modals/CompanyProfileModal'
 import UploadModal from './components/modals/UploadModal'
 import BulkAssignModal from './components/modals/BulkAssignModal'
+import Login from './components/auth/Login'
+import Signup from './components/auth/Signup'
 
 function App() {
-    const { jobs, setJobs, profiles, setProfiles, fetchJobs, fetchProfiles } = useHeadhunterData()
+    const {
+        jobs, setJobs,
+        profiles, setProfiles,
+        fetchJobs, fetchProfiles,
+        loadMoreProfiles, hasMore, isFetchingMore,
+        search, setSearch,
+        sortBy, setSortBy,
+        setSelectedJobId
+    } = useHeadhunterData()
+
+    // Auth State
+    const [token, setToken] = useState(localStorage.getItem('token'))
+    const [authView, setAuthView] = useState("login")
 
     // UI State
     const [currentView, setCurrentView] = useState("dashboard")
@@ -29,7 +45,8 @@ function App() {
     const [selectedCv, setSelectedCv] = useState(null)
     const [viewMode, setViewMode] = useState("list")
     const [showArchived, setShowArchived] = useState(false)
-    const [searchTerm, setSearchTerm] = useState("")
+
+    // Removed local search/sort state in favor of hook state
 
     // Modal State
     const [showNewJobModal, setShowNewJobModal] = useState(false)
@@ -45,19 +62,20 @@ function App() {
     // Selection State
     const [selectedIds, setSelectedIds] = useState([])
 
+    // Sync selectedJob with hook
+    useEffect(() => {
+        setSelectedJobId(selectedJob?.id || null)
+    }, [selectedJob, setSelectedJobId])
+
     // --- Computed Data ---
     const displayedJobs = jobs.filter(j => showArchived ? !j.is_active : j.is_active)
 
     const filteredProfiles = useMemo(() => {
-        if (currentView === "dashboard") return []
-        return profiles.filter(cv => {
-            const term = searchTerm.toLowerCase()
-            const d = cv.parsed_data || {}
-            const matches = (d.name || "").toLowerCase().includes(term) || (d.last_job_title || "").toLowerCase().includes(term) || safeList(d.skills).join(" ").toLowerCase().includes(term)
-            if (!selectedJob) return matches
-            return matches && cv.applications?.some(a => a.job_id === selectedJob.id)
-        })
-    }, [profiles, searchTerm, selectedJob, currentView])
+        // Backend now handles filtering and sorting, so we just return profiles
+        // But we might still want to filter by selectedJob if the backend doesn't fully handle it yet
+        // The hook handles job_id param, so profiles should already be filtered by job if selectedJob is set.
+        return profiles
+    }, [profiles])
 
     // --- Actions ---
 
@@ -82,9 +100,9 @@ function App() {
             setShowBulkAssignModal(false)
             fetchProfiles()
             fetchJobs()
-        } catch (e) { 
+        } catch (e) {
             console.error(e);
-            alert("Bulk assign failed") 
+            alert("Bulk assign failed")
         }
     }
 
@@ -95,9 +113,9 @@ function App() {
             setProfiles(prev => prev.filter(p => !selectedIds.includes(p.id)))
             setSelectedIds([])
             fetchJobs()
-        } catch (e) { 
+        } catch (e) {
             console.error(e);
-            alert("Bulk delete failed") 
+            alert("Bulk delete failed")
         }
     }
 
@@ -105,12 +123,12 @@ function App() {
         if (!confirm(`Re-analyze ${selectedIds.length} candidates with AI? This may take a while.`)) return
         try {
             setProfiles(prev => prev.map(p => selectedIds.includes(p.id) ? { ...p, is_parsed: false } : p))
-            await Promise.all(selectedIds.map(id => axios.post(`/api/cv/${id}/reprocess`)))
+            await axios.post('/api/cv/reprocess_bulk', selectedIds)
             alert("Reprocessing started! Updates will appear as they finish.")
             setSelectedIds([])
-        } catch (e) { 
+        } catch (e) {
             console.error(e);
-            alert("Bulk reprocess failed") 
+            alert("Bulk reprocess failed")
         }
     }
 
@@ -129,9 +147,9 @@ function App() {
             await axios.post('/api/applications/', { cv_id: parseInt(cvId), job_id: targetJobId })
             fetchProfiles()
             fetchJobs()
-        } catch (e) { 
+        } catch (e) {
             console.error(e);
-            alert("Failed to assign candidate") 
+            alert("Failed to assign candidate")
         }
     }
 
@@ -149,9 +167,9 @@ function App() {
             setCurrentView("pipeline");
             setSelectedJob(newJob);
             fetchProfiles();
-        } catch (err) { 
+        } catch (err) {
             console.error(err);
-            alert("Failed to create job pipeline") 
+            alert("Failed to create job pipeline")
         }
     }
 
@@ -159,9 +177,9 @@ function App() {
         try {
             const res = await axios.patch(`/api/jobs/${job.id}`, { is_active: !job.is_active })
             setJobs(prev => prev.map(j => j.id === job.id ? res.data : j))
-        } catch (e) { 
+        } catch (e) {
             console.error(e);
-            alert("Failed to update status") 
+            alert("Failed to update status")
         }
     }
 
@@ -169,9 +187,9 @@ function App() {
         try {
             const res = await axios.patch(`/api/jobs/${id}`, data)
             setJobs(prev => prev.map(j => j.id === id ? res.data : j))
-        } catch (e) { 
+        } catch (e) {
             console.error(e);
-            alert("Failed to save job details") 
+            alert("Failed to save job details")
         }
     }
 
@@ -179,17 +197,23 @@ function App() {
         if (!files || files.length === 0) return
         setUploading(true)
         setShowUploadModal(false)
+        setUploadProgress(`Uploading ${files.length} files...`)
+
+        const formData = new FormData()
         for (let i = 0; i < files.length; i++) {
-            const file = files[i]
-            setUploadProgress(`Uploading ${i + 1}/${files.length}: ${file.name}...`)
-            const formData = new FormData()
-            formData.append('file', file)
-            if (jobId) formData.append('job_id', jobId)
-            try {
-                await axios.post('/api/cv/upload', formData)
-            } catch (err) { console.error(`Failed to upload ${file.name}`, err) }
+            formData.append('files', files[i])
         }
-        setUploadProgress("")
+        if (jobId) formData.append('job_id', jobId)
+
+        try {
+            await axios.post('/api/cv/upload_bulk', formData)
+            setUploadProgress("Upload complete!")
+            setTimeout(() => setUploadProgress(""), 2000)
+        } catch (err) {
+            console.error("Upload failed", err)
+            alert("Failed to upload files")
+        }
+
         setUploading(false)
         setUploadFiles(null)
         fetchProfiles()
@@ -198,35 +222,35 @@ function App() {
 
     const handleDeleteCV = async (e, id) => {
         e.stopPropagation(); if (!confirm("Delete candidate?")) return
-        try { 
-            await axios.delete(`/api/cv/${id}`); 
-            setProfiles(prev => prev.filter(p => p.id !== id)); 
-            if (selectedCv?.id === id) setSelectedCv(null); 
-            fetchJobs() 
-        } catch (err) { 
+        try {
+            await axios.delete(`/api/cv/${id}`);
+            setProfiles(prev => prev.filter(p => p.id !== id));
+            if (selectedCv?.id === id) setSelectedCv(null);
+            fetchJobs()
+        } catch (err) {
             console.error(err);
-            alert("Failed") 
+            alert("Failed")
         }
     }
 
     const handleReprocess = async (e, id) => {
-        e.stopPropagation(); 
-        try { 
-            await axios.post(`/api/cv/${id}/reprocess`); 
-            setProfiles(prev => prev.map(p => p.id === id ? { ...p, is_parsed: false } : p)) 
-        } catch (err) { 
+        e.stopPropagation();
+        try {
+            await axios.post(`/api/cv/${id}/reprocess`);
+            setProfiles(prev => prev.map(p => p.id === id ? { ...p, is_parsed: false } : p))
+        } catch (err) {
             console.error(err);
-            alert("Failed") 
+            alert("Failed")
         }
     }
 
     const handleUpdateProfile = async (id, data) => {
-        try { 
-            setProfiles(prev => prev.map(p => p.id === id ? { ...p, parsed_data: { ...p.parsed_data, ...data } } : p)); 
-            await axios.patch(`/api/profiles/${id}`, data) 
-        } catch (err) { 
+        try {
+            setProfiles(prev => prev.map(p => p.id === id ? { ...p, parsed_data: { ...p.parsed_data, ...data } } : p));
+            await axios.patch(`/api/profiles/${id}`, data)
+        } catch (err) {
             console.error(err);
-            fetchProfiles() 
+            fetchProfiles()
         }
     }
 
@@ -235,9 +259,9 @@ function App() {
     }
 
     const handleAssignJob = async (cvId, jobId) => {
-        try { await axios.post('/api/applications/', { cv_id: cvId, job_id: jobId }); fetchProfiles(); fetchJobs() } catch (e) { 
+        try { await axios.post('/api/applications/', { cv_id: cvId, job_id: jobId }); fetchProfiles(); fetchJobs() } catch (e) {
             console.error(e);
-            alert("Failed") 
+            alert("Failed")
         }
     }
 
@@ -254,6 +278,25 @@ function App() {
     const onDragStart = (e, id) => e.dataTransfer.setData("cvId", id)
     const onDrop = async (e, newStatus) => { const id = parseInt(e.dataTransfer.getData("cvId")); const cv = profiles.find(p => p.id === id); const app = cv?.applications.find(a => a.job_id === selectedJob.id); if (app) { setProfiles(prev => prev.map(p => { if (p.id !== id) return p; const newApps = p.applications.map(a => a.id === app.id ? { ...a, status: newStatus } : a); return { ...p, applications: newApps } })); await axios.patch(`/api/applications/${app.id}`, { status: newStatus }) } }
 
+    const handleLogin = (newToken) => {
+        setToken(newToken)
+        fetchJobs()
+        fetchProfiles()
+    }
+
+    const handleLogout = () => {
+        localStorage.removeItem('token')
+        setToken(null)
+        setAuthView("login")
+    }
+
+    if (!token) {
+        if (authView === "signup") {
+            return <Signup onLogin={handleLogin} onSwitchToLogin={() => setAuthView("login")} />
+        }
+        return <Login onLogin={handleLogin} onSwitchToSignup={() => setAuthView("signup")} />
+    }
+
     return (
         <div className="flex h-screen bg-[#F8FAFC] font-sans text-slate-800 overflow-hidden">
             <Sidebar
@@ -267,6 +310,7 @@ function App() {
                 handleSidebarDrop={handleSidebarDrop}
                 setShowNewJobModal={setShowNewJobModal}
                 setShowCompanyModal={setShowCompanyModal}
+                onLogout={handleLogout}
             />
 
             <div className="flex-1 flex flex-col h-full overflow-hidden bg-slate-50 relative">
@@ -291,31 +335,76 @@ function App() {
                             handleSelectAll={handleSelectAll}
                             selectedIds={selectedIds}
                             filteredProfiles={filteredProfiles}
-                            searchTerm={searchTerm}
-                            setSearchTerm={setSearchTerm}
+                            searchTerm={search}
+                            setSearchTerm={setSearch}
                             uploading={uploading}
                             performUpload={performUpload}
                             setUploadFiles={setUploadFiles}
                             setShowUploadModal={setShowUploadModal}
+                            sortBy={sortBy}
+                            setSortBy={setSortBy}
                         />
 
-                        <div className="flex-1 overflow-y-auto p-8">
+                        <div className="flex-1 overflow-hidden p-8">
                             {(viewMode === "list" || !selectedJob) ? (
-                                <div className="grid gap-4 grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 pb-20">
-                                    {filteredProfiles.map(cv =>
-                                        <CandidateCard
-                                            key={cv.id}
-                                            cv={cv}
-                                            onClick={() => setSelectedCv(cv)}
-                                            onDelete={handleDeleteCV}
-                                            onReprocess={handleReprocess}
-                                            status={selectedJob ? getStatus(cv) : null}
-                                            jobs={jobs}
-                                            selectable={!selectedJob}
-                                            selected={selectedIds.includes(cv.id)}
-                                            onSelect={() => toggleSelect(cv.id)}
-                                        />
-                                    )}
+                                <div className="h-full w-full">
+                                    <AutoSizer>
+                                        {({ height, width }) => {
+                                            const COLUMN_WIDTH = 320
+                                            const GAP = 16
+                                            const columnCount = Math.floor(width / (COLUMN_WIDTH + GAP)) || 1
+                                            const rowCount = Math.ceil(filteredProfiles.length / columnCount)
+
+                                            const Cell = ({ columnIndex, rowIndex, style }) => {
+                                                const index = rowIndex * columnCount + columnIndex
+                                                if (index >= filteredProfiles.length) return null
+                                                const cv = filteredProfiles[index]
+
+                                                // Adjust style for gap
+                                                const adjustedStyle = {
+                                                    ...style,
+                                                    left: style.left + GAP,
+                                                    top: style.top + GAP,
+                                                    width: style.width - GAP,
+                                                    height: style.height - GAP
+                                                }
+
+                                                return (
+                                                    <div style={adjustedStyle}>
+                                                        <CandidateCard
+                                                            cv={cv}
+                                                            onClick={() => setSelectedCv(cv)}
+                                                            onDelete={handleDeleteCV}
+                                                            onReprocess={handleReprocess}
+                                                            status={selectedJob ? getStatus(cv) : null}
+                                                            jobs={jobs}
+                                                            selectable={!selectedJob}
+                                                            selected={selectedIds.includes(cv.id)}
+                                                            onSelect={() => toggleSelect(cv.id)}
+                                                        />
+                                                    </div>
+                                                )
+                                            }
+
+                                            return (
+                                                <Grid
+                                                    columnCount={columnCount}
+                                                    columnWidth={(width - GAP) / columnCount}
+                                                    height={height}
+                                                    rowCount={rowCount}
+                                                    rowHeight={220}
+                                                    width={width}
+                                                    onItemsRendered={({ visibleRowStopIndex }) => {
+                                                        if (visibleRowStopIndex >= rowCount - 2 && hasMore && !isFetchingMore) {
+                                                            loadMoreProfiles()
+                                                        }
+                                                    }}
+                                                >
+                                                    {Cell}
+                                                </Grid>
+                                            )
+                                        }}
+                                    </AutoSizer>
                                 </div>
                             ) : (
                                 <div className="flex gap-6 overflow-x-auto pb-4 h-full">{COLUMNS.map(col => (<div key={col} onDragOver={e => e.preventDefault()} onDrop={e => onDrop(e, col)} className="min-w-[320px] bg-slate-100 rounded-xl flex flex-col h-full border border-slate-200/60"><div className="p-3 border-b border-slate-200/50 bg-slate-50/50 rounded-t-xl flex justify-between font-bold text-xs text-slate-600 uppercase"><span>{col}</span><span className="bg-white px-2 py-0.5 rounded">{filteredProfiles.filter(p => getStatus(p) === col).length}</span></div><div className="flex-1 overflow-y-auto p-3 space-y-2">{filteredProfiles.filter(p => getStatus(p) === col).map(cv => <div key={cv.id} draggable onDragStart={e => onDragStart(e, cv.id)}><CandidateCard cv={cv} onClick={() => setSelectedCv(cv)} onDelete={handleDeleteCV} onReprocess={handleReprocess} compact jobs={jobs} /></div>)}</div></div>))}</div>
