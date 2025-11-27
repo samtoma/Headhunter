@@ -49,8 +49,7 @@ class ApplicationOut(BaseModel):
     expected_salary: Optional[str] = None
     notes: Optional[str] = None
     applied_at: datetime
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 class ParsedCVOut(BaseModel):
     name: Optional[str] = None
@@ -75,8 +74,7 @@ class ParsedCVOut(BaseModel):
     current_salary: Optional[str] = None
     expected_salary: Optional[str] = None
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
     # Apply robust validator to all list fields
     @field_validator('skills', 'social_links', 'email', 'phone', 'education', 'job_history', mode='before')
@@ -94,8 +92,7 @@ class CVResponse(BaseModel):
     projected_experience: Optional[int] = 0
     is_outdated: bool = False
     years_since_upload: float = 0.0
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 class UpdateProfile(BaseModel):
     current_salary: Optional[str] = None

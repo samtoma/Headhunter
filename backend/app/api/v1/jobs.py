@@ -72,8 +72,7 @@ class CompanySchema(BaseModel):
     industry: Optional[str] = None
     description: Optional[str] = None
     culture: Optional[str] = None
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 # --- Endpoints ---
 
