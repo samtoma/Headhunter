@@ -94,7 +94,7 @@ def update_company_by_id(
     db.refresh(company)
     return company
 
-@router.get("/{company_id}/users", response_model=list[schemas.UserOut]) # Assuming UserOut exists in schemas/company or similar
+@router.get("/{company_id}/users", response_model=list[UserOut])
 def get_company_users(
     company_id: int,
     db: Session = Depends(get_db),
@@ -106,7 +106,7 @@ def get_company_users(
     users = db.query(models.User).filter(models.User.company_id == company_id).all()
     return users
 
-@router.get("/{company_id}/jobs", response_model=list[schemas.JobOut]) # Assuming JobOut is available
+@router.get("/{company_id}/jobs", response_model=list[JobOut])
 def get_company_jobs(
     company_id: int,
     db: Session = Depends(get_db),
