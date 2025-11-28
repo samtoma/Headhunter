@@ -92,6 +92,12 @@ const Sidebar = ({
                     </button>
                 )}
                 <button onClick={onLogout} className="w-full flex items-center gap-2 p-2.5 text-sm text-red-500 hover:text-red-700 hover:bg-red-50 rounded-lg transition mt-1"><LogOut size={16} /> Sign Out</button>
+
+                {/* Version & Attribution */}
+                <div className="mt-4 pt-4 border-t border-slate-100 text-center space-y-1">
+                    <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">v1.4.0</div>
+                    <div className="text-[9px] text-slate-400">Powered by ChatGPT 5.1</div>
+                </div>
             </div>
         </div>
     )
