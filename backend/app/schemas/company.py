@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from typing import Optional
 
 class CompanyBase(BaseModel):
@@ -7,6 +7,25 @@ class CompanyBase(BaseModel):
     description: Optional[str] = None
     culture: Optional[str] = None
     interview_stages: Optional[str] = None # JSON string
+    
+    # LinkedIn-style enhanced fields
+    tagline: Optional[str] = None
+    founded_year: Optional[int] = None
+    company_size: Optional[str] = None
+    headquarters: Optional[str] = None
+    company_type: Optional[str] = None
+    specialties: Optional[str] = None  # JSON string
+    mission: Optional[str] = None
+    vision: Optional[str] = None
+    values: Optional[str] = None  # JSON string
+    products_services: Optional[str] = None
+    target_market: Optional[str] = None
+    competitive_advantage: Optional[str] = None
+    social_linkedin: Optional[str] = None
+    social_twitter: Optional[str] = None
+    social_facebook: Optional[str] = None
+    logo_url: Optional[str] = None
+    website: Optional[str] = None
 
 class CompanyUpdate(CompanyBase):
     pass
@@ -17,5 +36,4 @@ class CompanyOut(CompanyBase):
     user_count: int = 0
     job_count: int = 0
     
-    class Config:
-        orm_mode = True
+    model_config = ConfigDict(from_attributes=True)

@@ -191,10 +191,10 @@ const CandidateDrawer = ({ cv, onClose, updateApp, updateProfile, jobs, selected
         <div className="fixed inset-0 z-50 flex justify-end isolate">
             <div className="absolute inset-0 bg-slate-900/30 backdrop-blur-[2px] transition-opacity" onClick={onClose}></div>
 
-            <div className="relative w-full max-w-[90rem] bg-[#F8FAFC] h-full shadow-2xl flex flex-col animate-slide-in-right overflow-hidden border-l border-slate-200">
+            <div className="relative w-full md:max-w-[90rem] bg-[#F8FAFC] h-full shadow-2xl flex flex-col animate-slide-in-right overflow-hidden md:border-l border-slate-200">
 
-                <div className="bg-white px-8 py-5 border-b border-slate-200 flex justify-between items-start shrink-0">
-                    <div className="flex-1">
+                <div className="bg-white px-4 md:px-8 py-4 md:py-5 border-b border-slate-200 flex justify-between items-start shrink-0">
+                    <div className="flex-1 min-w-0">
                         {isEditing ? (
                             <input className="text-2xl font-extrabold text-slate-900 border-b border-slate-300 focus:border-indigo-500 outline-none w-full" value={editData.name} onChange={e => setEditData({ ...editData, name: e.target.value })} />
                         ) : (

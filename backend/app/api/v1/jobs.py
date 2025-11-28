@@ -82,11 +82,14 @@ class CompanySchema(BaseModel):
 # 2. ANALYZE (With Company Context)
 @router.post("/analyze", response_model=Dict[str, Any])
 async def analyze_job_request(
-    title: str = Body(..., embed=True), 
+    title: str = Body(..., embed=True),
+    location: Optional[str] = Body(None),
+    employment_type: Optional[str] = Body(None),
+    fine_tuning: Optional[str] = Body(None),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """AI Endpoint to generate job description and skills from a title."""
+    """AI Endpoint to generate comprehensive job description from a title."""
     
     # Fetch Company Context from current user
     company = current_user.company
@@ -95,10 +98,62 @@ async def analyze_job_request(
         context = {
             "name": company.name,
             "description": company.description,
-            "culture": company.culture
+            "culture": company.culture,
+            "mission": company.mission,
+            "values": company.values
         }
     
-    return await generate_job_metadata(title, context)
+    return await generate_job_metadata(
+        title=title,
+        company_context=context,
+        fine_tuning=fine_tuning,
+        location=location,
+        employment_type=employment_type
+    )
+
+@router.post("/{job_id}/regenerate", response_model=Dict[str, Any])
+async def regenerate_job_description(
+    job_id: int,
+    fine_tuning: Optional[str] = Body(None),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Regenerate job description with optional fine-tuning instructions"""
+    
+    # Get existing job
+    job = db.query(Job).filter(Job.id == job_id, Job.company_id == current_user.company_id).first()
+    if not job:
+        raise HTTPException(404, "Job not found")
+    
+    # Get company context
+    company = current_user.company
+    context = {}
+    if company:
+        context = {
+            "name": company.name,
+            "description": company.description,
+            "culture": company.culture,
+            "mission": company.mission,
+            "values": company.values
+        }
+    
+    # Generate new description
+    new_data = await generate_job_metadata(
+        title=job.title,
+        company_context=context,
+        fine_tuning=fine_tuning,
+        location=job.location,
+        employment_type=job.employment_type
+    )
+    
+    # Update job with new data
+    for key, value in new_data.items():
+        if value is not None and hasattr(job, key):
+            setattr(job, key, value)
+    
+    db.commit()
+    db.refresh(job)
+    return new_data
 
 @router.post("/matches", response_model=List[CandidateMatch])
 def match_candidates_for_new_job(

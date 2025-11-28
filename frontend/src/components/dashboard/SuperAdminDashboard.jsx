@@ -3,7 +3,7 @@ import axios from 'axios'
 import { Building2, Users, TrendingUp, Search, Edit2, Check, X, ArrowLeft } from 'lucide-react'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
 
-const SuperAdminDashboard = () => {
+const SuperAdminDashboard = ({ onOpenMobileSidebar }) => {
     const [companies, setCompanies] = useState([])
     const [loading, setLoading] = useState(true)
     const [editingId, setEditingId] = useState(null)
@@ -60,7 +60,7 @@ const SuperAdminDashboard = () => {
             const [usersRes, jobsRes, logsRes] = await Promise.all([
                 axios.get(`/api/companies/${company.id}/users`),
                 axios.get(`/api/companies/${company.id}/jobs`),
-                axios.get(`/api/logs/company/${company.id}`)
+                axios.get(`/api/logs/${company.id}`)
             ])
             setCompanyUsers(usersRes.data)
             setCompanyJobs(jobsRes.data)
@@ -72,7 +72,7 @@ const SuperAdminDashboard = () => {
 
     const handleRoleChange = async (userId, newRole) => {
         try {
-            await axios.patch(`/api/users/${userId}`, { role: newRole })
+            await axios.patch(`/api/users/${userId}/role`, { role: newRole })
             setCompanyUsers(prev => prev.map(u => u.id === userId ? { ...u, role: newRole } : u))
         } catch (err) {
             console.error("Failed to update role", err)
@@ -106,7 +106,7 @@ const SuperAdminDashboard = () => {
                         <div className="text-2xl font-bold">{companyJobs.length}</div>
                     </div>
                     <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
-                        <div className="text-sm text-slate-500 mb-1">Recent Activities</div>
+                        <div className="text-sm text-slate-500 mb-1">Total Activity</div>
                         <div className="text-2xl font-bold">{companyLogs.length}</div>
                     </div>
                 </div>
@@ -157,6 +157,7 @@ const SuperAdminDashboard = () => {
                                 >
                                     <option value="admin">Admin</option>
                                     <option value="recruiter">Recruiter</option>
+                                    <option value="hiring_manager">Hiring Manager</option>
                                 </select>
                             </td>
                             <td className="p-4 text-right text-slate-400">
@@ -260,10 +261,20 @@ const SuperAdminDashboard = () => {
 
     // --- MAIN DASHBOARD ---
     return (
-        <div className="p-8 h-full overflow-y-auto">
-            <div className="mb-8">
-                <h1 className="text-2xl font-bold text-slate-900 mb-2">Global Dashboard</h1>
-                <p className="text-slate-500">Manage all registered companies and view platform metrics.</p>
+        <div className="p-4 md:p-8 h-full overflow-y-auto">
+            <div className="mb-8 flex items-center gap-3">
+                <button
+                    onClick={onOpenMobileSidebar}
+                    className="md:hidden p-2 -ml-2 text-slate-600 hover:bg-slate-100 rounded-lg transition"
+                >
+                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                    </svg>
+                </button>
+                <div>
+                    <h1 className="text-2xl font-bold text-slate-900 mb-2">Global Dashboard</h1>
+                    <p className="text-slate-500">Manage all registered companies and view platform metrics.</p>
+                </div>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">

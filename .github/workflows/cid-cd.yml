@@ -63,7 +63,7 @@ jobs:
 
   build-and-push:
     needs: [test-backend, test-frontend]
-    if: github.ref == 'refs/heads/main'
+    if: github.event_name == 'push'  # Build on all pushes, but not pull requests
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3

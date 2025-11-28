@@ -19,6 +19,25 @@ class Company(Base):
     description = Column(Text, nullable=True)
     culture = Column(Text, nullable=True)
     interview_stages = Column(Text, nullable=True) # JSON string of stages and fields
+    
+    # LinkedIn-style enhanced fields
+    tagline = Column(String, nullable=True)  # Short company tagline
+    founded_year = Column(Integer, nullable=True)  # Year founded
+    company_size = Column(String, nullable=True)  # e.g. "51-200 employees"
+    headquarters = Column(String, nullable=True)  # HQ location
+    company_type = Column(String, nullable=True)  # Private, Public, Startup, etc.
+    specialties = Column(Text, nullable=True)  # JSON array of specialties
+    mission = Column(Text, nullable=True)  # Mission statement
+    vision = Column(Text, nullable=True)  # Vision statement
+    values = Column(Text, nullable=True)  # JSON array of core values
+    products_services = Column(Text, nullable=True)  # Detailed products/services
+    target_market = Column(Text, nullable=True)  # Target market description
+    competitive_advantage = Column(Text, nullable=True)  # What makes them unique
+    social_linkedin = Column(String, nullable=True)  # LinkedIn URL
+    social_twitter = Column(String, nullable=True)  # Twitter URL
+    social_facebook = Column(String, nullable=True)  # Facebook URL
+    logo_url = Column(String, nullable=True)  # Company logo URL
+    
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     
     users = relationship("User", back_populates="company")
@@ -61,6 +80,20 @@ class Job(Base):
     skills_required = Column(Text, nullable=True)
     is_active = Column(Boolean, default=True)
     company_id = Column(Integer, ForeignKey("companies.id"), nullable=True)
+    
+    # Enhanced job description fields
+    location = Column(String, nullable=True)  # e.g. "Remote", "New York, NY"
+    employment_type = Column(String, nullable=True)  # Full-time, Part-time, Contract
+    salary_range = Column(String, nullable=True)  # e.g. "$80k-$120k"
+    responsibilities = Column(Text, nullable=True)  # JSON array of responsibilities
+    qualifications = Column(Text, nullable=True)  # JSON array of required qualifications
+    preferred_qualifications = Column(Text, nullable=True)  # JSON array of nice-to-haves
+    benefits = Column(Text, nullable=True)  # JSON array of benefits
+    team_info = Column(Text, nullable=True)  # Information about the team
+    growth_opportunities = Column(Text, nullable=True)  # Career growth description
+    application_process = Column(Text, nullable=True)  # Description of hiring process
+    remote_policy = Column(String, nullable=True)  # Remote work policy
+    
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     
     company = relationship("Company", back_populates="jobs")

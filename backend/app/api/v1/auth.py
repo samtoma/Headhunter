@@ -104,7 +104,6 @@ def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(), db:
         "company_name": user.company.name if user.company else None,
         "is_new_company": False
     }
-    return {"access_token": access_token, "token_type": "bearer"}
 
 @router.post("/send-verification")
 async def send_verification(email: str, db: Session = Depends(get_db)):
