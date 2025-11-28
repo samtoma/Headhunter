@@ -15,7 +15,7 @@ The solution is built as a containerized microservices architecture, optimized f
 | **Frontend** | React 18, Vite, Tailwind | Responsive UI, Kanban Boards, Real-time Dashboards. |
 | **Backend** | FastAPI (Python 3.13) | API Logic, AI Orchestration, PDF Parsing. |
 | **Database** | PostgreSQL 15 | Relational data (Candidates, Jobs, Applications). |
-| **AI Engine** | OpenAI / Llama 3.1 | Resume parsing, Job Description generation, Matching. |
+| **AI Engine** | OpenAI GPT-4o-mini | Resume parsing, Job Description generation, Company profiling, Matching. |
 | **Vector DB** | ChromaDB | (Infrastructure Ready) Stores embeddings for semantic search. |
 | **Storage** | Local Filesystem | Stores raw PDF/DOCX files (`/data/raw`). |
 
@@ -24,7 +24,7 @@ The solution is built as a containerized microservices architecture, optimized f
 Headhunter/
 ├── backend/                 # FastAPI Application
 │   ├── app/
-│   │   ├── api/             # REST Endpoints (Jobs, CVs, Profiles)
+│   │   ├── api/             # REST Endpoints (Jobs, CVs, Profiles, Company)
 │   │   ├── core/            # DB Config & Settings
 │   │   ├── models/          # SQLAlchemy Database Models
 │   │   ├── schemas/         # Pydantic Data Schemas
@@ -47,42 +47,70 @@ Headhunter/
 
 ## ✨ Feature Deep Dive
 
-### 1. 🔐 Enterprise Security & SSO
+### 1. 🏢 Multi-Company Support & Data Isolation
+* **Automatic Company Creation:** Companies are automatically created based on email domain during signup.
+* **First User = Admin:** The first user from a domain becomes the company admin with full permissions.
+* **Complete Data Isolation:** Jobs, candidates, and applications are strictly isolated per company.
+* **Role-Based Access Control (RBAC):** Granular permissions for Admins, Recruiters, and Super Admins.
+* **Super Admin Dashboard:** Platform-wide view to manage all companies, users, and jobs.
+
+### 2. 🧠 AI-Powered Company Profiling (LinkedIn-Style)
+* **Intelligent Website Scraping:** AI automatically extracts comprehensive company information from your website.
+* **Multi-Page Analysis:** Scrapes main page, about page, careers page, and more for complete data.
+* **16 LinkedIn-Style Fields:**
+  - **Basic Info:** Name, Tagline, Industry, Founded Year, Company Size, Headquarters, Company Type
+  - **About:** Description, Mission, Vision, Culture, Core Values
+  - **Business:** Products/Services, Target Market, Competitive Advantage, Specialties
+  - **Social:** LinkedIn, Twitter, Facebook, Logo URL
+* **Smart Metadata Extraction:** Reads JSON-LD structured data and meta tags for accurate founding dates and employee counts.
+* **Regeneration with Fine-Tuning:** Re-extract company data anytime with custom AI instructions for tailored results.
+
+### 3. 🚀 Comprehensive Job Description Generation
+* **11 Detailed Fields:**
+  - **Details:** Location, Employment Type, Salary Range
+  - **Content:** Responsibilities, Qualifications, Preferred Qualifications
+  - **Culture:** Benefits, Team Info, Growth Opportunities, Application Process, Remote Policy
+* **Company Context-Aware:** AI uses your company's mission, values, and culture to create authentic job postings.
+* **Fine-Tuning Support:** Customize job descriptions with specific instructions (e.g., "emphasize remote-first culture").
+* **Regeneration:** Update job descriptions anytime with new AI-generated content.
+
+### 4. 🔐 Enterprise Security & SSO
 * **Microsoft SSO Integration:** Securely log in using your corporate Microsoft account (Azure AD).
 * **Email Verification:** Automated email verification flow to ensure user authenticity.
-* **Role-Based Access:** Granular permissions for Admins, Recruiters, and Hiring Managers.
+* **Secure Authentication:** JWT-based authentication with automatic token refresh.
 
-### 2. 🧠 Context-Aware AI Engine
-* **Dual-Mode Processing:** Seamlessly switches between **OpenAI (GPT-5-mini)** for speed/accuracy and **Local Llama 3.1** for total privacy.
-* **Company Profile Brain:** Define your organization's industry ("Fintech"), culture ("Agile"), and values in the settings. The AI reads this context to tailor every generated job description to sound like *your* company.
+### 5. 🎯 Context-Aware AI Engine
+* **OpenAI GPT-4o-mini:** Optimized for speed, accuracy, and comprehensive data extraction.
+* **Company Profile Brain:** Define your organization's industry, culture, mission, and values - the AI reads this context to tailor every interaction.
 * **Smart Contact Extraction:** Uses advanced normalization logic to extract Phone Numbers and Emails even from poorly formatted resumes.
 * **Hidden Link Detection:** Deep-scans PDF metadata to find "Click Here" links that point to LinkedIn or GitHub profiles.
 
-### 3. 🚀 Intelligent Pipeline Management
-* **Smart Wizard:** Create a job by simply typing a title (e.g., "Senior DevOps"). The AI generates a professional description, required skills, and experience level automatically.
+### 6. � Intelligent Pipeline Management
+* **Smart Wizard:** Create a job by simply typing a title (e.g., "Senior DevOps"). The AI generates a professional, comprehensive description with all 11 fields automatically.
 * **Instant Auto-Matching:** As soon as a job is drafted, the system scans your *entire existing database* to suggest "Silver Medalists" or qualified candidates you already have.
 * **Kanban Workflows:** Drag-and-drop candidates through stages: *New -> Screening -> Interview -> Offer -> Hired*.
 
-### 4. 🎤 Advanced Interview Management
+### 7. 🎤 Advanced Interview Management
 * **Interview Assignment:** Assign specific team members to conduct interviews directly from the candidate drawer.
 * **Detailed History:** Track every interview step (Screening, Technical, Manager) with outcomes (Passed, Failed, Pending).
 * **Rich Feedback:** Capture detailed notes, ratings (1-10), and decisions for each interview stage.
 * **Visual Timeline:** See the entire interview journey at a glance, including who interviewed the candidate and when.
 
-### 5. 🗂️ Candidate Workbench
+### 8. 🗂️ Candidate Workbench
 * **Bulk Actions:** Select 50+ candidates to **Bulk Assign** to a pipeline, **Delete**, or **Reprocess** (re-run AI extraction) in one click.
 * **Edit Mode:** Fix parsing errors directly in the UI. Toggle "Edit Mode" to correct names, years of experience, or summary text.
 * **Visual Timeline:** View a candidate's work history in a clean, grouped timeline (LinkedIn-style), organizing multiple roles under the same company.
 * **Smart Social Icons:** Automatically detects and brands links for LinkedIn (Blue) and GitHub (Black/Dark).
 
-### 6. 📊 Analytics Dashboard
-* **Real-Time KPIs:** Track Active Jobs, Total Candidates, Hires, and "Silver Medalists" (runners-up to keep warm).
-* **Pipeline Insights:** See live averages for *Years of Experience*, *Current Salary*, and *Expected Salary* for every open position.
-
-### 7. 📱 Mobile Responsiveness (v1.5)
-* **Full Mobile Support:** Complete feature parity on mobile devices with responsive layouts.
+### 9. � Full Mobile Responsiveness
+* **Complete Feature Parity:** All features work seamlessly on mobile devices.
 * **Touch-Optimized:** All interactive elements are sized for touch (44px+).
 * **Smart Drawers:** Sidebars and panels convert to smooth, gesture-friendly drawers on smaller screens.
+* **Hamburger Menu:** Elegant mobile navigation with smooth animations.
+
+### 10. 📈 Real-Time Analytics Dashboard
+* **Live KPIs:** Track Active Jobs, Total Candidates, Hires, and "Silver Medalists" (runners-up to keep warm).
+* **Pipeline Insights:** See live averages for *Years of Experience*, *Current Salary*, and *Expected Salary* for every open position.
 
 ---
 
@@ -90,9 +118,8 @@ Headhunter/
 
 ### Prerequisites
 * **Docker** & **Docker Compose** installed.
-* **NVIDIA GPU Drivers** (Optional: Only required for local LLM acceleration).
-* **OpenAI API Key** (Recommended for v1.3).
-* **Microsoft Azure App Registration** (For SSO).
+* **OpenAI API Key** (Required for AI features).
+* **Microsoft Azure App Registration** (For SSO - Optional).
 
 ### 1. Clone the Repository
 ```bash
@@ -105,9 +132,9 @@ Create a `.env` file in the project root.
 
 ```ini
 # --- AI CONFIGURATION ---
-# Recommended Model for V1.3
+# Required for all AI features (company profiling, job generation, resume parsing)
 OPENAI_API_KEY=sk-proj-xxxxxxxxxxxxxxxxxxxxxxxx
-OPENAI_MODEL=gpt-5-mini-2025-08-07
+OPENAI_MODEL=gpt-4o-mini
 
 # --- DATABASE CONFIGURATION ---
 POSTGRES_USER=user
@@ -116,7 +143,7 @@ POSTGRES_DB=headhunter_db
 # Internal Docker Network URL
 DATABASE_URL=postgresql://user:password@db:5432/headhunter_db
 
-# --- SSO CONFIGURATION (Microsoft) ---
+# --- SSO CONFIGURATION (Microsoft - Optional) ---
 SSO_CLIENT_ID=your-client-id
 SSO_CLIENT_SECRET=your-client-secret
 SSO_TENANT_ID=your-tenant-id
@@ -127,24 +154,20 @@ MAIL_PASSWORD=your-password
 MAIL_FROM=no-reply@headhunter.ai
 MAIL_PORT=587
 MAIL_SERVER=smtp.gmail.com
-
-# --- OPTIONAL: LOCAL LLM ---
-# Path to GGUF model inside the container (if using local mode)
-# MODEL_PATH=/app/models/llama-3.1-8b-instruct-q4_k_m.gguf
 ```
 
 ### 3. Launch the Stack
 This starts all services (Frontend, Backend, DB, VectorDB).
 
 ```bash
-sudo docker compose up -d --build
+docker compose up -d --build
 ```
 
 ### 4. Initialize Database
 Run the migration script to create the schema (Jobs, Company, CVs).
 
 ```bash
-sudo docker compose exec backend alembic upgrade head
+docker compose exec backend alembic upgrade head
 ```
 
 ### 5. Access the Application
@@ -152,41 +175,81 @@ sudo docker compose exec backend alembic upgrade head
 * **API Documentation:** [http://localhost:30001/docs](http://localhost:30001/docs)
 
 ---
-*Generated by Headhunter AI Engineering Team*
 
-## 🔮 Roadmap
-1.  **Project Status: Headhunter AI (v1.5)**
-    *   Current Status: The system is a fully functional, production-ready Applicant Tracking System (ATS) with Enterprise-grade security, advanced interview management, and **full mobile support**.
+## 🎯 Quick Start Guide
 
-    *   Core Capabilities:
-            Data Ingestion: It ingests resumes (PDF/DOCX) via a robust drag-and-drop interface that supports bulk uploads (50+ files).
-            Intelligent Parsing: It normalizes messy contact data (extracting emails/phones as clean lists) and digs into PDF metadata to find "hidden" LinkedIn/GitHub links.
-            Recruitment Workflow: It supports the full lifecycle: creating job tracks, matching candidates, moving them through a Kanban board, and archiving roles when filled.
-            Interview Management: Assign interviewers, log detailed feedback, and track outcomes per stage.
+### First-Time Setup
+1. **Sign Up:** Create an account with your work email (e.g., `john@acme.com`)
+2. **Company Creation:** A company is automatically created based on your email domain (`acme.com`)
+3. **AI Profile Setup:** Enter your company website URL - AI will extract:
+   - Company information (tagline, industry, size, headquarters)
+   - Mission, vision, and core values
+   - Products/services and competitive advantages
+   - Social media links
+4. **Create Your First Job:** Click "New Job" and let AI generate a comprehensive description
+5. **Upload Resumes:** Drag and drop candidate CVs - AI will parse and extract all information
+6. **Start Recruiting:** Match candidates to jobs and manage them through your pipeline!
 
-2.  **Detailed Feature List**
-    *   🧠 AI & Automation
-            Optimized for GPT-5 Mini: The backend is tuned to use gpt-5-mini-2025-08-07 with a temperature of 1.0 for maximum creativity and accuracy in parsing.
-            Smart Pipeline Wizard: You don't just "create a job." You type a title (e.g., "DevOps Engineer"), and the AI generates a full description, required skills, and experience level based on your Company Profile.
-            Auto-Matching: Immediately upon creating a job, the system scans your existing database to suggest "Silver Medalists" or qualified candidates you already have.
+### Team Collaboration
+1. **Invite Team Members:** Share signup link with your team (same email domain)
+2. **Auto-Assignment:** New users are automatically added to your company
+3. **Role Management:** Admins can promote recruiters or manage permissions
+4. **Data Isolation:** Your team only sees your company's data - completely isolated
 
-    *   🗂️ Candidate Management
-            Bulk Power Tools: You can select 50 candidates at once to Assign them to a new pipeline, Delete them, or Reprocess them (useful if you update the parsing logic).
-            Candidate Workbench: A detailed drawer view that lets you edit parsing errors, view the original PDF side-by-side, and see a "LinkedIn-style" timeline of their work history grouped by company.
-            Smart Social Icons: The UI automatically detects LinkedIn and GitHub URLs and displays them with their official brand icons and colors.
+---
 
-    *   ⚙️ Configuration
-            Company Profile Engine: A global settings module where you define TPAY's industry, culture, and values. This context is injected into every AI prompt to ensure generated content sounds like your company.
-            Archive System: Keep your workspace clean by archiving old roles. They are hidden by default but can be toggled back into view.
+## � Roadmap
 
-3.  **Future Roadmap (Next Steps)**
-    *   **Semantic Search (The "AI Brain"):**
-        *Concept:* Connect the running ChromaDB container.
-        *Goal:* Enable queries like "Find me a frontend dev who knows 3D graphics" to return candidates with "ThreeJS" or "WebGL" even if keywords don't match exactly.
+### Current Status: v1.5 (Production-Ready)
+The system is a fully functional, enterprise-grade Applicant Tracking System with:
+* ✅ Multi-company support with complete data isolation
+* ✅ AI-powered LinkedIn-style company profiling (16 fields)
+* ✅ Comprehensive job description generation (11 fields)
+* ✅ AI regeneration with fine-tuning capabilities
+* ✅ Advanced interview management
+* ✅ Full mobile support
+* ✅ Enterprise security & SSO
+* ✅ Bulk operations & smart matching
 
-    *   **Local LLM Refactor:**
-        Current State: The local Llama 3.1 flow exists but requires specific model paths and manual setup.
-        Next Step: Refactor the local engine to be more robust, perhaps using a standardized model loader or containerized Ollama instance for easier deployment.
+### Future Enhancements
+1. **Semantic Search (The "AI Brain"):**
+   - Connect ChromaDB for vector-based candidate search
+   - Enable queries like "Find me a frontend dev who knows 3D graphics"
+   - Return candidates with "ThreeJS" or "WebGL" even if keywords don't match exactly
 
-    *   **Calendar Sync:**
-            Goal: Two-way sync with Google/Outlook calendars for interview scheduling.
+2. **Enhanced Analytics:**
+   - Time-to-hire metrics
+   - Source effectiveness tracking
+   - Conversion rate analysis
+   - Candidate engagement metrics
+
+3. **Calendar Integration:**
+   - Two-way sync with Google/Outlook calendars
+   - Automated interview scheduling
+   - Meeting room booking
+
+4. **Email Automation:**
+   - Template-based candidate communication
+   - Automated status updates
+   - Interview reminders
+
+5. **Advanced Reporting:**
+   - Custom report builder
+   - Export to Excel/PDF
+   - Scheduled email reports
+
+---
+
+## 🤝 Contributing
+
+Contributions are welcome! Please feel free to submit a Pull Request.
+
+---
+
+## 📄 License
+
+This project is proprietary software. All rights reserved.
+
+---
+
+*Built with ❤️ by the Headhunter AI Engineering Team*

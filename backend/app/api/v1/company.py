@@ -4,7 +4,7 @@ from app.core.database import get_db
 from app.api.deps import get_current_user
 from app.models.models import User, UserRole
 from pydantic import BaseModel
-from typing import Optional, List
+from typing import Optional
 import httpx
 from bs4 import BeautifulSoup
 import os
@@ -87,7 +87,7 @@ async def extract_company_info(
                             metadata["founding_date"] = data["foundingDate"]
                         if "numberOfEmployees" in data:
                             metadata["employee_count"] = str(data["numberOfEmployees"])
-                except:
+                except Exception:
                     pass
             
             # Try to scrape About and Careers pages for more info
@@ -103,7 +103,7 @@ async def extract_company_info(
                         about_text = about_soup.get_text(separator=" ", strip=True)[:5000]
                         additional_text += f"\n\n--- {path.upper()} PAGE ---\n{about_text}"
                         break  # Just use first successful page
-                except:
+                except Exception:
                     continue
             
             # Remove script and style elements from main page

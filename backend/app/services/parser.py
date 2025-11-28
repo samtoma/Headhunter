@@ -161,7 +161,6 @@ async def generate_job_metadata(
         cult = company_context.get("culture", "")
         mission = company_context.get("mission", "")
         values = company_context.get("values", "")
-        benefits_context = company_context.get("benefits", "")
         
         context_str = f"""
 HIRING COMPANY CONTEXT:
