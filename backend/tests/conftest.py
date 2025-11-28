@@ -55,7 +55,6 @@ def authenticated_client(db):
     user = User(
         email="admin@test.com",
         hashed_password=get_password_hash("testpassword"),
-        full_name="Test Admin",
         role=UserRole.ADMIN,
         company_id=company.id,
         is_verified=True
