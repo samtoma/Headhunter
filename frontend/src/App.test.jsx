@@ -12,6 +12,11 @@ vi.mock('axios', () => ({
     interceptors: {
       request: { use: vi.fn(() => { }) },
       response: { use: vi.fn(() => { }) }
+    },
+    defaults: {
+      headers: {
+        common: {}
+      }
     }
   },
 }));
