@@ -145,41 +145,117 @@ def normalize_education(edu: List[Dict]) -> str:
         })
     return json.dumps(cleaned)
 
-async def generate_job_metadata(title: str, company_context: Dict[str, str] = None) -> Dict[str, Any]:
+async def generate_job_metadata(
+    title: str, 
+    company_context: Dict[str, str] = None,
+    fine_tuning: str = None,
+    location: str = None,
+    employment_type: str = None
+) -> Dict[str, Any]:
+    """Generate comprehensive job description with all details"""
+    
     context_str = ""
     if company_context:
         name = company_context.get("name", "Our Company")
         desc = company_context.get("description", "")
         cult = company_context.get("culture", "")
-        context_str = f"CONTEXT ABOUT THE HIRING COMPANY ({name}):\nDescription: {desc}\nCulture/Values: {cult}\nIMPORTANT: Tailor the job description to reflect this company's industry and values."
+        mission = company_context.get("mission", "")
+        values = company_context.get("values", "")
+        benefits_context = company_context.get("benefits", "")
+        
+        context_str = f"""
+HIRING COMPANY CONTEXT:
+Company Name: {name}
+Description: {desc}
+Mission: {mission}
+Culture & Values: {cult}
+Company Values: {values}
 
-    system_prompt = f"""You are an expert HR Manager. 
-    {context_str}
-    For the Job Title "{title}", generate a structured JSON response containing:
-    1. description: A professional, engaging job description (approx 150 words).
-    2. skills_required: A list of exactly 8 key technical/soft skills. Each skill must be 1-2 words max.
-    3. required_experience: An integer estimate of years of experience needed.
+IMPORTANT: Tailor the job description to reflect this company's industry, mission, and values.
+"""
     
-    JSON Structure:
-    {{
-        "description": "...",
-        "skills_required": ["Python", "React", "AWS"],
-        "required_experience": 5
-    }}
-    """
+    fine_tuning_str = ""
+    if fine_tuning:
+        fine_tuning_str = f"\n\nADDITIONAL CUSTOMIZATION INSTRUCTIONS:\n{fine_tuning}"
+    
+    location_str = location or "To be determined"
+    emp_type_str = employment_type or "Full-time"
+    
+    system_prompt = f"""You are an expert HR Manager and Job Description Writer.
+{context_str}
+
+For the Job Title "{title}" (Location: {location_str}, Type: {emp_type_str}), generate a comprehensive, professional job posting in JSON format.
+
+The job description should be detailed, engaging, and professional - similar to what you'd see on LinkedIn or top company career pages.
+
+Generate the following fields:
+
+1. **description**: A compelling 2-3 paragraph overview of the role (150-200 words). Make it engaging and highlight why this role is exciting.
+
+2. **responsibilities**: Array of 6-8 key responsibilities. Each should be a complete sentence starting with an action verb. Be specific and detailed.
+
+3. **qualifications**: Array of 5-7 required qualifications. Include education, years of experience, specific technical skills, and soft skills.
+
+4. **preferred_qualifications**: Array of 3-5 nice-to-have qualifications that would make a candidate stand out.
+
+5. **skills_required**: Array of exactly 8-10 key technical and soft skills. Keep each skill to 1-2 words (e.g., "Python", "Leadership", "AWS").
+
+6. **required_experience**: Integer representing years of experience needed (e.g., 3, 5, 7).
+
+7. **benefits**: Array of 5-7 benefits offered. If company context includes benefits, use those. Otherwise, generate standard tech industry benefits.
+
+8. **team_info**: A 2-3 sentence description of the team the candidate will join. Make it appealing and specific.
+
+9. **growth_opportunities**: A 2-3 sentence description of career growth and learning opportunities in this role.
+
+10. **application_process**: A brief 2-3 sentence description of what candidates can expect in the hiring process (e.g., "phone screen, technical interview, team interview").
+
+11. **remote_policy**: Description of remote work policy (e.g., "Fully Remote", "Hybrid - 3 days in office", "On-site").
+
+12. **salary_range**: Estimated salary range based on the role and experience level (e.g., "$80,000 - $120,000" or "Competitive salary based on experience").{fine_tuning_str}
+
+Return ONLY valid JSON in this exact format:
+{{
+    "description": "...",
+    "responsibilities": ["Lead the development of...", "Collaborate with..."],
+    "qualifications": ["Bachelor's degree in...", "5+ years of experience..."],
+    "preferred_qualifications": ["Experience with...", "Previous work in..."],
+    "skills_required": ["Python", "React", "AWS", "Leadership"],
+    "required_experience": 5,
+    "benefits": ["Health insurance", "401k matching", "Unlimited PTO"],
+    "team_info": "You'll join a team of...",
+    "growth_opportunities": "This role offers...",
+    "application_process": "Our process includes...",
+    "remote_policy": "Hybrid - 3 days in office, 2 days remote",
+    "salary_range": "$100,000 - $140,000"
+}}
+"""
+
     if OPENAI_API_KEY:
         try:
-            kwargs = { "model": OPENAI_MODEL, "messages": [{"role": "system", "content": system_prompt}] }
+            kwargs = { 
+                "model": OPENAI_MODEL, 
+                "messages": [{"role": "system", "content": system_prompt}] 
+            }
             if not OPENAI_MODEL.startswith("o1"):
                 kwargs["temperature"] = 1.0
                 kwargs["response_format"] = {"type": "json_object"}
-            logger.debug("Generating job metadata for '%s' using %s", title, OPENAI_MODEL)
+            
+            logger.debug("Generating comprehensive job metadata for '%s' using %s", title, OPENAI_MODEL)
             completion = await client.chat.completions.create(**kwargs)
-            return json.loads(completion.choices[0].message.content)
+            result = json.loads(completion.choices[0].message.content)
+            
+            # Convert arrays to JSON strings for database storage
+            for key in ["responsibilities", "qualifications", "preferred_qualifications", "skills_required", "benefits"]:
+                if key in result and isinstance(result[key], list):
+                    result[key] = json.dumps(result[key])
+            
+            return result
         except Exception as e:
             logger.error("OpenAI Error while generating job metadata: %s", e)
             return {}
     return {}
+
 
 async def parse_cv_with_llm(text: str, filename: str) -> Dict[str, Any]:
     truncated_text = text[:25000]

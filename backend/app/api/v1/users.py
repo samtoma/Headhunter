@@ -42,3 +42,23 @@ def update_user_role(
     db.commit()
     db.refresh(user)
     return user
+
+@router.patch("/{user_id}/role", response_model=UserOut)
+def update_user_role_dedicated(
+    user_id: int,
+    user_update: UserUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Dedicated endpoint for role updates (matches frontend expectations)"""
+    if current_user.role != "super_admin":
+        raise HTTPException(status_code=403, detail="Not authorized")
+        
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+        
+    user.role = user_update.role
+    db.commit()
+    db.refresh(user)
+    return user

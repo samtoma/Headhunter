@@ -5,7 +5,7 @@ import KPICard from './KPICard'
 import JobInsightCard from './JobInsightCard'
 import CandidateList from './CandidateList'
 
-const DashboardView = ({ jobs, profiles, onEditJob, onNavigate, onViewProfile }) => {
+const DashboardView = ({ jobs, profiles, onEditJob, onNavigate, onViewProfile, onOpenMobileSidebar }) => {
     const stats = useMemo(() => {
         const totalCandidates = profiles.length
         let hired = 0
@@ -22,8 +22,18 @@ const DashboardView = ({ jobs, profiles, onEditJob, onNavigate, onViewProfile })
     }, [profiles, jobs])
 
     return (
-        <div className="flex-1 overflow-y-auto p-8 space-y-8">
-            <h1 className="text-2xl font-bold text-slate-900">Dashboard Overview</h1>
+        <div className="flex-1 overflow-y-auto p-4 md:p-8 space-y-8">
+            <div className="flex items-center gap-3">
+                <button
+                    onClick={onOpenMobileSidebar}
+                    className="md:hidden p-2 -ml-2 text-slate-600 hover:bg-slate-100 rounded-lg transition"
+                >
+                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                    </svg>
+                </button>
+                <h1 className="text-2xl font-bold text-slate-900">Dashboard Overview</h1>
+            </div>
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                 <KPICard title="Active Jobs" value={stats.activeJobs} icon={<BriefcaseIcon className="text-white" size={24} />} color="bg-indigo-500" />
                 <KPICard title="Total Candidates" value={stats.totalCandidates} icon={<Users className="text-white" size={24} />} color="bg-slate-500" />

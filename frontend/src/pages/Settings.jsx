@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import axios from 'axios'
 import { Plus, Trash2, Save, GripVertical } from 'lucide-react'
 
-export default function Settings() {
+const Settings = ({ onOpenMobileSidebar }) => {
     const [stages, setStages] = useState([])
     const [loading, setLoading] = useState(true)
     const [saving, setSaving] = useState(false)
@@ -72,7 +72,7 @@ export default function Settings() {
 
     const addField = (stageIndex) => {
         const newStages = [...stages]
-        newStages[stageIndex].fields.push({ name: "New Field", type: "text" })
+        newStages[stageIndex].fields.push({ label: "New Field", type: "text" })
         setStages(newStages)
     }
 
@@ -91,86 +91,100 @@ export default function Settings() {
     if (loading) return <div className="p-8">Loading settings...</div>
 
     return (
-        <div className="p-8 max-w-4xl mx-auto">
-            <div className="flex justify-between items-center mb-8">
-                <div>
-                    <h1 className="text-2xl font-bold text-slate-900">Interview Workflow Settings</h1>
-                    <p className="text-slate-500">Configure your interview stages and custom evaluation fields.</p>
-                </div>
-                <button
-                    onClick={handleSave}
-                    disabled={saving}
-                    className="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 flex items-center gap-2 font-medium disabled:opacity-50"
-                >
-                    <Save size={18} />
-                    {saving ? "Saving..." : "Save Changes"}
-                </button>
-            </div>
-
-            <div className="space-y-6">
-                {stages.map((stage, sIndex) => (
-                    <div key={sIndex} className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-                        <div className="bg-slate-50 p-4 border-b border-slate-200 flex items-center gap-3">
-                            <GripVertical className="text-slate-400 cursor-move" size={20} />
-                            <input
-                                type="text"
-                                value={stage.name}
-                                onChange={(e) => updateStageName(sIndex, e.target.value)}
-                                className="font-bold text-slate-800 bg-transparent border-none focus:ring-0 p-0 text-lg w-full"
-                                placeholder="Stage Name"
-                            />
-                            <button onClick={() => removeStage(sIndex)} className="text-slate-400 hover:text-red-500">
-                                <Trash2 size={18} />
-                            </button>
-                        </div>
-
-                        <div className="p-4">
-                            <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">Evaluation Fields</h4>
-
-                            <div className="space-y-3">
-                                {stage.fields.map((field, fIndex) => (
-                                    <div key={fIndex} className="flex items-center gap-3">
-                                        <input
-                                            type="text"
-                                            value={field.name}
-                                            onChange={(e) => updateField(sIndex, fIndex, "name", e.target.value)}
-                                            className="flex-1 border border-slate-200 rounded px-3 py-1.5 text-sm focus:border-indigo-500 outline-none"
-                                            placeholder="Field Label"
-                                        />
-                                        <select
-                                            value={field.type}
-                                            onChange={(e) => updateField(sIndex, fIndex, "type", e.target.value)}
-                                            className="border border-slate-200 rounded px-3 py-1.5 text-sm focus:border-indigo-500 outline-none bg-white"
-                                        >
-                                            <option value="text">Text Input</option>
-                                            <option value="number">Number</option>
-                                            <option value="rating">1-5 Rating</option>
-                                            <option value="boolean">Yes/No</option>
-                                        </select>
-                                        <button onClick={() => removeField(sIndex, fIndex)} className="text-slate-300 hover:text-red-500">
-                                            <Trash2 size={16} />
-                                        </button>
-                                    </div>
-                                ))}
-                            </div>
-
-                            <button
-                                onClick={() => addField(sIndex)}
-                                className="mt-4 text-sm text-indigo-600 font-medium flex items-center gap-1 hover:text-indigo-800"
-                            >
-                                <Plus size={16} /> Add Field
-                            </button>
+        <div className="h-full overflow-y-auto p-4 md:p-8">
+            <div className="max-w-4xl mx-auto">
+                <div className="flex justify-between items-center mb-8">
+                    <div className="flex items-center gap-3">
+                        <button
+                            onClick={onOpenMobileSidebar}
+                            className="md:hidden p-2 -ml-2 text-slate-600 hover:bg-slate-100 rounded-lg transition"
+                        >
+                            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                            </svg>
+                        </button>
+                        <div>
+                            <h1 className="text-2xl font-bold text-slate-900">Interview Workflow Settings</h1>
+                            <p className="text-slate-500">Configure your interview stages and custom evaluation fields.</p>
                         </div>
                     </div>
-                ))}
+                    <button
+                        onClick={handleSave}
+                        disabled={saving}
+                        className="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 flex items-center gap-2 font-medium disabled:opacity-50"
+                    >
+                        <Save size={18} />
+                        {saving ? "Saving..." : "Save Changes"}
+                    </button>
+                </div>
 
-                <button
-                    onClick={addStage}
-                    className="w-full py-4 border-2 border-dashed border-slate-300 rounded-xl text-slate-500 font-medium hover:border-indigo-400 hover:text-indigo-600 transition-colors flex justify-center items-center gap-2"
-                >
-                    <Plus size={20} /> Add New Stage
-                </button>
+                <div className="space-y-6">
+                    {stages.map((stage, sIndex) => (
+                        <div key={sIndex} className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+                            <div className="bg-slate-50 p-4 border-b border-slate-200 flex items-center gap-3">
+                                <GripVertical className="text-slate-400 cursor-move" size={20} />
+                                <input
+                                    type="text"
+                                    value={stage.name}
+                                    onChange={(e) => updateStageName(sIndex, e.target.value)}
+                                    className="font-bold text-slate-800 bg-transparent border-none focus:ring-0 p-0 text-lg w-full"
+                                    placeholder="Stage Name"
+                                />
+                                <button onClick={() => removeStage(sIndex)} className="text-slate-400 hover:text-red-500">
+                                    <Trash2 size={18} />
+                                </button>
+                            </div>
+
+                            <div className="p-4">
+                                <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">Evaluation Fields</h4>
+
+                                <div className="space-y-3">
+                                    {stage.fields.map((field, fIndex) => (
+                                        <div key={fIndex} className="flex items-center gap-3">
+                                            <input
+                                                type="text"
+                                                value={field.name}
+                                                onChange={(e) => updateField(sIndex, fIndex, "name", e.target.value)}
+                                                className="flex-1 border border-slate-200 rounded px-3 py-1.5 text-sm focus:border-indigo-500 outline-none"
+                                                placeholder="Field Label"
+                                            />
+                                            <select
+                                                value={field.type}
+                                                onChange={(e) => updateField(sIndex, fIndex, "type", e.target.value)}
+                                                className="border border-slate-200 rounded px-3 py-1.5 text-sm focus:border-indigo-500 outline-none bg-white"
+                                            >
+                                                <option value="text">Text Input</option>
+                                                <option value="number">Number</option>
+                                                <option value="rating">1-5 Rating</option>
+                                                <option value="boolean">Yes/No</option>
+                                            </select>
+                                            <button onClick={() => removeField(sIndex, fIndex)} className="text-slate-300 hover:text-red-500">
+                                                <Trash2 size={16} />
+                                            </button>
+                                        </div>
+                                    ))}
+                                </div>
+
+                                <button
+                                    onClick={() => addField(sIndex)}
+                                    className="mt-4 text-sm text-indigo-600 font-medium flex items-center gap-1 hover:text-indigo-800"
+                                >
+                                    <Plus size={16} /> Add Field
+                                </button>
+                            </div>
+                        </div>
+                    ))}
+
+                    <button
+                        onClick={addStage}
+                        className="w-full py-4 border-2 border-dashed border-slate-300 rounded-xl text-slate-500 font-medium hover:border-indigo-400 hover:text-indigo-600 transition-colors flex justify-center items-center gap-2"
+                    >
+                        <Plus size={20} /> Add New Stage
+                    </button>
+                </div>
             </div>
         </div>
     )
 }
+
+export default Settings

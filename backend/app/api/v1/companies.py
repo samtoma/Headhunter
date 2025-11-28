@@ -90,9 +90,6 @@ def update_company_by_id(
     db.commit()
     db.refresh(company)
     return company
-    db.commit()
-    db.refresh(company)
-    return company
 
 @router.get("/{company_id}/users", response_model=list[UserOut])
 def get_company_users(

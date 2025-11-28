@@ -69,6 +69,7 @@ function App() {
     const [selectedCv, setSelectedCv] = useState(null)
     const [viewMode, setViewMode] = useState("list")
     const [showArchived, setShowArchived] = useState(false)
+    const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false)
 
     // Removed local search/sort state in favor of hook state
 
@@ -339,9 +340,12 @@ function App() {
                 setShowNewJobModal={setShowNewJobModal}
                 setShowCompanyModal={setShowCompanyModal}
                 onLogout={handleLogout}
+                isMobileOpen={isMobileSidebarOpen}
+                setIsMobileOpen={setIsMobileSidebarOpen}
             />
 
             <div className="flex-1 flex flex-col h-full overflow-hidden bg-slate-50 relative">
+
 
 
 
@@ -354,14 +358,16 @@ function App() {
                         onEditJob={handleUpdateJobDetails}
                         onNavigate={(job) => { setCurrentView("pipeline"); setSelectedJob(job); }}
                         onViewProfile={(cv) => setSelectedCv(cv)}
+                        onOpenMobileSidebar={() => setIsMobileSidebarOpen(true)}
                     />
                 )}
 
-                {currentView === "super_admin" && <SuperAdminDashboard />}
+                {currentView === "super_admin" && <SuperAdminDashboard onOpenMobileSidebar={() => setIsMobileSidebarOpen(true)} />}
 
                 {currentView === "pipeline" && (
                     <>
                         <PipelineHeader
+                            onOpenMobileSidebar={() => setIsMobileSidebarOpen(true)}
                             selectedJob={selectedJob}
                             handleToggleArchive={handleToggleArchive}
                             viewMode={viewMode}
@@ -379,7 +385,7 @@ function App() {
                             setSortBy={setSortBy}
                         />
 
-                        <div className="flex-1 overflow-hidden p-8">
+                        <div className="flex-1 overflow-hidden p-4 md:p-8">
                             {(viewMode === "list" || !selectedJob) ? (
                                 <div className="h-full w-full">
                                     <AutoSizer>
@@ -455,7 +461,7 @@ function App() {
                     </>
                 )}
 
-                {currentView === "settings" && <Settings />}
+                {currentView === "settings" && <Settings onOpenMobileSidebar={() => setIsMobileSidebarOpen(true)} />}
 
                 {selectedCv && (
                     <CandidateDrawer
