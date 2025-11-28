@@ -17,7 +17,19 @@ router = APIRouter(tags=["Company"])
 
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
-client = AsyncOpenAI(api_key=OPENAI_API_KEY)
+
+# Lazy client initialization
+_client = None
+
+def get_openai_client() -> AsyncOpenAI:
+    """Get or create the OpenAI client (lazy initialization)"""
+    global _client
+    if _client is None:
+        if not OPENAI_API_KEY:
+            raise ValueError("OPENAI_API_KEY not set. Cannot initialize OpenAI client.")
+        _client = AsyncOpenAI(api_key=OPENAI_API_KEY)
+        logger.info("AI Engine initialized for company profiling")
+    return _client
 
 class CompanyUpdate(BaseModel):
     name: Optional[str] = None
@@ -195,6 +207,7 @@ async def extract_company_info(
         {full_text}
         """
             
+            client = get_openai_client()
             completion = await client.chat.completions.create(
                 model=OPENAI_MODEL,
                 messages=[

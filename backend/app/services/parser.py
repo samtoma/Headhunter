@@ -11,14 +11,23 @@ logger = logging.getLogger(__name__)
 
 
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-5-mini-2025-08-07")
+OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
 
 if not OPENAI_API_KEY:
     logger.warning("OPENAI_API_KEY not set. AI features will fail.")
 
+# Lazy client initialization - only created when needed
+_client = None
 
-client = AsyncOpenAI(api_key=OPENAI_API_KEY)
-logger.info("AI Engine: OpenAI Cloud (%s)", OPENAI_MODEL)
+def get_openai_client() -> AsyncOpenAI:
+    """Get or create the OpenAI client (lazy initialization)"""
+    global _client
+    if _client is None:
+        if not OPENAI_API_KEY:
+            raise ValueError("OPENAI_API_KEY not set. Cannot initialize OpenAI client.")
+        _client = AsyncOpenAI(api_key=OPENAI_API_KEY)
+        logger.info("AI Engine: OpenAI Cloud (%s)", OPENAI_MODEL)
+    return _client
 
 def extract_text(path: str) -> str:
     p = Path(path)
@@ -241,6 +250,7 @@ Return ONLY valid JSON in this exact format:
                 kwargs["response_format"] = {"type": "json_object"}
             
             logger.debug("Generating comprehensive job metadata for '%s' using %s", title, OPENAI_MODEL)
+            client = get_openai_client()
             completion = await client.chat.completions.create(**kwargs)
             result = json.loads(completion.choices[0].message.content)
             
@@ -311,6 +321,7 @@ async def parse_cv_with_llm(text: str, filename: str) -> Dict[str, Any]:
                 kwargs["response_format"] = {"type": "json_object"}
             
             logger.debug("Calling OpenAI for '%s' using model %s", filename, OPENAI_MODEL)
+            client = get_openai_client()
             completion = await client.chat.completions.create(**kwargs)
             raw = completion.choices[0].message.content
             logger.debug("Raw response received for '%s' (%d chars)", filename, len(raw or ""))
