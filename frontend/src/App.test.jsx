@@ -22,11 +22,10 @@ vi.mock('axios', () => ({
 }));
 
 describe('Headhunter App', () => {
-  it('renders the dashboard title', async () => {
+  it('renders the login screen when not authenticated', async () => {
     render(<App />);
 
-    // Use findByText (async) instead of getByText.
-    // This waits for the component to finish its initial rendering cycle.
-    expect(await screen.findByText(/Headhunter/i)).toBeInTheDocument();
+    // App should show login screen when no token is present
+    expect(await screen.findByText(/Welcome Back/i)).toBeInTheDocument();
   });
 });
