@@ -7,7 +7,7 @@ from fastapi.testclient import TestClient
 from app.main import app
 from app.core.database import get_db, Base
 from app.models.models import User, Company, UserRole
-from app.core.security import hash_password, create_access_token
+from app.core.security import get_password_hash, create_access_token
 
 # In-memory SQLite for testing
 SQLALCHEMY_DATABASE_URL = "sqlite:///:memory:"
@@ -54,7 +54,7 @@ def authenticated_client(db):
     # Create test user
     user = User(
         email="admin@test.com",
-        hashed_password=hash_password("testpassword"),
+        hashed_password=get_password_hash("testpassword"),
         full_name="Test Admin",
         role=UserRole.ADMIN,
         company_id=company.id,

@@ -198,6 +198,91 @@ docker compose exec backend alembic upgrade head
 
 ---
 
+## 🧪 Testing & Quality Assurance
+
+Headhunter AI includes a comprehensive automated testing pipeline to ensure code quality and reliability.
+
+### Continuous Integration/Continuous Deployment (CI/CD)
+
+Every push to the repository triggers automated workflows that:
+- ✅ Run all backend unit tests (pytest)
+- ✅ Run all frontend unit tests (Vitest)
+- ✅ Lint Python code (Ruff)
+- ✅ Lint JavaScript/React code (ESLint)
+- ✅ Type-check code
+- ✅ Build Docker images to validate deployability
+
+### Backend Testing
+
+**Framework:** pytest  
+**Coverage:** API endpoints, database models, authentication, AI service layer
+
+**Test Suite Includes:**
+- **Unit Tests:** Core business logic and data models
+- **Integration Tests:** API endpoints with authenticated requests
+- **Database Tests:** In-memory SQLite for fast, isolated testing
+- **Security Tests:** Authentication, authorization, RBAC validation
+
+**Run Backend Tests Locally:**
+```bash
+cd backend
+python -m pytest                    # Run all tests
+python -m pytest -v                 # Verbose output
+python -m pytest tests/test_api.py  # Run specific test file
+```
+
+**Linting:**
+```bash
+cd backend
+ruff check .                 # Check for issues
+ruff check . --fix          # Auto-fix issues
+```
+
+### Frontend Testing
+
+**Framework:** Vitest + React Testing Library  
+**Coverage:** Component rendering, user interactions, integration tests
+
+**Test Suite Includes:**
+- **Component Tests:** UI component rendering and behavior
+- **Integration Tests:** Complete user flows (auth, navigation)
+- **Mock Tests:** API calls, axios interceptors, localStorage
+
+**Run Frontend Tests Locally:**
+```bash
+cd frontend
+npm run test                 # Run all tests (watch mode)
+npm run test -- --run        # Run once (CI mode)
+npm run test -- --coverage   # Generate coverage report
+```
+
+**Linting:**
+```bash
+cd frontend
+npm run lint                 # Check for issues
+```
+
+### Test Infrastructure
+
+**Backend (`conftest.py`):**
+- In-memory SQLite database for fast, isolated tests
+- `authenticated_client` fixture with pre-configured admin user
+- Automatic database setup/teardown per test
+
+**Frontend (`App.test.jsx`):**
+- Complete axios mock with interceptors and headers
+- LocalStorage simulation
+- Component rendering validation
+
+### Quality Metrics
+
+The CI/CD pipeline enforces:
+- **Zero test failures** - All tests must pass
+- **Zero linting errors** - Code must meet style standards
+- **Successful builds** - Docker images must build correctly
+- **Type safety** - No type errors in TypeScript/JSDoc
+
+---
 ## � Roadmap
 
 ### Current Status: v1.5 (Production-Ready)
