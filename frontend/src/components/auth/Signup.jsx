@@ -1,12 +1,16 @@
 import { useState } from 'react'
 import axios from 'axios'
 import { Lock, Mail } from 'lucide-react'
+import { useAuth } from '../../context/AuthContext'
+import { useNavigate } from 'react-router-dom'
 
-const Signup = ({ onLogin, onSwitchToLogin, onSetup }) => {
+const Signup = () => {
     const [email, setEmail] = useState("")
     const [password, setPassword] = useState("")
     const [error, setError] = useState("")
     const [loading, setLoading] = useState(false)
+    const { login } = useAuth()
+    const navigate = useNavigate()
 
     const handleSubmit = async (e) => {
         e.preventDefault()
@@ -19,10 +23,12 @@ const Signup = ({ onLogin, onSwitchToLogin, onSetup }) => {
             localStorage.setItem('role', res.data.role)
             localStorage.setItem('company_name', res.data.company_name || "")
 
+            login(res.data.access_token)
+
             if (res.data.is_new_company) {
-                onSetup(res.data.access_token)
+                navigate('/setup')
             } else {
-                onLogin(res.data.access_token)
+                navigate('/')
             }
         } catch (err) {
             console.error(err)
@@ -88,7 +94,7 @@ const Signup = ({ onLogin, onSwitchToLogin, onSetup }) => {
 
                 <div className="mt-6 text-center text-sm text-slate-500">
                     Already have an account?{' '}
-                    <button onClick={onSwitchToLogin} className="text-indigo-600 font-bold hover:underline">
+                    <button onClick={() => navigate('/login')} className="text-indigo-600 font-bold hover:underline">
                         Sign in
                     </button>
                 </div>

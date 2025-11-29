@@ -24,6 +24,7 @@ services:
     # Explicitly pass keys if needed (redundant with env_file but safe)
     environment:
       - CMAKE_ARGS="-DGGML_OPENCL=on"
+      - REDIS_URL=redis://redis:6379/0
     depends_on:
       - db
     networks:
@@ -73,6 +74,50 @@ services:
     networks:
       - headhunter_net
 
+  # --- Redis ---
+  redis:
+    image: redis:7-alpine
+    container_name: headhunter_redis
+    restart: unless-stopped
+    ports:
+      - "6380:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - headhunter_net
+    healthcheck:
+      test: [ "CMD", "redis-cli", "ping" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # --- Celery Worker ---
+  celery_worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: headhunter_celery
+    restart: unless-stopped
+    command: celery -A app.celery_app worker --loglevel=info --concurrency=5
+    volumes:
+      - ./backend:/app
+      - ./data/raw:/app/data/raw
+      - ./ai/models:/app/models
+    environment:
+      - REDIS_URL=redis://redis:6379/0
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+    env_file:
+      - .env
+    depends_on:
+      - backend
+      - redis
+      - db
+    networks:
+      - headhunter_net
+
 networks:
   headhunter_net:
     driver: bridge
+
+volumes:
+  redis_data:

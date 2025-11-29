@@ -1,12 +1,16 @@
 import { useState } from 'react'
 import axios from 'axios'
 import { Lock, Mail } from 'lucide-react'
+import { useAuth } from '../../context/AuthContext'
+import { useNavigate } from 'react-router-dom'
 
-const Login = ({ onLogin, onSwitchToSignup }) => {
+const Login = () => {
     const [email, setEmail] = useState("")
     const [password, setPassword] = useState("")
     const [error, setError] = useState("")
     const [loading, setLoading] = useState(false)
+    const { login } = useAuth()
+    const navigate = useNavigate()
 
     const handleSubmit = async (e) => {
         e.preventDefault()
@@ -22,7 +26,9 @@ const Login = ({ onLogin, onSwitchToSignup }) => {
             localStorage.setItem('token', res.data.access_token)
             localStorage.setItem('role', res.data.role)
             if (res.data.company_name) localStorage.setItem('company_name', res.data.company_name)
-            onLogin(res.data.access_token)
+
+            login(res.data.access_token)
+            navigate('/')
         } catch (err) {
             console.error(err)
             setError("Invalid email or password")
@@ -110,7 +116,7 @@ const Login = ({ onLogin, onSwitchToSignup }) => {
 
                 <div className="mt-6 text-center text-sm text-slate-500">
                     Don&apos;t have an account?{' '}
-                    <button onClick={onSwitchToSignup} className="text-indigo-600 font-bold hover:underline">
+                    <button onClick={() => navigate('/signup')} className="text-indigo-600 font-bold hover:underline">
                         Sign up
                     </button>
                 </div>

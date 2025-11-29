@@ -18,3 +18,5 @@ python-jose[cryptography]
 beautifulsoup4
 fastapi-sso>=0.7.0
 fastapi-mail>=1.4.1
+celery[redis]>=5.3.0
+redis>=5.0.0

@@ -1,4 +1,4 @@
-# 🧠 Headhunter AI (v1.5)
+# 🧠 Headhunter AI (v1.6)
 
 **Headhunter AI** is a production-grade, self-hosted Applicant Tracking System (ATS) engineered for high-performance recruitment teams. 
 
@@ -13,7 +13,9 @@ The solution is built as a containerized microservices architecture, optimized f
 | Component | Technology | Responsibility |
 |-----------|------------|----------------|
 | **Frontend** | React 18, Vite, Tailwind | Responsive UI, Kanban Boards, Real-time Dashboards. |
-| **Backend** | FastAPI (Python 3.13) | API Logic, AI Orchestration, PDF Parsing. |
+| **Backend** | FastAPI (Python 3.13) | API Logic, AI Orchestration. |
+| **Worker** | Celery (Python 3.13) | Background CV Processing, Async Tasks. |
+| **Broker** | Redis 7 | Message Broker & Result Backend. |
 | **Database** | PostgreSQL 15 | Relational data (Candidates, Jobs, Applications). |
 | **AI Engine** | OpenAI GPT-4o-mini | Resume parsing, Job Description generation, Company profiling, Matching. |
 | **Vector DB** | ChromaDB | (Infrastructure Ready) Stores embeddings for semantic search. |
@@ -111,6 +113,11 @@ Headhunter/
 ### 10. 📈 Real-Time Analytics Dashboard
 * **Live KPIs:** Track Active Jobs, Total Candidates, Hires, and "Silver Medalists" (runners-up to keep warm).
 * **Pipeline Insights:** See live averages for *Years of Experience*, *Current Salary*, and *Expected Salary* for every open position.
+
+### 11. ⚡ Scalable Background Processing
+* **Asynchronous Parsing:** CVs are processed in the background using Celery workers, ensuring the UI remains snappy even when uploading hundreds of files.
+* **Robust Queueing:** Redis-backed job queue handles spikes in load and automatically retries failed tasks.
+* **Bulk Operations:** Select multiple candidates to **Reprocess** or **Delete** in bulk, with real-time status updates.
 
 ---
 
@@ -285,7 +292,7 @@ The CI/CD pipeline enforces:
 ---
 ## � Roadmap
 
-### Current Status: v1.5 (Production-Ready)
+### Current Status: v1.6 (Production-Ready)
 The system is a fully functional, enterprise-grade Applicant Tracking System with:
 * ✅ Multi-company support with complete data isolation
 * ✅ AI-powered LinkedIn-style company profiling (16 fields)

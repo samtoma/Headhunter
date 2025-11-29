@@ -240,7 +240,7 @@ const CandidateDrawer = ({ cv, onClose, updateApp, updateProfile, jobs, selected
                         )}
 
                         {view === "pdf" && (
-                            <iframe src={`/api/files/${cv.filepath ? cv.filepath.split(/[/\\]/).pop() : cv.filename}`} className="w-full h-full rounded-xl border border-slate-200 shadow-sm bg-white min-h-[800px]" title="PDF"></iframe>
+                            <iframe src={`/api/cv/${cv.id}/download?token=${localStorage.getItem('token')}`} className="w-full h-full rounded-xl border border-slate-200 shadow-sm bg-white min-h-[800px]" title="PDF"></iframe>
                         )}
 
                         {view === "parsed" && (
@@ -584,8 +584,8 @@ const CandidateDrawer = ({ cv, onClose, updateApp, updateProfile, jobs, selected
                                 </div>
                             )}
 
-                            {selectedJobId && (
-                                <button onClick={() => removeJob(cv.id, selectedJobId)} className="w-full py-2 text-red-500 hover:bg-red-50 rounded-lg text-xs font-bold transition">
+                            {selectedJobId && app && (
+                                <button onClick={() => removeJob(app.id)} className="w-full py-2 text-red-500 hover:bg-red-50 rounded-lg text-xs font-bold transition">
                                     Remove from Pipeline
                                 </button>
                             )}
