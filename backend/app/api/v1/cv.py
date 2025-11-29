@@ -1,12 +1,11 @@
-from fastapi import APIRouter, UploadFile, File, Form, HTTPException, BackgroundTasks, Depends, Body
-from fastapi.responses import FileResponse
+from fastapi import APIRouter, UploadFile, File, Form, HTTPException, Depends, Body
 from typing import List, Optional
 import uuid
 import aiofiles
 from pathlib import Path
 import os
 from sqlalchemy.orm import Session
-from app.core.database import get_db, engine
+from app.core.database import get_db
 from app.models import models
 from app.models.models import User
 from app.api.deps import get_current_user, get_current_user_flexible

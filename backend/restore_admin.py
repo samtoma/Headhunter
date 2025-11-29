@@ -4,7 +4,6 @@ import os
 # Add the current directory to sys.path so we can import app modules
 sys.path.append(os.getcwd())
 
-from sqlalchemy.orm import Session
 from app.core.database import SessionLocal
 from app.models.models import User, UserRole
 from app.core.security import get_password_hash

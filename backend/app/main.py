@@ -17,7 +17,7 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-app = FastAPI(title="Headhunter API", version="1.5.0")
+app = FastAPI(title="Headhunter API", version="1.6.0")
 
 # --- Serve Raw Files ---
 BASE_DIR = Path(os.getcwd())
@@ -47,12 +47,11 @@ def wait_for_db():
     
     logger.error("❌ Could not connect to Database after multiple retries.")
 
-# Check DB connection on startup
-wait_for_db()
-
 from app.tasks.cv_tasks import process_cv_task
 from sqlalchemy.orm import Session
-from app import celery_app  # Ensure Celery app is loaded/configured
+
+# Check DB connection on startup
+wait_for_db()
 
 @app.on_event("startup")
 async def startup_event():
@@ -99,7 +98,6 @@ def debug_db_check(db: Session = Depends(get_db)):
     try:
         import redis
         import os
-        import json
         redis_url = os.getenv("REDIS_URL", "redis://localhost:6379/0")
         r = redis.from_url(redis_url)
         queue_depth = r.llen("celery")
@@ -112,7 +110,7 @@ def debug_db_check(db: Session = Depends(get_db)):
         samuel = next((u for u in users if u.company_id == 1), None)
         
         cvs = db.query(models.CV).all()
-        cv_info = [{"id": cv.id, "company_id": cv.company_id, "is_parsed": cv.is_parsed} for cv in cvs]
+        # cv_info removed as it was unused
         
         parsed_cvs = db.query(models.ParsedCV).all()
         parsed_info = [{"id": p.id, "cv_id": p.cv_id, "name": p.name, "skills_sample": p.skills[:50] if p.skills else "None"} for p in parsed_cvs]

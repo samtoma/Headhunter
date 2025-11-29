@@ -1,6 +1,5 @@
 import sys
 import os
-from pathlib import Path
 
 # Add the current directory to sys.path so we can import app modules
 sys.path.append(os.getcwd())
