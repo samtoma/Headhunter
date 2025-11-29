@@ -30,6 +30,7 @@ export const useHeadhunterData = () => {
     const [page, setPage] = useState(1)
     const [hasMore, setHasMore] = useState(true)
     const [total, setTotal] = useState(0)
+    const [stats, setStats] = useState({ totalCandidates: 0, hired: 0, silver: 0, activeJobs: 0 })
     const [isFetchingMore, setIsFetchingMore] = useState(false)
 
     // Filters
@@ -50,6 +51,16 @@ export const useHeadhunterData = () => {
         }
     }, [])
 
+    const fetchStats = useCallback(async () => {
+        if (!localStorage.getItem('token')) return
+        try {
+            const res = await axios.get('/api/profiles/stats/overview')
+            setStats(res.data)
+        } catch (err) {
+            console.error(err)
+        }
+    }, [])
+
     // Reset list when filters change
     const resetList = useCallback(() => {
         setPage(1)
@@ -59,7 +70,10 @@ export const useHeadhunterData = () => {
     }, [])
 
     const fetchProfiles = useCallback(async (pageNum = 1, append = false) => {
-        if (!localStorage.getItem('token')) return
+        if (!localStorage.getItem('token')) {
+            setLoading(false)
+            return
+        }
 
         try {
             if (pageNum === 1) setLoading(true)
@@ -110,10 +124,11 @@ export const useHeadhunterData = () => {
         fetchProfiles(1, false)
     }, [search, sortBy, selectedJobId, resetList, fetchProfiles])
 
-    // Initial Jobs Load
+    // Initial Jobs & Stats Load
     useEffect(() => {
         fetchJobs()
-    }, [fetchJobs])
+        fetchStats()
+    }, [fetchJobs, fetchStats])
 
     // Smart Polling
     useEffect(() => {
@@ -146,7 +161,9 @@ export const useHeadhunterData = () => {
                     // Let's just re-fetch the current page range? 
                     // Simpler: Just re-fetch page 1.
                     fetchProfiles(1, false)
+                    fetchProfiles(1, false)
                     fetchJobs() // Also refresh jobs in case stats changed
+                    fetchStats()
                 }
 
                 processingIdsRef.current = currentIds
@@ -188,7 +205,7 @@ export const useHeadhunterData = () => {
         search, setSearch,
         sortBy, setSortBy,
         selectedJobId, setSelectedJobId,
-        total,
+        total, stats,
         updateApp, updateProfile, assignJob, removeJob
     }
 }

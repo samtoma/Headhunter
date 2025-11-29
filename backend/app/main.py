@@ -20,7 +20,12 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-app = FastAPI(title="Headhunter API", version="1.6.0")
+# Generate version with timestamp to force frontend refresh on restart/redeploy
+# In production, this should ideally come from a build tag
+timestamp = int(time.time())
+APP_VERSION = os.getenv("APP_VERSION", f"1.7.0-{timestamp}")
+
+app = FastAPI(title="Headhunter API", version=APP_VERSION)
 
 # --- Serve Raw Files ---
 BASE_DIR = Path(os.getcwd())
@@ -144,5 +149,11 @@ def root():
     return {
         "system": "Headhunter", 
         "status": "Online", 
-        "docs": "/docs"
+        "docs": "/docs",
+        "version": app.version
     }
+
+@app.get("/version")
+def get_version():
+    """Returns the current backend version."""
+    return {"version": app.version}

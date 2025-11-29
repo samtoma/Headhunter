@@ -34,6 +34,7 @@ const PipelineHeader = ({
                     </button>
                     <h2 className="text-lg md:text-xl font-bold text-slate-900 flex items-center gap-2">
                         {selectedJob ? selectedJob.title : "General Pool"}
+                        {selectedJob?.department && <span className="text-xs bg-indigo-50 text-indigo-600 px-2 py-0.5 rounded border border-indigo-100 uppercase tracking-wider">{selectedJob.department}</span>}
                         {selectedJob && !selectedJob.is_active && <span className="text-xs bg-slate-100 text-slate-500 px-2 py-0.5 rounded border border-slate-200">ARCHIVED</span>}
                     </h2>
                     {selectedJob && (

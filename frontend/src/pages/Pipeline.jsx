@@ -23,7 +23,11 @@ const Pipeline = ({ onOpenMobileSidebar }) => {
 
     const { uploadFiles: startUpload, uploading } = useUpload();
 
-    const [selectedJob] = useState(null);
+    // Derive selectedJob from context instead of local state
+    const selectedJob = useMemo(() =>
+        jobs.find(j => j.id === selectedJobId) || null,
+        [jobs, selectedJobId]);
+
     const [viewMode, setViewMode] = useState("list");
     const [selectedIds, setSelectedIds] = useState([]);
     const [selectedCv, setSelectedCv] = useState(null);
@@ -34,15 +38,6 @@ const Pipeline = ({ onOpenMobileSidebar }) => {
 
     // Local file selection state (before upload starts)
     const [uploadFiles, setUploadFiles] = useState(null);
-
-    // Sync selectedJob with context
-    useEffect(() => {
-        if (selectedJob) {
-            setSelectedJobId(selectedJob.id);
-        } else {
-            setSelectedJobId(null);
-        }
-    }, [selectedJob, setSelectedJobId]);
 
     const filteredProfiles = useMemo(() => profiles, [profiles]);
 
@@ -258,7 +253,7 @@ const Pipeline = ({ onOpenMobileSidebar }) => {
                     jobs={jobs}
                     updateApp={updateApp}
                     updateProfile={updateProfile}
-                    selectedJobId={selectedJob?.id}
+                    selectedJobId={selectedJobId}
                     assignJob={assignJob}
                     removeJob={removeJob}
                 />

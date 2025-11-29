@@ -8,24 +8,12 @@ import CandidateList from './CandidateList'
 import CandidateDrawer from '../pipeline/CandidateDrawer'
 
 const DashboardView = ({ onOpenMobileSidebar }) => {
-    const { jobs, profiles, setSelectedJobId, updateApp, updateProfile, assignJob, removeJob } = useHeadhunter()
+    const { jobs, profiles, setSelectedJobId, updateApp, updateProfile, assignJob, removeJob, stats } = useHeadhunter()
     const navigate = useNavigate()
     const [selectedCv, setSelectedCv] = useState(null)
 
-    const stats = useMemo(() => {
-        const totalCandidates = profiles.length
-        let hired = 0
-        let silver = 0
-        const activeJobs = jobs.filter(j => j.is_active).length
-
-        profiles.forEach(p => {
-            p.applications?.forEach(a => {
-                if (a.status === "Hired") hired++
-                if (a.status === "Silver Medalist") silver++
-            })
-        })
-        return { totalCandidates, hired, silver, activeJobs }
-    }, [profiles, jobs])
+    // Stats are now fetched from the backend via useHeadhunter hook
+    // const stats = useMemo(...) - REMOVED
 
     const handleNavigate = (job) => {
         setSelectedJobId(job.id)

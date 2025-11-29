@@ -9,6 +9,43 @@ import { HeadhunterProvider } from './context/HeadhunterContext';
 import { UploadProvider } from './context/UploadContext';
 import AppRoutes from './AppRoutes';
 import UploadProgressWidget from './components/ui/UploadProgressWidget';
+import { useEffect } from 'react';
+import axios from 'axios';
+
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:30001';
+
+function VersionCheck() {
+    useEffect(() => {
+        const checkVersion = async () => {
+            try {
+                // Add timestamp to prevent browser caching of the version endpoint
+                const response = await axios.get(`${API_URL}/version?t=${new Date().getTime()}`);
+                const serverVersion = response.data.version;
+                const localVersion = localStorage.getItem('app_version');
+
+                console.log(`Version Check: Local=${localVersion}, Server=${serverVersion}`);
+
+                if (localVersion && localVersion !== serverVersion) {
+                    console.log(`Version mismatch! Reloading...`);
+                    localStorage.clear();
+                    localStorage.setItem('app_version', serverVersion);
+                    window.location.reload();
+                } else if (!localVersion) {
+                    localStorage.setItem('app_version', serverVersion);
+                }
+            } catch (error) {
+                console.error("Failed to check version:", error);
+            }
+        };
+
+        checkVersion();
+        // Check every 5 minutes
+        const interval = setInterval(checkVersion, 5 * 60 * 1000);
+        return () => clearInterval(interval);
+    }, []);
+
+    return null;
+}
 
 function App() {
     return (
@@ -19,6 +56,7 @@ function App() {
                         <HeadhunterProvider>
                             <AppRoutes />
                             <UploadProgressWidget />
+                            <VersionCheck />
                         </HeadhunterProvider>
                     </UploadProvider>
                 </AuthProvider>

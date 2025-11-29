@@ -119,3 +119,37 @@ def update_profile(cv_id: int, update_data: UpdateProfile, db: Session = Depends
 
     db.commit()
     return db.query(CV).filter(CV.id == cv_id).options(joinedload(CV.parsed_data)).first()
+
+@router.get("/stats/overview")
+def get_stats(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    # Base query for company
+    base_query = db.query(CV).filter(CV.company_id == current_user.company_id)
+    
+    total_candidates = base_query.count()
+    
+    # For status counts, we need to join applications
+    # Count Hired
+    hired = db.query(Application).join(CV).filter(
+        CV.company_id == current_user.company_id,
+        Application.status == "Hired"
+    ).count()
+    
+    # Count Silver Medalist
+    silver = db.query(Application).join(CV).filter(
+        CV.company_id == current_user.company_id,
+        Application.status == "Silver Medalist"
+    ).count()
+    
+    # Active Jobs
+    from app.models.models import Job
+    active_jobs = db.query(Job).filter(
+        Job.company_id == current_user.company_id,
+        Job.is_active == True
+    ).count()
+    
+    return {
+        "totalCandidates": total_candidates,
+        "hired": hired,
+        "silver": silver,
+        "activeJobs": active_jobs
+    }

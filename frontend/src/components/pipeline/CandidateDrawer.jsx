@@ -11,7 +11,18 @@ const CandidateDrawer = ({ cv, onClose, updateApp, updateProfile, jobs, selected
     const [view, setView] = useState("parsed")
     const [isEditing, setIsEditing] = useState(false)
     const d = cv?.parsed_data || {}
-    const app = selectedJobId ? cv?.applications?.find(a => a.job_id === selectedJobId) : null
+
+    // Allow switching context if in General Pool or multiple apps
+    const [activeJobId, setActiveJobId] = useState(selectedJobId)
+
+    // Auto-select first application if in General Pool and no job selected
+    useEffect(() => {
+        if (!selectedJobId && !activeJobId && cv?.applications?.length > 0) {
+            setActiveJobId(cv.applications[0].job_id)
+        }
+    }, [selectedJobId, activeJobId, cv])
+
+    const app = activeJobId ? cv?.applications?.find(a => a.job_id === activeJobId) : null
 
     const [editData, setEditData] = useState({
         name: d.name,
@@ -340,56 +351,60 @@ const CandidateDrawer = ({ cv, onClose, updateApp, updateProfile, jobs, selected
 
 
 
-                    <div className="w-[22rem] bg-white border-l border-slate-200 p-6 flex flex-col overflow-y-auto shadow-[rgba(0,0,0,0.05)_0px_0px_20px]">
-                        {/* Action Panel */}
-                        <div className={`p-4 rounded-xl mb-6 ${selectedJobId ? 'bg-indigo-50 border border-indigo-100' : 'bg-slate-50 border border-slate-100'}`}>
-                            <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">Active Pipeline</div>
-                            <div className="font-bold text-slate-900 flex items-center gap-2">
-                                {selectedJobId ? <><Layers size={16} className="text-indigo-600" /> {jobs.find(j => j.id === selectedJobId)?.title}</> : <><LayoutGrid size={16} /> General Pool</>}
+                    <div className="w-[22rem] bg-white border-l border-slate-200 flex flex-col shadow-[rgba(0,0,0,0.05)_0px_0px_20px]">
+                        <div className="flex-1 overflow-y-auto p-6">
+                            {/* Action Panel */}
+                            <div className={`p-4 rounded-xl mb-6 ${selectedJobId ? 'bg-indigo-50 border border-indigo-100' : 'bg-slate-50 border border-slate-100'}`}>
+                                <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">Active Pipeline</div>
+                                <div className="font-bold text-slate-900 flex items-center gap-2">
+                                    {activeJobId ? <><Layers size={16} className="text-indigo-600" /> {jobs.find(j => j.id === activeJobId)?.title}</> : <><LayoutGrid size={16} /> General Pool</>}
+                                </div>
+                                {activeJobId && (
+                                    <div className="mt-3 pt-3 border-t border-indigo-200/50">
+                                        <label className="text-[10px] font-bold uppercase text-indigo-400">Current Stage</label>
+                                        <select value={status} onChange={e => setStatus(e.target.value)} className="w-full mt-1 bg-white border border-indigo-200 text-indigo-900 text-sm rounded-lg p-2 font-medium focus:ring-2 focus:ring-indigo-500 outline-none">
+                                            {["New", "Screening", "Interview", "Offer", "Hired", "Silver Medalist", "Rejected"].map(s => <option key={s} value={s}>{s}</option>)}
+                                        </select>
+                                    </div>
+                                )}
                             </div>
-                            {selectedJobId && (
-                                <div className="mt-3 pt-3 border-t border-indigo-200/50">
-                                    <label className="text-[10px] font-bold uppercase text-indigo-400">Current Stage</label>
-                                    <select value={status} onChange={e => setStatus(e.target.value)} className="w-full mt-1 bg-white border border-indigo-200 text-indigo-900 text-sm rounded-lg p-2 font-medium focus:ring-2 focus:ring-indigo-500 outline-none">
-                                        {["New", "Screening", "Interview", "Offer", "Hired", "Silver Medalist", "Rejected"].map(s => <option key={s} value={s}>{s}</option>)}
-                                    </select>
+
+                            {!selectedJobId && cv.applications?.length > 0 && (
+                                <div className="mb-6">
+                                    <h4 className="text-xs font-bold text-slate-900 uppercase mb-3 flex items-center gap-2"><Layers size={14} /> Track Status</h4>
+                                    <div className="space-y-2">
+                                        {cv.applications.map(app => {
+                                            const job = jobs.find(j => j.id === app.job_id)
+                                            return (
+                                                <div key={app.id} onClick={() => setActiveJobId(app.job_id)} className={`bg-white border p-3 rounded-lg shadow-sm cursor-pointer transition ${activeJobId === app.job_id ? 'border-indigo-500 ring-1 ring-indigo-500' : 'border-slate-200 hover:border-indigo-300'}`}>
+                                                    <div className="text-xs text-slate-500 font-medium mb-1">{job?.title}</div>
+                                                    <div className={`text-xs font-bold px-2 py-1 rounded inline-block border ${getStatusColor(app.status)}`}>{app.status}</div>
+                                                </div>
+                                            )
+                                        })}
+                                    </div>
                                 </div>
                             )}
-                        </div>
 
-                        {!selectedJobId && cv.applications?.length > 0 && (
-                            <div className="mb-6">
-                                <h4 className="text-xs font-bold text-slate-900 uppercase mb-3 flex items-center gap-2"><Layers size={14} /> Track Status</h4>
-                                <div className="space-y-2">
-                                    {cv.applications.map(app => {
-                                        const job = jobs.find(j => j.id === app.job_id)
-                                        return (
-                                            <div key={app.id} className="bg-white border border-slate-200 p-3 rounded-lg shadow-sm">
-                                                <div className="text-xs text-slate-500 font-medium mb-1">{job?.title}</div>
-                                                <div className={`text-xs font-bold px-2 py-1 rounded inline-block border ${getStatusColor(app.status)}`}>{app.status}</div>
-                                            </div>
-                                        )
-                                    })}
-                                </div>
-                            </div>
-                        )}
-
-                        <div className="space-y-6 flex-1">
-                            <div>
-                                <h4 className="text-xs font-bold text-slate-900 uppercase mb-3 flex items-center gap-2"><DollarSign size={14} /> Compensation</h4>
-                                <div className="grid gap-3">
-                                    <div className="relative">
-                                        <span className="absolute left-3 top-2.5 text-slate-400 text-xs font-bold">Curr</span>
-                                        <input value={curr} onChange={e => setCurr(e.target.value)} className="w-full pl-12 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm font-mono focus:border-indigo-500 outline-none" placeholder="-" />
-                                    </div>
-                                    <div className="relative">
-                                        <span className="absolute left-3 top-2.5 text-emerald-600 text-xs font-bold">Exp</span>
-                                        <input value={exp} onChange={e => setExp(e.target.value)} className="w-full pl-12 pr-3 py-2 bg-emerald-50 border border-emerald-200 text-emerald-900 rounded-lg text-sm font-mono focus:border-emerald-500 outline-none font-bold" placeholder="-" />
+                            <div className="space-y-6 flex-1">
+                                <div>
+                                    <h4 className="text-xs font-bold text-slate-900 uppercase mb-3 flex items-center gap-2"><DollarSign size={14} /> Compensation</h4>
+                                    <div className="grid gap-3">
+                                        <div className="relative">
+                                            <span className="absolute left-3 top-2.5 text-slate-400 text-xs font-bold">Curr</span>
+                                            <input value={curr} onChange={e => setCurr(e.target.value)} className="w-full pl-12 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm font-mono focus:border-indigo-500 outline-none" placeholder="-" />
+                                        </div>
+                                        <div className="relative">
+                                            <span className="absolute left-3 top-2.5 text-emerald-600 text-xs font-bold">Exp</span>
+                                            <input value={exp} onChange={e => setExp(e.target.value)} className="w-full pl-12 pr-3 py-2 bg-emerald-50 border border-emerald-200 text-emerald-900 rounded-lg text-sm font-mono focus:border-emerald-500 outline-none font-bold" placeholder="-" />
+                                        </div>
                                     </div>
                                 </div>
+
                             </div>
 
-                            {selectedJobId ? (
+                            {/* Show Rating/Notes/Interviews if we have an active application context */}
+                            {activeJobId ? (
                                 <>
                                     <div>
                                         <h4 className="text-xs font-bold text-slate-900 uppercase mb-3 flex items-center gap-2"><Star size={14} /> Rating</h4>
@@ -561,39 +576,43 @@ const CandidateDrawer = ({ cv, onClose, updateApp, updateProfile, jobs, selected
                             )}
                         </div>
 
-                        <div className="mt-6 pt-6 border-t border-slate-100 space-y-3">
-                            <button onClick={save} className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-bold text-sm flex items-center justify-center gap-2 shadow-sm transition active:scale-[0.98]">
-                                {saved ? <Check size={18} /> : <Save size={18} />} {saved ? "Saved!" : "Save Changes"}
-                            </button>
-
-                            {!selectedJobId && (
-                                <div className="relative">
-                                    <button onClick={() => setAssignOpen(!assignOpen)} className="w-full flex items-center justify-between px-3 py-2 bg-white border border-indigo-200 text-indigo-600 hover:bg-indigo-50 rounded-lg font-bold text-sm transition">
-                                        <span>Assign to Job...</span>
-                                        <ChevronDown size={14} className={`transition-transform ${assignOpen ? 'rotate-180' : ''}`} />
-                                    </button>
-
-                                    {assignOpen && (
-                                        <div className="absolute bottom-full left-0 right-0 mb-2 bg-white border border-slate-200 shadow-xl rounded-xl p-2 z-50 animate-in fade-in slide-in-from-bottom-2">
-                                            {jobs.filter(j => j.is_active).map(j => {
-                                                const isAssigned = cv.applications?.some(a => a.job_id === j.id)
-                                                return <button key={j.id} onClick={() => { !isAssigned && assignJob(cv.id, j.id); setAssignOpen(false) }} disabled={isAssigned} className="w-full text-left px-3 py-2 text-xs font-bold hover:bg-slate-50 rounded-lg text-slate-700 truncate disabled:opacity-50">{j.title} {isAssigned && "✓"}</button>
-                                            })}
-                                        </div>
-                                    )}
-                                </div>
-                            )}
-
-                            {selectedJobId && app && (
-                                <button onClick={() => removeJob(app.id)} className="w-full py-2 text-red-500 hover:bg-red-50 rounded-lg text-xs font-bold transition">
-                                    Remove from Pipeline
-                                </button>
-                            )}
-                        </div>
                     </div>
                 </div>
+
+                <div className="p-6 border-t border-slate-100 bg-white z-10 space-y-3">
+                    <button onClick={save} className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-bold text-sm flex items-center justify-center gap-2 shadow-sm transition active:scale-[0.98]">
+                        {saved ? <Check size={18} /> : <Save size={18} />} {saved ? "Saved!" : "Save Changes"}
+                    </button>
+
+                    {/* Allow assigning if not already assigned to THIS job (or if in general pool) */}
+                    {!activeJobId && (
+                        <div className="relative">
+                            <button onClick={() => setAssignOpen(!assignOpen)} className="w-full flex items-center justify-between px-3 py-2 bg-white border border-indigo-200 text-indigo-600 hover:bg-indigo-50 rounded-lg font-bold text-sm transition">
+                                <span>Assign to Job...</span>
+                                <ChevronDown size={14} className={`transition-transform ${assignOpen ? 'rotate-180' : ''}`} />
+                            </button>
+
+                            {assignOpen && (
+                                <div className="absolute bottom-full left-0 right-0 mb-2 bg-white border border-slate-200 shadow-xl rounded-xl p-2 z-50 animate-in fade-in slide-in-from-bottom-2">
+                                    {jobs.filter(j => j.is_active).map(j => {
+                                        const isAssigned = cv.applications?.some(a => a.job_id === j.id)
+                                        return <button key={j.id} onClick={() => { !isAssigned && assignJob(cv.id, j.id); setAssignOpen(false) }} disabled={isAssigned} className="w-full text-left px-3 py-2 text-xs font-bold hover:bg-slate-50 rounded-lg text-slate-700 truncate disabled:opacity-50">{j.title} {isAssigned && "✓"}</button>
+                                    })}
+                                </div>
+                            )}
+                        </div>
+                    )}
+
+                    {activeJobId && app && (
+                        <button onClick={() => removeJob(app.id)} className="w-full py-2 text-red-500 hover:bg-red-50 rounded-lg text-xs font-bold transition">
+                            Remove from Pipeline
+                        </button>
+                    )}
+                </div>
             </div>
-        </div >
+        </div>
+
+
     )
 }
 
