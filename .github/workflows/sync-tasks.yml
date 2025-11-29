@@ -1,9 +1,10 @@
 name: Sync Tasks to Issues
 
 on:
+  workflow_dispatch:  # Allow manual triggering
   push:
-    paths:
-      - 'task.md'  # Only run when task.md changes
+    # paths:
+    #   - 'task.md'  # Commented out to ensure it runs for debugging
     branches:
       - '**'       # Run on all branches
 
