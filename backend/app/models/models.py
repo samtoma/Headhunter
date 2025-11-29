@@ -7,6 +7,7 @@ import enum
 class UserRole(str, enum.Enum):
     ADMIN = "admin"
     RECRUITER = "recruiter"
+    INTERVIEWER = "interviewer"
     SUPER_ADMIN = "super_admin"
 
 class Company(Base):
@@ -49,7 +50,8 @@ class User(Base):
     email = Column(String, unique=True, index=True, nullable=False)
     hashed_password = Column(String, nullable=False)
     is_active = Column(Boolean, default=True)
-    role = Column(String, default=UserRole.RECRUITER) # "admin" or "recruiter"
+    role = Column(String, default=UserRole.RECRUITER) # "admin", "recruiter", "interviewer"
+    department = Column(String, nullable=True) # e.g. "Engineering", "Sales"
     company_id = Column(Integer, ForeignKey("companies.id"), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     

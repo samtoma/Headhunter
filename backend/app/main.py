@@ -6,6 +6,7 @@ from fastapi import FastAPI, Depends
 from sqlalchemy.exc import OperationalError
 from app.core.database import engine, get_db
 from app.api.v1 import cv, profiles, jobs, applications, auth, company, sso, interviews, companies, logs
+from app.api.endpoints import search
 from app.models import models
 from app.tasks.cv_tasks import process_cv_task
 from sqlalchemy.orm import Session
@@ -93,6 +94,7 @@ app.include_router(auth.router, prefix="/auth")
 app.include_router(company.router, prefix="/company")
 app.include_router(sso.router, prefix="/auth") # SSO endpoints under /auth/microsoft/...
 app.include_router(logs.router)
+app.include_router(search.router, prefix="/search", tags=["Search"])
 
 @app.get("/api/debug/db_check")
 def debug_db_check(db: Session = Depends(get_db)):

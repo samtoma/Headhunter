@@ -5,7 +5,7 @@ from pydantic import BaseModel, field_validator, ConfigDict
 from datetime import datetime
 import json
 from app.core.database import get_db
-from app.models.models import Job, ParsedCV, User, CV
+from app.models.models import Job, ParsedCV, User, CV, UserRole
 from app.api.deps import get_current_user
 from app.services.parser import generate_job_metadata
 
@@ -224,7 +224,13 @@ def create_job(job: JobCreate, db: Session = Depends(get_db), current_user: User
 
 @router.get("/", response_model=List[JobOut])
 def list_jobs(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
-    jobs = db.query(Job).filter(Job.company_id == current_user.company_id).options(joinedload(Job.applications)).all()
+    query = db.query(Job).filter(Job.company_id == current_user.company_id)
+    
+    # If Interviewer, filter by department
+    if current_user.role == UserRole.INTERVIEWER and current_user.department:
+        query = query.filter(Job.department == current_user.department)
+        
+    jobs = query.options(joinedload(Job.applications)).all()
     results = []
     for j in jobs:
         j_dict = j.__dict__.copy()

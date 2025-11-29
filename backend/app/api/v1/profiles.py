@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session, joinedload
 from typing import Optional
 from datetime import datetime, timezone
 from app.core.database import get_db
-from app.models.models import CV, ParsedCV, Application, User
+from app.models.models import CV, ParsedCV, Application, User, UserRole, Interview
 from app.api.deps import get_current_user
 from app.schemas.cv import CVResponse, UpdateProfile, PaginatedResponse
 from sqlalchemy import or_, desc, asc
@@ -21,6 +21,11 @@ def get_all_profiles(
     current_user: User = Depends(get_current_user)
 ):
     query = db.query(CV).options(joinedload(CV.parsed_data)).filter(CV.company_id == current_user.company_id)
+    
+    # --- INTERVIEWER RESTRICTIONS ---
+    if current_user.role == UserRole.INTERVIEWER:
+        # Only show candidates with assigned interviews
+        query = query.join(Application).join(Interview).filter(Interview.interviewer_id == current_user.id)
     
     # --- FILTERS ---
     if job_id:
@@ -77,7 +82,17 @@ def get_all_profiles(
             else:
                  # Standard logic
                  base_exp = cv.parsed_data.experience_years if (cv.parsed_data and cv.parsed_data.experience_years) else 0
+                 base_exp = cv.parsed_data.experience_years if (cv.parsed_data and cv.parsed_data.experience_years) else 0
                  cv.projected_experience = base_exp + int(years_passed)
+
+        # --- MASK SALARY FOR INTERVIEWERS ---
+        if current_user.role == UserRole.INTERVIEWER:
+            if cv.parsed_data:
+                cv.parsed_data.current_salary = "Confidential"
+                cv.parsed_data.expected_salary = "Confidential"
+            for app in cv.applications:
+                app.current_salary = "Confidential"
+                app.expected_salary = "Confidential"
 
     import math
     return {

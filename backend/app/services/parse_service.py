@@ -119,7 +119,33 @@ def process_cv(cv_id: int):
             cv.is_parsed = True
             
             db.commit()
+            db.commit()
             logger.info(f"Finished CV ID {cv_id}")
+
+            # STEP 4: Vector DB Upsert
+            # We do this after commit to ensure DB is consistent.
+            embedding = data.get("_embedding")
+            rich_text = data.get("_rich_text")
+            
+            if embedding and rich_text:
+                try:
+                    from app.services.vector_db import vector_db
+                    logger.info(f"Upserting CV {cv_id} to VectorDB...")
+                    vector_db.upsert(
+                        ids=[str(cv_id)],
+                        documents=[rich_text],
+                        metadatas=[{
+                            "name": data.get("name", "Unknown"),
+                            "email": clean_and_dump(data, ["email", "emails"]),
+                            "filename": cv_filename,
+                            "cv_id": cv_id
+                        }],
+                        embeddings=[embedding]
+                    )
+                    logger.info(f"Successfully upserted CV {cv_id} to VectorDB")
+                except Exception as e:
+                    logger.error(f"Failed to upsert CV {cv_id} to VectorDB: {e}")
+
         except Exception as e:
             db.rollback()
             logger.error(f"Error saving CV {cv_id}: {e}")

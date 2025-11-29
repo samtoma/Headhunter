@@ -337,8 +337,47 @@ async def parse_cv_with_llm(text: str, filename: str) -> Dict[str, Any]:
             data["education"] = normalize_education(data.get("education", []))
 
             logger.info("Parsed CV '%s' successfully. Keys: %s", filename, list(data.keys()))
+            
+            # --- VECTOR DB INTEGRATION ---
+            # We do this here to ensure we index the CV immediately after parsing.
+            # In a production system, we might want to offload this to a background task (Celery).
+            # For now, we'll do it inline but catch errors so parsing doesn't fail if VectorDB fails.
+            try:
+                from app.services.embeddings import generate_embedding
+                from app.services.vector_db import vector_db
+                
+                # Create a rich text representation for the embedding
+                # Combine summary, skills, job history, and education
+                rich_text = f"""
+                Name: {data.get('name', '')}
+                Summary: {data.get('summary', '')}
+                Skills: {data.get('skills', '')}
+                Job History: {data.get('job_history', '')}
+                Education: {data.get('education', '')}
+                """
+                
+                logger.debug("Generating embedding for '%s'", filename)
+                embedding = await generate_embedding(rich_text)
+                
+                if embedding:
+                    # We need a unique ID. Since we don't have the DB ID yet (it's inserted later in the flow),
+                    # we might have a problem. 
+                    # Usually, parsing happens BEFORE DB insertion in this app's flow?
+                    # Let's check where `parse_cv_with_llm` is called.
+                    # If it's called before DB insert, we can't use DB ID.
+                    # We might need to use filename or return the embedding to the caller to save it.
+                    
+                    # Strategy: Return the embedding in the data dict, and let the caller (API endpoint)
+                    # handle the DB insertion and VectorDB upsert.
+                    data["_embedding"] = embedding
+                    data["_rich_text"] = rich_text
+                    logger.debug("Embedding generated and attached to parsed data.")
+            except Exception as e:
+                logger.error(f"Failed to generate/attach embedding for '{filename}': {e}")
+            
             return data
         except Exception as e:
             logger.error("OpenAI Error while parsing CV '%s': %s", filename, e)
             return {}
     return {}
+
