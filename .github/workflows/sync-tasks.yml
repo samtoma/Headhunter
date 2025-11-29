@@ -5,7 +5,7 @@ on:
     paths:
       - 'task.md'  # Only run when task.md changes
     branches:
-      - main       # Adjust if using a different default branch
+      - '**'       # Run on all branches
 
 permissions:
   contents: write  # Needed to push changes back
