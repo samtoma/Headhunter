@@ -2,11 +2,14 @@ import os
 import re
 import sys
 import subprocess
-import requests
+import httpx
 from pathlib import Path
 
 # Configuration
-TASK_FILE = Path("/home/sam/.gemini/antigravity/brain/af6eba35-5fa7-4208-bcd0-7211d31d4d3e/task.md")
+# Configuration
+# In CI, we expect the script to run from repo root, so task.md is at root or specific path
+# Adjust this path to match where task.md lives in the repo
+TASK_FILE = Path(os.getenv("TASK_FILE_PATH", "task.md"))
 GITHUB_API = "https://api.github.com"
 TOKEN = os.getenv("GITHUB_TOKEN")
 
@@ -65,11 +68,15 @@ def create_issue(repo, title, body=""):
         "labels": ["task"]
     }
     
-    resp = requests.post(url, json=data, headers=headers)
-    if resp.status_code == 201:
-        return resp.json()
-    else:
-        print(f"Failed to create issue: {resp.status_code} {resp.text}")
+    try:
+        resp = httpx.post(url, json=data, headers=headers)
+        if resp.status_code == 201:
+            return resp.json()
+        else:
+            print(f"Failed to create issue: {resp.status_code} {resp.text}")
+            return None
+    except Exception as e:
+        print(f"Error connecting to GitHub: {e}")
         return None
 
 def main():
