@@ -4,7 +4,7 @@ import Login from './components/auth/Login';
 import Signup from './components/auth/Signup';
 import CompanySetupWizard from './components/auth/CompanySetupWizard';
 import DashboardView from './components/dashboard/DashboardView';
-import PipelineHeader from './components/pipeline/PipelineHeader';
+
 import Pipeline from './pages/Pipeline';
 import Settings from './pages/Settings';
 import SuperAdminDashboard from './components/dashboard/SuperAdminDashboard';

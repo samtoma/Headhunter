@@ -13,7 +13,7 @@ import UploadProgressWidget from './components/ui/UploadProgressWidget';
 function App() {
     return (
         <React.StrictMode>
-            <Router>
+            <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
                 <AuthProvider>
                     <UploadProvider>
                         <HeadhunterProvider>

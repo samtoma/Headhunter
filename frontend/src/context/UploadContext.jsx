@@ -3,6 +3,7 @@ import axios from 'axios'
 
 const UploadContext = createContext()
 
+// eslint-disable-next-line react-refresh/only-export-components
 export const useUpload = () => useContext(UploadContext)
 
 export const UploadProvider = ({ children }) => {

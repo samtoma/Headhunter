@@ -23,7 +23,7 @@ const Pipeline = ({ onOpenMobileSidebar }) => {
 
     const { uploadFiles: startUpload, uploading } = useUpload();
 
-    const [selectedJob, setSelectedJob] = useState(null);
+    const [selectedJob] = useState(null);
     const [viewMode, setViewMode] = useState("list");
     const [selectedIds, setSelectedIds] = useState([]);
     const [selectedCv, setSelectedCv] = useState(null);
@@ -125,18 +125,6 @@ const Pipeline = ({ onOpenMobileSidebar }) => {
         } catch (err) {
             console.error(err);
             alert("Failed to reprocess");
-        }
-    };
-
-    const handleBulkDelete = async () => {
-        if (!confirm(`Delete ${selectedIds.length} CVs? This cannot be undone.`)) return;
-        try {
-            // We don't have a bulk delete endpoint yet, so we'll do it sequentially for now or add one.
-            // For now, let's assume we need to loop, or better, add a bulk delete endpoint.
-            // Given the user request is about reprocess, I'll stick to reprocess for now but adding a placeholder for delete.
-            // Actually, let's just implement reprocess as requested.
-        } catch (err) {
-            console.error(err);
         }
     };
 
