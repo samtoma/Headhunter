@@ -7,6 +7,8 @@ from sqlalchemy.exc import OperationalError
 from app.core.database import engine, get_db
 from app.api.v1 import cv, profiles, jobs, applications, auth, company, sso, interviews, companies, logs
 from app.models import models
+from app.tasks.cv_tasks import process_cv_task
+from sqlalchemy.orm import Session
 
 # Configure Logging via environment (default INFO)
 LOG_LEVEL = os.getenv("LOG_LEVEL", "DEBUG").upper()
@@ -47,8 +49,7 @@ def wait_for_db():
     
     logger.error("❌ Could not connect to Database after multiple retries.")
 
-from app.tasks.cv_tasks import process_cv_task
-from sqlalchemy.orm import Session
+
 
 # Check DB connection on startup
 wait_for_db()
