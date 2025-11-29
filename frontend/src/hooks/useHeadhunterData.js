@@ -91,7 +91,7 @@ export const useHeadhunterData = () => {
             setHasMore(pageNum < pages)
             setPage(pageNum)
         } catch (err) {
-            console.error(err)
+            console.error('Error fetching profiles:', err)
         } finally {
             setLoading(false)
             setIsFetchingMore(false)
@@ -159,6 +159,27 @@ export const useHeadhunterData = () => {
         return () => clearInterval(i)
     }, [fetchProfiles, fetchJobs])
 
+    // Actions
+    const updateApp = useCallback(async (appId, data) => {
+        await axios.patch(`/api/applications/${appId}`, data)
+        fetchProfiles(page, false) // Refresh current page
+    }, [fetchProfiles, page])
+
+    const updateProfile = useCallback(async (cvId, data) => {
+        await axios.patch(`/api/profiles/${cvId}`, data)
+        fetchProfiles(page, false)
+    }, [fetchProfiles, page])
+
+    const assignJob = useCallback(async (cvId, jobId) => {
+        await axios.post('/api/applications/', { cv_id: cvId, job_id: jobId })
+        fetchProfiles(page, false)
+    }, [fetchProfiles, page])
+
+    const removeJob = useCallback(async (appId) => {
+        await axios.delete(`/api/applications/${appId}`)
+        fetchProfiles(page, false)
+    }, [fetchProfiles, page])
+
     return {
         jobs, setJobs,
         profiles, setProfiles,
@@ -167,6 +188,7 @@ export const useHeadhunterData = () => {
         search, setSearch,
         sortBy, setSortBy,
         selectedJobId, setSelectedJobId,
-        total
+        total,
+        updateApp, updateProfile, assignJob, removeJob
     }
 }

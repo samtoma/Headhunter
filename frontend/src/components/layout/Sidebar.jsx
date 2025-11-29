@@ -1,25 +1,56 @@
 import { BrainCircuit, LayoutDashboard, Briefcase as BriefcaseIcon, Archive, Layers, Lock, Plus, Settings, LogOut, Building2, X } from 'lucide-react'
+import { useLocation, useNavigate } from 'react-router-dom'
+import { useAuth } from '../../context/AuthContext'
+import { useHeadhunter } from '../../context/HeadhunterContext'
+import { useState } from 'react'
+import CompanyProfileModal from '../modals/CompanyProfileModal'
+import CreateJobModal from '../modals/CreateJobModal'
+import axios from 'axios'
 
-const Sidebar = ({
-    currentView,
-    setCurrentView,
-    setSelectedJob,
-    showArchived,
-    setShowArchived,
-    displayedJobs,
-    selectedJob,
-    handleSidebarDrop,
-    setShowNewJobModal,
-    setShowCompanyModal,
-    onLogout,
-    isMobileOpen,
-    setIsMobileOpen
-}) => {
+const Sidebar = ({ isMobileOpen, setIsMobileOpen }) => {
+    const { logout } = useAuth()
+    const { jobs, selectedJobId, setSelectedJobId, fetchJobs } = useHeadhunter()
+    const location = useLocation()
+    const navigate = useNavigate()
+
+    const [showArchived, setShowArchived] = useState(false)
+    const [showCompanyProfile, setShowCompanyProfile] = useState(false)
+    const [showCreateJobModal, setShowCreateJobModal] = useState(false)
+
     const role = localStorage.getItem('role')
     const companyName = localStorage.getItem('company_name')
 
     const closeMobileSidebar = () => {
         setIsMobileOpen(false)
+    }
+
+    const currentPath = location.pathname
+    const displayedJobs = jobs.filter(j => showArchived ? !j.is_active : j.is_active)
+
+    const handleNavigation = (path, jobId = null) => {
+        if (jobId !== undefined) setSelectedJobId(jobId)
+        navigate(path)
+        closeMobileSidebar()
+    }
+
+    const handleCreateJob = async (jobData, selectedMatches) => {
+        try {
+            const res = await axios.post('/api/jobs/', jobData)
+            const newJob = res.data
+
+            if (selectedMatches && selectedMatches.length > 0) {
+                await Promise.all(selectedMatches.map(cvId =>
+                    axios.post('/api/applications/', { cv_id: cvId, job_id: newJob.id })
+                ))
+            }
+
+            await fetchJobs()
+            setShowCreateJobModal(false)
+            handleNavigation("/pipeline", newJob.id)
+        } catch (e) {
+            console.error("Failed to create job", e)
+            alert("Failed to create job")
+        }
     }
 
     return (
@@ -56,11 +87,8 @@ const Sidebar = ({
                 <div className="flex-1 overflow-y-auto p-3 space-y-1">
                     {role !== 'super_admin' && (
                         <>
-                            <button onClick={() => {
-                                setCurrentView("dashboard")
-                                setSelectedJob(null)
-                                closeMobileSidebar()
-                            }} className={`w-full flex items-center gap-3 p-2.5 rounded-lg text-sm font-medium transition ${currentView === "dashboard" ? 'bg-indigo-50 text-indigo-700 ring-1 ring-indigo-200' : 'text-slate-600 hover:bg-slate-50'}`}>
+                            <button onClick={() => handleNavigation("/")}
+                                className={`w-full flex items-center gap-3 p-2.5 rounded-lg text-sm font-medium transition ${currentPath === "/" ? 'bg-indigo-50 text-indigo-700 ring-1 ring-indigo-200' : 'text-slate-600 hover:bg-slate-50'}`}>
                                 <LayoutDashboard size={18} /> Dashboard
                             </button>
 
@@ -71,62 +99,49 @@ const Sidebar = ({
                                 </button>
                             </div>
 
-                            <button onClick={() => {
-                                setCurrentView("pipeline")
-                                setSelectedJob(null)
-                                closeMobileSidebar()
-                            }} className={`w-full flex items-center gap-3 p-2.5 rounded-lg text-sm font-medium transition ${currentView === "pipeline" && !selectedJob ? 'bg-indigo-50 text-indigo-700 ring-1 ring-indigo-200' : 'text-slate-600 hover:bg-slate-50'}`}>
+                            <button onClick={() => handleNavigation("/pipeline", null)}
+                                className={`w-full flex items-center gap-3 p-2.5 rounded-lg text-sm font-medium transition ${currentPath === "/pipeline" && !selectedJobId ? 'bg-indigo-50 text-indigo-700 ring-1 ring-indigo-200' : 'text-slate-600 hover:bg-slate-50'}`}>
                                 <Layers size={18} /> General Pool
                             </button>
 
-                            {/* SIDEBAR JOB LIST - DROP TARGETS */}
+                            {/* SIDEBAR JOB LIST */}
                             {displayedJobs.map(job => (
                                 <div
                                     key={job.id}
-                                    onClick={() => {
-                                        setCurrentView("pipeline")
-                                        setSelectedJob(job)
-                                        closeMobileSidebar()
-                                    }}
-                                    onDragOver={(e) => e.preventDefault()}
-                                    onDrop={(e) => handleSidebarDrop(e, job.id)}
-                                    className={`w-full flex items-center justify-between p-2.5 rounded-lg text-sm font-medium transition cursor-pointer border border-transparent ${currentView === "pipeline" && selectedJob?.id === job.id ? 'bg-indigo-50 text-indigo-700 ring-1 ring-indigo-200' : 'text-slate-600 hover:bg-slate-50 hover:border-slate-200'}`}
+                                    onClick={() => handleNavigation("/pipeline", job.id)}
+                                    className={`w-full flex items-center justify-between p-2.5 rounded-lg text-sm font-medium transition cursor-pointer border border-transparent ${currentPath === "/pipeline" && selectedJobId === job.id ? 'bg-indigo-50 text-indigo-700 ring-1 ring-indigo-200' : 'text-slate-600 hover:bg-slate-50 hover:border-slate-200'}`}
                                 >
                                     <span className={`truncate flex items-center gap-2 ${!job.is_active ? 'line-through opacity-70' : ''}`}>
                                         {!job.is_active && <Lock size={12} />} {job.title}
                                     </span>
-                                    <span className={`text-[10px] px-2 py-0.5 rounded-full ${selectedJob?.id === job.id ? 'bg-white text-indigo-600 shadow-sm' : 'bg-slate-100 text-slate-500'}`}>{job.candidate_count}</span>
+                                    <span className={`text-[10px] px-2 py-0.5 rounded-full ${selectedJobId === job.id ? 'bg-white text-indigo-600 shadow-sm' : 'bg-slate-100 text-slate-500'}`}>{job.candidate_count}</span>
                                 </div>
                             ))}
 
-                            {!showArchived && <button onClick={() => setShowNewJobModal(true)} className="w-full flex items-center gap-2 p-2.5 text-sm text-slate-500 hover:text-indigo-600 mt-2 hover:bg-indigo-50 rounded-lg transition font-medium"><Plus size={16} /> New Pipeline</button>}
+                            {/* New Pipeline Button */}
+                            {!showArchived && <button onClick={() => setShowCreateJobModal(true)} className="w-full flex items-center gap-2 p-2.5 text-sm text-slate-500 hover:text-indigo-600 mt-2 hover:bg-indigo-50 rounded-lg transition font-medium"><Plus size={16} /> New Pipeline</button>}
                         </>
                     )}
 
                     {role === 'super_admin' && (
-                        <button onClick={() => {
-                            setCurrentView("super_admin")
-                            setSelectedJob(null)
-                            closeMobileSidebar()
-                        }} className={`w-full flex items-center gap-3 p-2.5 rounded-lg text-sm font-medium transition ${currentView === "super_admin" ? 'bg-indigo-50 text-indigo-700 ring-1 ring-indigo-200' : 'text-slate-600 hover:bg-slate-50'}`}>
+                        <button onClick={() => handleNavigation("/super-admin")}
+                            className={`w-full flex items-center gap-3 p-2.5 rounded-lg text-sm font-medium transition ${currentPath === "/super-admin" ? 'bg-indigo-50 text-indigo-700 ring-1 ring-indigo-200' : 'text-slate-600 hover:bg-slate-50'}`}>
                             <Building2 size={18} /> Global Dashboard
                         </button>
                     )}
                 </div>
                 <div className="p-4 border-t border-slate-100">
                     {role === 'admin' && (
-                        <button onClick={() => setShowCompanyModal(true)} className="w-full flex items-center gap-2 p-2.5 text-sm text-slate-500 hover:text-slate-700 hover:bg-slate-50 rounded-lg transition"><BriefcaseIcon size={16} /> Company Profile</button>
+                        <>
+                            <button onClick={() => setShowCompanyProfile(true)} className="w-full flex items-center gap-2 p-2.5 text-sm text-slate-500 hover:text-slate-700 hover:bg-slate-50 rounded-lg transition mb-1">
+                                <Building2 size={16} /> Company Profile
+                            </button>
+                            <button onClick={() => handleNavigation("/settings")} className={`w-full flex items-center gap-2 p-2.5 text-sm transition rounded-lg ${currentPath === "/settings" ? 'bg-indigo-50 text-indigo-700 ring-1 ring-indigo-200 font-medium' : 'text-slate-500 hover:text-slate-700 hover:bg-slate-50'}`}>
+                                <Settings size={16} /> Workflow Settings
+                            </button>
+                        </>
                     )}
-                    {role === 'admin' && (
-                        <button onClick={() => {
-                            setCurrentView("settings")
-                            setSelectedJob(null)
-                            closeMobileSidebar()
-                        }} className={`w-full flex items-center gap-2 p-2.5 text-sm transition rounded-lg ${currentView === "settings" ? 'bg-indigo-50 text-indigo-700 ring-1 ring-indigo-200 font-medium' : 'text-slate-500 hover:text-slate-700 hover:bg-slate-50'}`}>
-                            <Settings size={16} /> Workflow Settings
-                        </button>
-                    )}
-                    <button onClick={onLogout} className="w-full flex items-center gap-2 p-2.5 text-sm text-red-500 hover:text-red-700 hover:bg-red-50 rounded-lg transition mt-1"><LogOut size={16} /> Sign Out</button>
+                    <button onClick={logout} className="w-full flex items-center gap-2 p-2.5 text-sm text-red-500 hover:text-red-700 hover:bg-red-50 rounded-lg transition mt-1"><LogOut size={16} /> Sign Out</button>
 
                     {/* Version & Attribution */}
                     <div className="mt-4 pt-4 border-t border-slate-100 text-center space-y-1">
@@ -135,6 +150,10 @@ const Sidebar = ({
                     </div>
                 </div>
             </div>
+
+            {/* Modals */}
+            {showCompanyProfile && <CompanyProfileModal onClose={() => setShowCompanyProfile(false)} />}
+            {showCreateJobModal && <CreateJobModal onClose={() => setShowCreateJobModal(false)} onCreate={handleCreateJob} />}
         </>
     )
 }

@@ -249,6 +249,7 @@ def update_company_profile(
         raise HTTPException(status_code=403, detail="Only admins can update company profile")
     
     company = current_user.company
+    
     if not company:
         raise HTTPException(status_code=404, detail="Company not found")
     

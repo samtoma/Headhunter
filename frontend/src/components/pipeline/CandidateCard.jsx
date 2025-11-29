@@ -1,10 +1,13 @@
 
 import {
-    Briefcase, GraduationCap, Heart, Flag, CheckSquare, Square, RotateCw, Trash2, RefreshCw
+    Briefcase, GraduationCap, Heart, Flag, CheckSquare, Square, RotateCw, Trash2, RefreshCw, Download
 } from 'lucide-react'
 import { safeList, getStatusColor } from '../../utils/helpers'
 
+import { useAuth } from '../../context/AuthContext'
+
 const CandidateCard = ({ cv, onClick, onDelete, onReprocess, status, compact, selectable, selected, onSelect }) => {
+    const { token } = useAuth()
     const d = cv.parsed_data || {}
     const skills = safeList(d.skills).slice(0, 3)
     const edu = safeList(d.education)[0]
@@ -26,6 +29,16 @@ const CandidateCard = ({ cv, onClick, onDelete, onReprocess, status, compact, se
             )}
 
             <div className="absolute top-3 right-3 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity z-30 bg-white/80 backdrop-blur rounded-md p-0.5">
+                <a
+                    href={`/api/cv/${cv.id}/download?token=${token}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="p-1 hover:bg-slate-100 rounded text-slate-400 hover:text-indigo-600 transition-colors"
+                    title="Download CV"
+                    onClick={(e) => e.stopPropagation()}
+                >
+                    <Download size={14} />
+                </a>
                 <button onClick={(e) => onReprocess(e, cv.id)} className="p-1 text-slate-400 hover:text-indigo-600"><RotateCw size={14} /></button>
                 <button onClick={(e) => onDelete(e, cv.id)} className="p-1 text-slate-400 hover:text-red-600"><Trash2 size={14} /></button>
             </div>

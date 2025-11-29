@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import axios from 'axios'
 import { Globe, Sparkles, Check, Loader2, Building2, Users, Target, Share2 } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
 
 // Helper functions to handle JSON arrays
 const parseJsonArray = (jsonString) => {
@@ -19,7 +20,8 @@ const toJsonArray = (commaString) => {
     return JSON.stringify(items)
 }
 
-const CompanySetupWizard = ({ onComplete }) => {
+const CompanySetupWizard = () => {
+    const navigate = useNavigate()
     const [step, setStep] = useState(1)
     const [url, setUrl] = useState("")
     const [loading, setLoading] = useState(false)
@@ -74,7 +76,7 @@ const CompanySetupWizard = ({ onComplete }) => {
                 specialties: data.specialties ? toJsonArray(data.specialties) : ""
             }
             await axios.put('/api/company/profile', saveData)
-            onComplete()
+            navigate('/')
         } catch (err) {
             console.error(err)
             alert("Failed to save company profile. Please try again.")

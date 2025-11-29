@@ -16,18 +16,13 @@ OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
 if not OPENAI_API_KEY:
     logger.warning("OPENAI_API_KEY not set. AI features will fail.")
 
-# Lazy client initialization - only created when needed
-_client = None
-
 def get_openai_client() -> AsyncOpenAI:
-    """Get or create the OpenAI client (lazy initialization)"""
-    global _client
-    if _client is None:
-        if not OPENAI_API_KEY:
-            raise ValueError("OPENAI_API_KEY not set. Cannot initialize OpenAI client.")
-        _client = AsyncOpenAI(api_key=OPENAI_API_KEY)
-        logger.info("AI Engine: OpenAI Cloud (%s)", OPENAI_MODEL)
-    return _client
+    """Create a new OpenAI client for the current event loop."""
+    if not OPENAI_API_KEY:
+        raise ValueError("OPENAI_API_KEY not set. Cannot initialize OpenAI client.")
+    # Do not cache the client globally because we use asyncio.run() which creates/closes loops.
+    # The client's internal httpx session is tied to the loop.
+    return AsyncOpenAI(api_key=OPENAI_API_KEY)
 
 def extract_text(path: str) -> str:
     p = Path(path)

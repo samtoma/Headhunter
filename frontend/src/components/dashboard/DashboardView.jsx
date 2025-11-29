@@ -1,11 +1,17 @@
-
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { Briefcase as BriefcaseIcon, Users, Check, Award, TrendingUp } from 'lucide-react'
+import { useHeadhunter } from '../../context/HeadhunterContext'
+import { useNavigate } from 'react-router-dom'
 import KPICard from './KPICard'
 import JobInsightCard from './JobInsightCard'
 import CandidateList from './CandidateList'
+import CandidateDrawer from '../pipeline/CandidateDrawer'
 
-const DashboardView = ({ jobs, profiles, onEditJob, onNavigate, onViewProfile, onOpenMobileSidebar }) => {
+const DashboardView = ({ onOpenMobileSidebar }) => {
+    const { jobs, profiles, setSelectedJobId, updateApp, updateProfile, assignJob, removeJob } = useHeadhunter()
+    const navigate = useNavigate()
+    const [selectedCv, setSelectedCv] = useState(null)
+
     const stats = useMemo(() => {
         const totalCandidates = profiles.length
         let hired = 0
@@ -21,8 +27,13 @@ const DashboardView = ({ jobs, profiles, onEditJob, onNavigate, onViewProfile, o
         return { totalCandidates, hired, silver, activeJobs }
     }, [profiles, jobs])
 
+    const handleNavigate = (job) => {
+        setSelectedJobId(job.id)
+        navigate('/pipeline')
+    }
+
     return (
-        <div className="flex-1 overflow-y-auto p-4 md:p-8 space-y-8">
+        <div className="flex-1 overflow-y-auto p-4 md:p-8 space-y-8 relative">
             <div className="flex items-center gap-3">
                 <button
                     onClick={onOpenMobileSidebar}
@@ -44,14 +55,27 @@ const DashboardView = ({ jobs, profiles, onEditJob, onNavigate, onViewProfile, o
                 <h2 className="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2"><TrendingUp size={20} /> Pipeline Insights</h2>
                 <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
                     {jobs.filter(j => j.is_active).map(job => (
-                        <JobInsightCard key={job.id} job={job} profiles={profiles} onEdit={onEditJob} onNavigate={onNavigate} />
+                        <JobInsightCard key={job.id} job={job} profiles={profiles} onEdit={() => { }} onNavigate={() => handleNavigate(job)} />
                     ))}
                 </div>
             </div>
             <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-                <CandidateList title="Recent Hires" status="Hired" profiles={profiles} onViewProfile={onViewProfile} />
-                <CandidateList title="Silver Medalists" status="Silver Medalist" profiles={profiles} onViewProfile={onViewProfile} />
+                <CandidateList title="Recent Hires" status="Hired" profiles={profiles} onViewProfile={setSelectedCv} />
+                <CandidateList title="Silver Medalists" status="Silver Medalist" profiles={profiles} onViewProfile={setSelectedCv} />
             </div>
+
+            {selectedCv && (
+                <CandidateDrawer
+                    cv={selectedCv}
+                    onClose={() => setSelectedCv(null)}
+                    jobs={jobs}
+                    updateApp={updateApp}
+                    updateProfile={updateProfile}
+                    selectedJobId={null}
+                    assignJob={assignJob}
+                    removeJob={removeJob}
+                />
+            )}
         </div>
     )
 }

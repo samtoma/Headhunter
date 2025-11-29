@@ -3,7 +3,7 @@ from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 from datetime import timedelta
 from app.core.database import get_db
-from app.models.models import User, Company, UserRole
+from app.models.models import User, Company, UserRole, ActivityLog
 from app.core.security import verify_password, get_password_hash, create_access_token, ACCESS_TOKEN_EXPIRE_MINUTES
 from pydantic import BaseModel
 from typing import Optional
@@ -87,7 +87,6 @@ def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(), db:
     user.login_count = (user.login_count or 0) + 1
     
     # Log Activity
-    from app.models.models import ActivityLog
     log = ActivityLog(
         user_id=user.id,
         company_id=user.company_id,
