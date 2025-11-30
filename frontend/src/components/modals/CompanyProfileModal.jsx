@@ -47,16 +47,14 @@ const CompanyProfileModal = ({ onClose }) => {
         website: ""
     })
 
+    const [newDept, setNewDept] = useState("")
+
     useEffect(() => {
         axios.get('/api/company/profile').then(res => {
             const loadedData = res.data
-            // Parse JSON arrays to comma-separated strings for display
-            if (loadedData.values) {
-                loadedData.values = parseJsonArray(loadedData.values)
-            }
-            if (loadedData.specialties) {
-                loadedData.specialties = parseJsonArray(loadedData.specialties)
-            }
+            if (loadedData.values) loadedData.values = parseJsonArray(loadedData.values)
+            if (loadedData.specialties) loadedData.specialties = parseJsonArray(loadedData.specialties)
+            if (loadedData.departments) loadedData.departments = parseJsonArray(loadedData.departments)
             setData(loadedData)
         })
     }, [])
@@ -64,11 +62,11 @@ const CompanyProfileModal = ({ onClose }) => {
     const save = async () => {
         setLoading(true)
         try {
-            // Convert comma-separated strings to JSON arrays for backend
             const saveData = {
                 ...data,
                 values: data.values ? toJsonArray(data.values) : "",
-                specialties: data.specialties ? toJsonArray(data.specialties) : ""
+                specialties: data.specialties ? toJsonArray(data.specialties) : "",
+                departments: data.departments ? toJsonArray(data.departments) : ""
             }
             await axios.put('/api/company/profile', saveData)
             onClose()
@@ -80,24 +78,36 @@ const CompanyProfileModal = ({ onClose }) => {
         }
     }
 
-    const handleRegenerate = async () => {
-        if (!data.website) {
-            alert("Please enter a website URL first")
-            return
+    const handleAddDept = () => {
+        if (!newDept.trim()) return
+        const currentDepts = data.departments ? data.departments.split(',').map(s => s.trim()) : []
+        if (!currentDepts.includes(newDept.trim())) {
+            const updated = [...currentDepts, newDept.trim()].join(', ')
+            setData({ ...data, departments: updated })
         }
+        setNewDept("")
+    }
 
+    const handleRemoveDept = (dept) => {
+        const currentDepts = data.departments ? data.departments.split(',').map(s => s.trim()) : []
+        const updated = currentDepts.filter(d => d !== dept).join(', ')
+        setData({ ...data, departments: updated })
+    }
+
+    const handleRegenerate = async () => {
+        if (!data.website) return
         setRegenerating(true)
         try {
             const res = await axios.post('/api/company/regenerate', { url: data.website })
-            // Parse arrays for display
-            const newData = res.data
-            if (newData.values) newData.values = parseJsonArray(newData.values)
-            if (newData.specialties) newData.specialties = parseJsonArray(newData.specialties)
-            setData(prev => ({ ...prev, ...newData }))
-            alert("Company profile regenerated successfully!")
+            const loadedData = res.data
+            if (loadedData.values) loadedData.values = parseJsonArray(loadedData.values)
+            if (loadedData.specialties) loadedData.specialties = parseJsonArray(loadedData.specialties)
+            if (loadedData.departments) loadedData.departments = parseJsonArray(loadedData.departments)
+            setData(loadedData)
+            alert("Profile regenerated successfully!")
         } catch (err) {
             console.error(err)
-            alert("Failed to regenerate profile. Please try again.")
+            alert("Failed to regenerate profile. Please check the website URL.")
         } finally {
             setRegenerating(false)
         }
@@ -119,28 +129,19 @@ const CompanyProfileModal = ({ onClose }) => {
                 {/* Tab Navigation */}
                 <div className="border-b border-slate-200 px-6">
                     <div className="flex gap-8">
-                        <button
-                            onClick={() => setActiveTab("basic")}
-                            className={`pb-4 text-sm font-medium border-b-2 transition flex items-center gap-2 ${activeTab === "basic" ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-slate-500 hover:text-slate-700'}`}
-                        >
+                        <button onClick={() => setActiveTab("basic")} className={`pb-4 text-sm font-medium border-b-2 transition flex items-center gap-2 ${activeTab === "basic" ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-slate-500 hover:text-slate-700'}`}>
                             <Building2 size={16} /> Basic Info
                         </button>
-                        <button
-                            onClick={() => setActiveTab("about")}
-                            className={`pb-4 text-sm font-medium border-b-2 transition flex items-center gap-2 ${activeTab === "about" ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-slate-500 hover:text-slate-700'}`}
-                        >
-                            <Users size={16} /> About
+                        <button onClick={() => setActiveTab("departments")} className={`pb-4 text-sm font-medium border-b-2 transition flex items-center gap-2 ${activeTab === "departments" ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-slate-500 hover:text-slate-700'}`}>
+                            <Users size={16} /> Departments
                         </button>
-                        <button
-                            onClick={() => setActiveTab("business")}
-                            className={`pb-4 text-sm font-medium border-b-2 transition flex items-center gap-2 ${activeTab === "business" ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-slate-500 hover:text-slate-700'}`}
-                        >
+                        <button onClick={() => setActiveTab("about")} className={`pb-4 text-sm font-medium border-b-2 transition flex items-center gap-2 ${activeTab === "about" ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-slate-500 hover:text-slate-700'}`}>
+                            <Target size={16} /> About
+                        </button>
+                        <button onClick={() => setActiveTab("business")} className={`pb-4 text-sm font-medium border-b-2 transition flex items-center gap-2 ${activeTab === "business" ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-slate-500 hover:text-slate-700'}`}>
                             <Target size={16} /> Business
                         </button>
-                        <button
-                            onClick={() => setActiveTab("social")}
-                            className={`pb-4 text-sm font-medium border-b-2 transition flex items-center gap-2 ${activeTab === "social" ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-slate-500 hover:text-slate-700'}`}
-                        >
+                        <button onClick={() => setActiveTab("social")} className={`pb-4 text-sm font-medium border-b-2 transition flex items-center gap-2 ${activeTab === "social" ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-slate-500 hover:text-slate-700'}`}>
                             <Share2 size={16} /> Social
                         </button>
                     </div>
@@ -149,6 +150,7 @@ const CompanyProfileModal = ({ onClose }) => {
                 {/* Tab Content */}
                 <div className="flex-1 overflow-y-auto p-6">
                     {activeTab === "basic" && (
+                        // ... (Basic Info content)
                         <div className="space-y-4">
                             <div className="grid grid-cols-2 gap-4">
                                 <div className="col-span-2">
@@ -202,7 +204,50 @@ const CompanyProfileModal = ({ onClose }) => {
                         </div>
                     )}
 
+                    {activeTab === "departments" && (
+                        <div className="space-y-6">
+                            <div className="bg-slate-50 p-4 rounded-lg border border-slate-200">
+                                <h3 className="text-sm font-bold text-slate-800 mb-2">Manage Departments</h3>
+                                <p className="text-xs text-slate-500 mb-4">Add departments to organize your jobs and pipelines.</p>
+                                <div className="flex gap-2">
+                                    <input
+                                        type="text"
+                                        className="flex-1 p-2 border rounded-lg text-sm"
+                                        placeholder="e.g. Engineering, Sales, Marketing"
+                                        value={newDept}
+                                        onChange={e => setNewDept(e.target.value)}
+                                        onKeyDown={e => e.key === 'Enter' && handleAddDept()}
+                                    />
+                                    <button
+                                        onClick={handleAddDept}
+                                        className="px-4 py-2 bg-indigo-600 text-white font-bold rounded-lg hover:bg-indigo-700 text-sm"
+                                    >
+                                        Add
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div className="space-y-2">
+                                <label className="text-xs font-bold text-slate-500 uppercase block">Current Departments</label>
+                                <div className="flex flex-wrap gap-2">
+                                    {data.departments && data.departments.split(',').map(dept => dept.trim()).filter(d => d).map((dept, idx) => (
+                                        <div key={idx} className="flex items-center gap-2 px-3 py-1 bg-white border border-slate-200 rounded-full text-sm text-slate-700 shadow-sm">
+                                            <span>{dept}</span>
+                                            <button onClick={() => handleRemoveDept(dept)} className="text-slate-400 hover:text-red-500">
+                                                <X size={14} />
+                                            </button>
+                                        </div>
+                                    ))}
+                                    {(!data.departments || !data.departments.trim()) && (
+                                        <span className="text-sm text-slate-400 italic">No departments added yet.</span>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
                     {activeTab === "about" && (
+                        // ... (About content)
                         <div className="space-y-4">
                             <div>
                                 <label className="text-xs font-bold text-slate-500 uppercase block mb-1">Description</label>
@@ -228,6 +273,7 @@ const CompanyProfileModal = ({ onClose }) => {
                     )}
 
                     {activeTab === "business" && (
+                        // ... (Business content)
                         <div className="space-y-4">
                             <div>
                                 <label className="text-xs font-bold text-slate-500 uppercase block mb-1">Products & Services</label>
@@ -249,6 +295,7 @@ const CompanyProfileModal = ({ onClose }) => {
                     )}
 
                     {activeTab === "social" && (
+                        // ... (Social content)
                         <div className="space-y-4">
                             <div>
                                 <label className="text-xs font-bold text-slate-500 uppercase block mb-1">LinkedIn URL</label>

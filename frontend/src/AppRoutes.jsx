@@ -9,6 +9,7 @@ import Pipeline from './pages/Pipeline';
 import Settings from './pages/Settings';
 import SuperAdminDashboard from './components/dashboard/SuperAdminDashboard';
 import Sidebar from './components/layout/Sidebar';
+import ErrorBoundary from './components/ErrorBoundary';
 import React, { useState } from 'react';
 
 // Protected Route Wrapper
@@ -58,7 +59,9 @@ const AppRoutes = () => {
             <Route path="/pipeline" element={
                 <ProtectedRoute>
                     <AppLayout>
-                        <Pipeline />
+                        <ErrorBoundary>
+                            <Pipeline />
+                        </ErrorBoundary>
                     </AppLayout>
                 </ProtectedRoute>
             } />

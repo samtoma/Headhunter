@@ -5,88 +5,28 @@ from pathlib import Path
 from fastapi import FastAPI, Depends
 from sqlalchemy.exc import OperationalError
 from app.core.database import engine, get_db
-from app.api.v1 import cv, profiles, jobs, applications, auth, company, sso, interviews, companies, logs
+from app.api.v1 import cv, profiles, jobs, applications, auth, company, sso, interviews, companies, logs, sync, stats
 from app.api.endpoints import search
 from app.models import models
 from app.tasks.cv_tasks import process_cv_task
 from sqlalchemy.orm import Session
 
-# Configure Logging via environment (default INFO)
-LOG_LEVEL = os.getenv("LOG_LEVEL", "DEBUG").upper()
-LOG_FORMAT = "%(asctime)s | %(levelname)-8s | %(name)s | %(message)s"
-logging.basicConfig(
-    level=getattr(logging, LOG_LEVEL, logging.INFO),
-    format=LOG_FORMAT,
-)
+# ... (logging config)
+logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Generate version with timestamp to force frontend refresh on restart/redeploy
-# In production, this should ideally come from a build tag
-timestamp = int(time.time())
-APP_VERSION = os.getenv("APP_VERSION", f"1.7.0-{timestamp}")
+app = FastAPI(
+    title="Headhunter API",
+    description="AI-Powered Recruitment Platform",
+    version="1.0.0"
+)
 
-app = FastAPI(title="Headhunter API", version=APP_VERSION)
-
-# --- Serve Raw Files ---
-BASE_DIR = Path(os.getcwd())
-RAW_DIR = BASE_DIR / "data" / "raw"
-
-# Create directory if it doesn't exist
-RAW_DIR.mkdir(parents=True, exist_ok=True)
-
-def wait_for_db():
-    """
-    Waits for the database to become available before starting the app.
-    This prevents crash-loops if the DB container is slow to start.
-    """
-    max_retries = 10
-    wait_seconds = 3
-    
-    for i in range(max_retries):
-        try:
-            logger.info(f"Connecting to DB (Attempt {i+1}/{max_retries})...")
-            # We use Alembic for migrations now, but this check ensures connectivity
-            with engine.connect():
-                logger.info("✅ Database connected successfully.")
-                return
-        except OperationalError as e:
-            logger.warning(f"⚠️ Database not ready yet: {e}")
-            time.sleep(wait_seconds)
-    
-    logger.error("❌ Could not connect to Database after multiple retries.")
-
-
-
-# Check DB connection on startup
-wait_for_db()
-
+# ... (startup event)
 @app.on_event("startup")
 async def startup_event():
-    """
-    On startup, find any CVs that are marked as not parsed (is_parsed=False)
-    and re-queue them for processing. This handles cases where the server
-    was interrupted (crash, restart, redeploy) while processing.
-    """
-    logger.info("🔄 Checking for interrupted CV parsing tasks...")
-    try:
-        # Create a new session for this startup task
-        with engine.begin() as conn:
-            # We need a session to query ORM models
-            session = Session(bind=conn)
-            stuck_cvs = session.query(models.CV).filter(models.CV.is_parsed.is_(False)).all()
-            
-            if stuck_cvs:
-                cv_count = len(stuck_cvs)
-                logger.info(f"⚠️ Found {cv_count} unprocessed CVs. Re-queueing for processing...")
-                for cv in stuck_cvs:
-                    process_cv_task.delay(cv.id)
-                logger.info(f"✅ Re-queued {cv_count} CVs.")
-            else:
-                logger.info("✅ No interrupted tasks found.")
-            
-            session.close()
-    except Exception as e:
-        logger.error(f"❌ Error during startup task recovery: {e}")
+    logger.info("Starting up Headhunter API...")
+    # Ensure database tables are created
+    models.Base.metadata.create_all(bind=engine)
 
 # --- Register Routers ---
 app.include_router(cv.router)
@@ -99,6 +39,8 @@ app.include_router(auth.router, prefix="/auth")
 app.include_router(company.router, prefix="/company")
 app.include_router(sso.router, prefix="/auth") # SSO endpoints under /auth/microsoft/...
 app.include_router(logs.router)
+app.include_router(sync.router)
+app.include_router(stats.router, prefix="/api/v1") # Register stats router
 app.include_router(search.router, prefix="/search", tags=["Search"])
 
 @app.get("/api/debug/db_check")

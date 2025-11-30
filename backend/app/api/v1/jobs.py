@@ -8,72 +8,16 @@ from app.core.database import get_db
 from app.models.models import Job, ParsedCV, User, CV, UserRole
 from app.api.deps import get_current_user
 from app.services.parser import generate_job_metadata
+from app.services.sync import touch_company_state
 
 router = APIRouter(prefix="/jobs", tags=["Jobs"])
 
 # --- Schemas ---
-class JobCreate(BaseModel):
-    title: str
-    department: Optional[str] = None
-    description: Optional[str] = None
-    required_experience: Optional[int] = 0
-    skills_required: Optional[List[str]] = []
+from app.schemas.job import JobCreate, JobUpdate, JobOut, CandidateMatch
+from app.schemas.company import CompanyOut as CompanySchema
 
-    @field_validator('skills_required', mode='before')
-    @classmethod
-    def parse_skills(cls, v):
-        if isinstance(v, str):
-            try: 
-                parsed = json.loads(v)
-                return parsed if isinstance(parsed, list) else []
-            except Exception:
-                return []
-        return v if isinstance(v, list) else []
-
-class JobUpdate(BaseModel):
-    title: Optional[str] = None
-    description: Optional[str] = None
-    is_active: Optional[bool] = None
-    required_experience: Optional[int] = None
-    skills_required: Optional[List[str]] = None
-
-class JobOut(BaseModel):
-    id: int
-    title: str
-    department: Optional[str] = None
-    description: Optional[str] = None
-    created_at: datetime
-    candidate_count: int = 0
-    is_active: bool = True
-    required_experience: int = 0
-    skills_required: List[str] = []
-
-    @field_validator('skills_required', mode='before')
-    @classmethod
-    def parse_skills_out(cls, v):
-        if isinstance(v, str):
-            try: 
-                parsed = json.loads(v)
-                return parsed if isinstance(parsed, list) else []
-            except Exception:
-                return []
-        return v if isinstance(v, list) else []
-
-    model_config = ConfigDict(from_attributes=True)
-
-class CandidateMatch(BaseModel):
-    id: int
-    name: str
-    score: int
-    skills_matched: List[str]
-    status: str
-
-class CompanySchema(BaseModel):
-    name: str
-    industry: Optional[str] = None
-    description: Optional[str] = None
-    culture: Optional[str] = None
-    model_config = ConfigDict(from_attributes=True)
+# --- Schemas ---
+# Schemas are now imported from app.schemas.job
 
 # --- Endpoints ---
 
@@ -156,14 +100,43 @@ async def regenerate_job_description(
     return new_data
 
 @router.post("/matches", response_model=List[CandidateMatch])
-def match_candidates_for_new_job(
+async def match_candidates_for_new_job(
+    job_title: str = Body(..., embed=True),
     required_experience: int = Body(...),
     skills_required: List[str] = Body(...),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    # Filter candidates by company
-    candidates = db.query(ParsedCV).join(ParsedCV.cv).filter(CV.company_id == current_user.company_id).options(joinedload(ParsedCV.cv)).all()
+    # Semantic Search via SearchEngine
+    from app.services.search.factory import get_search_engine
+    
+    search_engine = get_search_engine()
+    
+    # Construct query from job details
+    query_text = f"Job Title: {job_title}\n"
+    if skills_required:
+        query_text += f"Required Skills: {', '.join(skills_required)}\n"
+    
+    # Perform vector search
+    # We ask for more results than needed to filter them later
+    vector_results = await search_engine.search(
+        query_text=query_text, 
+        n_results=50,
+        filters={"company_id": current_user.company_id} if current_user.company_id else None
+    )
+    
+    # Map vector results to a dictionary for easy lookup
+    vector_scores = {res['id']: res['score'] for res in vector_results}
+    
+    # Fetch full candidate objects for the top vector results OR fall back to all if no vector results
+    # Ideally we only fetch the candidates returned by vector search to save DB resources
+    if vector_results:
+        candidate_ids = [int(res['id']) for res in vector_results]
+        candidates = db.query(ParsedCV).join(ParsedCV.cv).filter(CV.id.in_(candidate_ids)).options(joinedload(ParsedCV.cv)).all()
+    else:
+        # Fallback to fetching all if vector search fails or returns nothing (e.g. empty DB)
+        candidates = db.query(ParsedCV).join(ParsedCV.cv).filter(CV.company_id == current_user.company_id).options(joinedload(ParsedCV.cv)).all()
+
     matches = []
     req_skills_set = set(s.lower() for s in skills_required)
     
@@ -171,6 +144,12 @@ def match_candidates_for_new_job(
         score = 0
         matched = []
         
+        # 1. Vector Score (Normalized 0-100)
+        # We give it significant weight
+        v_score = vector_scores.get(str(cand.cv_id), 0) * 100
+        score += v_score * 0.5 # 50% weight to semantic match
+        
+        # 2. Keyword Matching (Existing Logic)
         cand_skills = []
         if cand.skills:
             try:
@@ -178,16 +157,21 @@ def match_candidates_for_new_job(
             except Exception:
                 pass
             
+        keyword_score = 0
         for s in cand_skills:
             if s.lower() in req_skills_set:
-                score += 10
+                keyword_score += 10
                 matched.append(s)
         
+        # Cap keyword score contribution
+        score += min(keyword_score, 40) # Max 40 points from keywords
+        
+        # 3. Experience
         cand_exp = cand.experience_years or 0
         if cand_exp >= required_experience:
-            score += 20
-        elif cand_exp >= (required_experience - 1):
             score += 10
+        elif cand_exp >= (required_experience - 1):
+            score += 5
             
         is_silver = False
         for app in cand.cv.applications:
@@ -196,13 +180,13 @@ def match_candidates_for_new_job(
                 break
         
         if is_silver:
-            score += 15
+            score += 5
         
         if score > 0:
             matches.append({
                 "id": cand.cv_id,
                 "name": cand.name or "Unknown",
-                "score": score,
+                "score": int(score), # Round to integer
                 "skills_matched": matched,
                 "status": "Silver Medalist" if is_silver else "Candidate"
             })
@@ -212,19 +196,35 @@ def match_candidates_for_new_job(
 
 @router.post("/", response_model=JobOut)
 def create_job(job: JobCreate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    if current_user.role not in [UserRole.ADMIN, UserRole.RECRUITER]:
+        raise HTTPException(403, "Not authorized to create jobs")
+        
     job_dict = job.model_dump()
-    if job.skills_required is not None:
-        job_dict['skills_required'] = json.dumps(job.skills_required)
+    
+    # Serialize list fields
+    list_fields = ['skills_required', 'responsibilities', 'qualifications', 'preferred_qualifications', 'benefits']
+    for field in list_fields:
+        if job_dict.get(field) is not None:
+            job_dict[field] = json.dumps(job_dict[field])
     
     new_job = Job(**job_dict, company_id=current_user.company_id)
     db.add(new_job)
     db.commit()
     db.refresh(new_job)
+    touch_company_state(db, current_user.company_id)
     return new_job
 
 @router.get("/", response_model=List[JobOut])
-def list_jobs(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+def list_jobs(
+    status: Optional[str] = None,
+    db: Session = Depends(get_db), 
+    current_user: User = Depends(get_current_user)
+):
     query = db.query(Job).filter(Job.company_id == current_user.company_id)
+    
+    # Filter by status if provided
+    if status:
+        query = query.filter(Job.status == status)
     
     # If Interviewer, filter by department
     if current_user.role == UserRole.INTERVIEWER and current_user.department:
@@ -240,31 +240,39 @@ def list_jobs(db: Session = Depends(get_db), current_user: User = Depends(get_cu
 
 @router.patch("/{job_id}", response_model=JobOut)
 def update_job(job_id: int, job_data: JobUpdate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    if current_user.role not in [UserRole.ADMIN, UserRole.RECRUITER]:
+        raise HTTPException(403, "Not authorized to update jobs")
+
     job = db.query(Job).filter(Job.id == job_id, Job.company_id == current_user.company_id).first()
     if not job:
         raise HTTPException(404, "Job not found")
     
-    if job_data.is_active is not None:
-        job.is_active = job_data.is_active
-    if job_data.title is not None:
-        job.title = job_data.title
-    if job_data.description is not None:
-        job.description = job_data.description
-    if job_data.required_experience is not None:
-        job.required_experience = job_data.required_experience
+    # Update fields
+    update_data = job_data.model_dump(exclude_unset=True)
     
-    if job_data.skills_required is not None: 
-        job.skills_required = json.dumps(job_data.skills_required)
+    # Handle list fields serialization
+    list_fields = ['skills_required', 'responsibilities', 'qualifications', 'preferred_qualifications', 'benefits']
+    for field in list_fields:
+        if field in update_data and update_data[field] is not None:
+            update_data[field] = json.dumps(update_data[field])
+            
+    for key, value in update_data.items():
+        setattr(job, key, value)
         
     db.commit()
     db.refresh(job)
+    touch_company_state(db, current_user.company_id)
     return job
 
 @router.delete("/{job_id}")
 def delete_job(job_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    if current_user.role not in [UserRole.ADMIN, UserRole.RECRUITER]:
+        raise HTTPException(403, "Not authorized to delete jobs")
+
     job = db.query(Job).filter(Job.id == job_id, Job.company_id == current_user.company_id).first()
     if not job:
         raise HTTPException(404, "Job not found")
     db.delete(job)
     db.commit()
+    touch_company_state(db, current_user.company_id)
     return {"status": "deleted"}

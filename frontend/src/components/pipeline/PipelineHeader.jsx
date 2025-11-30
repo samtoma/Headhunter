@@ -17,7 +17,12 @@ const PipelineHeader = ({
     setShowUploadModal,
     sortBy,
     setSortBy,
-    onOpenMobileSidebar
+    onOpenMobileSidebar,
+    selectedDepartment,
+    setSelectedDepartment,
+    departments,
+    onEditJob,
+    user
 }) => {
     return (
         <header className="bg-white border-b border-slate-200 px-4 md:px-8 py-3 md:py-4 shrink-0 z-10">
@@ -38,9 +43,25 @@ const PipelineHeader = ({
                         {selectedJob && !selectedJob.is_active && <span className="text-xs bg-slate-100 text-slate-500 px-2 py-0.5 rounded border border-slate-200">ARCHIVED</span>}
                     </h2>
                     {selectedJob && (
-                        <button onClick={() => handleToggleArchive(selectedJob)} className={`text-xs font-bold px-3 py-1.5 rounded-lg border transition flex items-center gap-1.5 ${selectedJob.is_active ? "text-red-600 border-red-100 bg-red-50 hover:bg-red-100" : "text-emerald-600 border-emerald-100 bg-emerald-50 hover:bg-emerald-100"}`}>
-                            {selectedJob.is_active ? <><Lock size={12} /> Close Position</> : <><Unlock size={12} /> Re-open Position</>}
-                        </button>
+                        <div className="flex items-center gap-2">
+                            <select
+                                className={`text-xs font-bold px-3 py-1.5 rounded-lg border transition outline-none appearance-none cursor-pointer ${selectedJob.status === 'Open' ? "text-emerald-700 border-emerald-200 bg-emerald-50" :
+                                    selectedJob.status === 'On Hold' ? "text-amber-700 border-amber-200 bg-amber-50" :
+                                        "text-slate-600 border-slate-200 bg-slate-50"
+                                    }`}
+                                value={selectedJob.status || (selectedJob.is_active ? 'Open' : 'Closed')}
+                                onChange={(e) => handleToggleArchive(selectedJob, e.target.value)}
+                            >
+                                <option value="Open">● Open</option>
+                                <option value="On Hold">● On Hold</option>
+                                <option value="Closed">● Closed</option>
+                            </select>
+                            {user && (user.role === 'admin' || user.role === 'recruiter') && (
+                                <button onClick={onEditJob} className="text-xs font-bold px-3 py-1.5 rounded-lg border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 transition">
+                                    Edit
+                                </button>
+                            )}
+                        </div>
                     )}
                 </div>
 
@@ -65,6 +86,16 @@ const PipelineHeader = ({
                         {selectedJob && <option value="score">Match Score</option>}
                         <option value="name">Name (A-Z)</option>
                     </select>
+
+                    {!selectedJob && departments && departments.length > 1 && (
+                        <select
+                            className="pl-3 pr-8 py-2 text-sm rounded-lg border border-slate-200 bg-slate-50 text-slate-700 font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                            value={selectedDepartment}
+                            onChange={(e) => setSelectedDepartment(e.target.value)}
+                        >
+                            {departments.map(d => <option key={d} value={d}>{d}</option>)}
+                        </select>
+                    )}
 
                     {selectedJob && (
                         <div className="bg-slate-100 p-1 rounded-lg flex">

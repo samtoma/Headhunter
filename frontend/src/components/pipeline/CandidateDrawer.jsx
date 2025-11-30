@@ -17,12 +17,12 @@ const CandidateDrawer = ({ cv, onClose, updateApp, updateProfile, jobs, selected
 
     // Auto-select first application if in General Pool and no job selected
     useEffect(() => {
-        if (!selectedJobId && !activeJobId && cv?.applications?.length > 0) {
+        if (!selectedJobId && !activeJobId && Array.isArray(cv?.applications) && cv.applications.length > 0) {
             setActiveJobId(cv.applications[0].job_id)
         }
     }, [selectedJobId, activeJobId, cv])
 
-    const app = activeJobId ? cv?.applications?.find(a => a.job_id === activeJobId) : null
+    const app = activeJobId && Array.isArray(cv?.applications) ? cv.applications.find(a => a.job_id === activeJobId) : null
 
     const [editData, setEditData] = useState({
         name: d.name,
@@ -54,7 +54,8 @@ const CandidateDrawer = ({ cv, onClose, updateApp, updateProfile, jobs, selected
         if (!app || !app.id) return
         try {
             const res = await axios.get(`/api/interviews/application/${app.id}`)
-            setInterviews(Array.isArray(res.data) ? res.data : [])
+            const sorted = Array.isArray(res.data) ? res.data.sort((a, b) => new Date(b.created_at) - new Date(a.created_at)) : []
+            setInterviews(sorted)
         } catch (err) {
             console.error("Failed to fetch interviews", err)
             setInterviews([])
@@ -64,10 +65,18 @@ const CandidateDrawer = ({ cv, onClose, updateApp, updateProfile, jobs, selected
     useEffect(() => {
         if (app && app.id) {
             fetchInterviews()
+            setStatus(app.status)
+            setRating(app.rating || 0)
+            setNotes(app.notes || "")
+            setCurr(app.current_salary || d.current_salary || "")
+            setExp(app.expected_salary || d.expected_salary || "")
         } else {
             setInterviews([])
+            setStatus("New")
+            setRating(0)
+            setNotes("")
         }
-    }, [app, fetchInterviews])
+    }, [app, fetchInterviews, d])
 
     useEffect(() => {
         fetchCompanySettings()
@@ -189,7 +198,7 @@ const CandidateDrawer = ({ cv, onClose, updateApp, updateProfile, jobs, selected
 
         await updateProfile(cv.id, profileUpdates)
 
-        if (selectedJobId && app) {
+        if (app) {
             await updateApp(app.id, { notes, rating: parseInt(rating), status })
         }
         setSaved(true)
@@ -357,7 +366,7 @@ const CandidateDrawer = ({ cv, onClose, updateApp, updateProfile, jobs, selected
                             <div className={`p-4 rounded-xl mb-6 ${selectedJobId ? 'bg-indigo-50 border border-indigo-100' : 'bg-slate-50 border border-slate-100'}`}>
                                 <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">Active Pipeline</div>
                                 <div className="font-bold text-slate-900 flex items-center gap-2">
-                                    {activeJobId ? <><Layers size={16} className="text-indigo-600" /> {jobs.find(j => j.id === activeJobId)?.title}</> : <><LayoutGrid size={16} /> General Pool</>}
+                                    {activeJobId ? <><Layers size={16} className="text-indigo-600" /> {(jobs || []).find(j => j.id === activeJobId)?.title}</> : <><LayoutGrid size={16} /> General Pool</>}
                                 </div>
                                 {activeJobId && (
                                     <div className="mt-3 pt-3 border-t border-indigo-200/50">
@@ -369,12 +378,12 @@ const CandidateDrawer = ({ cv, onClose, updateApp, updateProfile, jobs, selected
                                 )}
                             </div>
 
-                            {!selectedJobId && cv.applications?.length > 0 && (
+                            {!selectedJobId && Array.isArray(cv.applications) && cv.applications.length > 0 && (
                                 <div className="mb-6">
                                     <h4 className="text-xs font-bold text-slate-900 uppercase mb-3 flex items-center gap-2"><Layers size={14} /> Track Status</h4>
                                     <div className="space-y-2">
                                         {cv.applications.map(app => {
-                                            const job = jobs.find(j => j.id === app.job_id)
+                                            const job = (jobs || []).find(j => j.id === app.job_id)
                                             return (
                                                 <div key={app.id} onClick={() => setActiveJobId(app.job_id)} className={`bg-white border p-3 rounded-lg shadow-sm cursor-pointer transition ${activeJobId === app.job_id ? 'border-indigo-500 ring-1 ring-indigo-500' : 'border-slate-200 hover:border-indigo-300'}`}>
                                                     <div className="text-xs text-slate-500 font-medium mb-1">{job?.title}</div>
@@ -594,8 +603,8 @@ const CandidateDrawer = ({ cv, onClose, updateApp, updateProfile, jobs, selected
 
                             {assignOpen && (
                                 <div className="absolute bottom-full left-0 right-0 mb-2 bg-white border border-slate-200 shadow-xl rounded-xl p-2 z-50 animate-in fade-in slide-in-from-bottom-2">
-                                    {jobs.filter(j => j.is_active).map(j => {
-                                        const isAssigned = cv.applications?.some(a => a.job_id === j.id)
+                                    {(jobs || []).filter(j => j.is_active).map(j => {
+                                        const isAssigned = Array.isArray(cv.applications) && cv.applications.some(a => a.job_id === j.id)
                                         return <button key={j.id} onClick={() => { !isAssigned && assignJob(cv.id, j.id); setAssignOpen(false) }} disabled={isAssigned} className="w-full text-left px-3 py-2 text-xs font-bold hover:bg-slate-50 rounded-lg text-slate-700 truncate disabled:opacity-50">{j.title} {isAssigned && "✓"}</button>
                                     })}
                                 </div>

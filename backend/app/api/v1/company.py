@@ -53,6 +53,7 @@ class CompanyUpdate(BaseModel):
     social_twitter: Optional[str] = None
     social_facebook: Optional[str] = None
     logo_url: Optional[str] = None
+    departments: Optional[str] = None # JSON string
 
 class ExtractRequest(BaseModel):
     url: str

@@ -1,4 +1,4 @@
-import { BrainCircuit, LayoutDashboard, Briefcase as BriefcaseIcon, Archive, Layers, Lock, Plus, Settings, LogOut, Building2, X } from 'lucide-react'
+import { BrainCircuit, LayoutDashboard, Briefcase as BriefcaseIcon, Archive, Layers, Lock, Plus, Settings, LogOut, Building2, X, ChevronDown, ChevronRight } from 'lucide-react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import { useHeadhunter } from '../../context/HeadhunterContext'
@@ -9,7 +9,7 @@ import axios from 'axios'
 
 const Sidebar = ({ isMobileOpen, setIsMobileOpen }) => {
     const { logout } = useAuth()
-    const { jobs, selectedJobId, setSelectedJobId, fetchJobs } = useHeadhunter()
+    const { jobs, selectedJobId, setSelectedJobId, fetchJobs, jobsLoading } = useHeadhunter()
     const location = useLocation()
     const navigate = useNavigate()
 
@@ -25,7 +25,20 @@ const Sidebar = ({ isMobileOpen, setIsMobileOpen }) => {
     }
 
     const currentPath = location.pathname
-    const displayedJobs = jobs.filter(j => showArchived ? !j.is_active : j.is_active)
+    const [selectedDepartment, setSelectedDepartment] = useState("All")
+    const [expandedDepts, setExpandedDepts] = useState({});
+
+    const toggleDept = (dept) => {
+        setExpandedDepts(prev => ({ ...prev, [dept]: !prev[dept] }));
+    };
+
+    const departments = ["All", ...new Set((jobs || []).map(j => j.department).filter(Boolean))]
+
+    const displayedJobs = (jobs || []).filter(j => {
+        const matchesArchive = showArchived ? !j.is_active : j.is_active
+        const matchesDept = selectedDepartment === "All" || j.department === selectedDepartment
+        return matchesArchive && matchesDept
+    })
 
     const handleNavigation = (path, jobId = null) => {
         if (jobId !== undefined) setSelectedJobId(jobId)
@@ -99,24 +112,66 @@ const Sidebar = ({ isMobileOpen, setIsMobileOpen }) => {
                                 </button>
                             </div>
 
+
+
                             <button onClick={() => handleNavigation("/pipeline", null)}
                                 className={`w-full flex items-center gap-3 p-2.5 rounded-lg text-sm font-medium transition ${currentPath === "/pipeline" && !selectedJobId ? 'bg-indigo-50 text-indigo-700 ring-1 ring-indigo-200' : 'text-slate-600 hover:bg-slate-50'}`}>
                                 <Layers size={18} /> General Pool
                             </button>
 
                             {/* SIDEBAR JOB LIST */}
-                            {displayedJobs.map(job => (
-                                <div
-                                    key={job.id}
-                                    onClick={() => handleNavigation("/pipeline", job.id)}
-                                    className={`w-full flex items-center justify-between p-2.5 rounded-lg text-sm font-medium transition cursor-pointer border border-transparent ${currentPath === "/pipeline" && selectedJobId === job.id ? 'bg-indigo-50 text-indigo-700 ring-1 ring-indigo-200' : 'text-slate-600 hover:bg-slate-50 hover:border-slate-200'}`}
-                                >
-                                    <span className={`truncate flex items-center gap-2 ${!job.is_active ? 'line-through opacity-70' : ''}`}>
-                                        {!job.is_active && <Lock size={12} />} {job.title}
-                                    </span>
-                                    <span className={`text-[10px] px-2 py-0.5 rounded-full ${selectedJobId === job.id ? 'bg-white text-indigo-600 shadow-sm' : 'bg-slate-100 text-slate-500'}`}>{job.candidate_count}</span>
+                            {(() => {
+                                const groupedJobs = displayedJobs.reduce((acc, job) => {
+                                    const dept = job.department || "Uncategorized";
+                                    if (!acc[dept]) acc[dept] = [];
+                                    acc[dept].push(job);
+                                    return acc;
+                                }, {});
+
+                                return Object.entries(groupedJobs).map(([dept, deptJobs]) => {
+                                    const isExpanded = expandedDepts[dept] !== false; // Default to true
+
+                                    return (
+                                        <div key={dept} className="mb-2">
+                                            <button
+                                                onClick={() => toggleDept(dept)}
+                                                className="w-full px-2 py-1.5 text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center justify-between hover:bg-slate-50 rounded transition group"
+                                            >
+                                                <span className="flex items-center gap-1">
+                                                    {isExpanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
+                                                    {dept}
+                                                </span>
+                                                <span className="bg-slate-100 text-slate-400 px-1.5 py-0.5 rounded text-[9px] group-hover:bg-slate-200 transition">{deptJobs.length}</span>
+                                            </button>
+
+                                            {isExpanded && (
+                                                <div className="pl-2 space-y-0.5 mt-0.5 border-l border-slate-100 ml-1.5">
+                                                    {deptJobs.map(job => (
+                                                        <div
+                                                            key={job.id}
+                                                            onClick={() => handleNavigation("/pipeline", job.id)}
+                                                            className={`w-full flex items-center justify-between p-2 rounded-lg text-sm font-medium transition cursor-pointer border border-transparent ${currentPath === "/pipeline" && selectedJobId === job.id ? 'bg-indigo-50 text-indigo-700 ring-1 ring-indigo-200' : 'text-slate-600 hover:bg-slate-50 hover:border-slate-200'}`}
+                                                        >
+                                                            <span className={`truncate flex items-center gap-2 ${!job.is_active ? 'line-through opacity-70' : ''}`}>
+                                                                {!job.is_active && <Lock size={12} />} {job.title}
+                                                            </span>
+                                                            <span className={`text-[10px] px-2 py-0.5 rounded-full ${selectedJobId === job.id ? 'bg-white text-indigo-600 shadow-sm' : 'bg-slate-100 text-slate-500'}`}>{job.candidate_count}</span>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            )}
+                                        </div>
+                                    );
+                                });
+                            })()}
+
+                            {jobsLoading && (
+                                <div className="space-y-2 px-2 mt-2">
+                                    <div className="h-4 bg-slate-100 rounded w-3/4 animate-pulse"></div>
+                                    <div className="h-4 bg-slate-100 rounded w-1/2 animate-pulse"></div>
+                                    <div className="h-4 bg-slate-100 rounded w-2/3 animate-pulse"></div>
                                 </div>
-                            ))}
+                            )}
 
                             {/* New Pipeline Button */}
                             {!showArchived && <button onClick={() => setShowCreateJobModal(true)} className="w-full flex items-center gap-2 p-2.5 text-sm text-slate-500 hover:text-indigo-600 mt-2 hover:bg-indigo-50 rounded-lg transition font-medium"><Plus size={16} /> New Pipeline</button>}
@@ -129,7 +184,7 @@ const Sidebar = ({ isMobileOpen, setIsMobileOpen }) => {
                             <Building2 size={18} /> Global Dashboard
                         </button>
                     )}
-                </div>
+                </div >
                 <div className="p-4 border-t border-slate-100">
                     {role === 'admin' && (
                         <>
@@ -149,7 +204,7 @@ const Sidebar = ({ isMobileOpen, setIsMobileOpen }) => {
                         <div className="text-[9px] text-slate-400">Powered by ChatGPT 5.1</div>
                     </div>
                 </div>
-            </div>
+            </div >
 
             {/* Modals */}
             {showCompanyProfile && <CompanyProfileModal onClose={() => setShowCompanyProfile(false)} />}

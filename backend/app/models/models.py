@@ -39,6 +39,10 @@ class Company(Base):
     social_facebook = Column(String, nullable=True)  # Facebook URL
     logo_url = Column(String, nullable=True)  # Company logo URL
     
+    logo_url = Column(String, nullable=True)  # Company logo URL
+    departments = Column(Text, nullable=True) # JSON list of departments
+    
+    last_data_update = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     
     users = relationship("User", back_populates="company")
@@ -81,6 +85,7 @@ class Job(Base):
     required_experience = Column(Integer, default=0)
     skills_required = Column(Text, nullable=True)
     is_active = Column(Boolean, default=True)
+    status = Column(String, default="Open") # "Open", "Closed", "On Hold"
     company_id = Column(Integer, ForeignKey("companies.id"), nullable=True)
     
     # Enhanced job description fields

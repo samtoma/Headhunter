@@ -4,7 +4,7 @@ from typing import List, Optional
 from app.core.database import get_db
 from app.api.deps import get_current_user
 from app.models.models import User, CV, ParsedCV
-from app.services.vector_db import vector_db
+from app.services.search.factory import get_search_engine
 from app.services.embeddings import generate_embedding
 import logging
 
@@ -25,38 +25,40 @@ async def search_candidates(
         return []
 
     try:
-        # 1. Generate embedding for the query
-        query_embedding = await generate_embedding(q)
-        if not query_embedding:
-            raise HTTPException(status_code=500, detail="Failed to generate query embedding")
-
-        # 2. Search Vector DB
-        results = vector_db.search(
-            query_embeddings=query_embedding,
-            n_results=limit
+        search_engine = get_search_engine()
+        
+        # Search Vector DB
+        # The search engine handles embedding generation internally for the query if needed, 
+        # but our current interface expects text.
+        results = await search_engine.search(
+            query_text=q,
+            n_results=limit,
+            filters={"company_id": current_user.company_id} if current_user.company_id else None
         )
 
-        if not results or not results['ids'] or not results['ids'][0]:
+        if not results:
             return []
 
         # 3. Fetch full CV details from DB
-        # results['ids'][0] is a list of IDs (because we passed a list of queries)
-        cv_ids = [int(id_str) for id_str in results['ids'][0]]
+        cv_ids = [int(res['id']) for res in results]
         
         # Preserve order of results
         # We fetch all and then reorder in python
         cvs = db.query(CV).filter(CV.id.in_(cv_ids)).all()
         cv_map = {cv.id: cv for cv in cvs}
         
+        # Map scores
+        scores_map = {int(res['id']): res['score'] for res in results}
+        
         ordered_response = []
-        for i, cv_id in enumerate(cv_ids):
+        for cv_id in cv_ids:
             if cv_id in cv_map:
                 cv = cv_map[cv_id]
                 # Basic info to return
                 item = {
                     "id": cv.id,
                     "filename": cv.filename,
-                    "score": results['distances'][0][i] if 'distances' in results else 0,
+                    "score": scores_map.get(cv.id, 0),
                     "name": cv.parsed_data.name if cv.parsed_data else "Unknown",
                     "skills": cv.parsed_data.skills if cv.parsed_data else [],
                     "summary": cv.parsed_data.summary if cv.parsed_data else "",

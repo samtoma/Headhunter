@@ -23,11 +23,11 @@ const Login = () => {
             formData.append('password', password)
 
             const res = await axios.post('/api/auth/login', formData)
-            localStorage.setItem('token', res.data.access_token)
-            localStorage.setItem('role', res.data.role)
-            if (res.data.company_name) localStorage.setItem('company_name', res.data.company_name)
 
-            login(res.data.access_token)
+            login(res.data.access_token, {
+                role: res.data.role,
+                company_name: res.data.company_name
+            })
             navigate('/')
         } catch (err) {
             console.error(err)

@@ -5,7 +5,10 @@ const AuthContext = createContext(null);
 
 export const AuthProvider = ({ children }) => {
     const [token, setToken] = useState(localStorage.getItem('token'));
-    const [user, setUser] = useState(null);
+    const [user, setUser] = useState({
+        role: localStorage.getItem('role'),
+        company_name: localStorage.getItem('company_name')
+    });
     const [loading, setLoading] = useState(true);
 
     // Set global axios header
@@ -20,13 +23,18 @@ export const AuthProvider = ({ children }) => {
         setLoading(false);
     }, [token]);
 
-    const login = (newToken) => {
+    const login = (newToken, userData) => {
         setToken(newToken);
+        setUser(userData);
+        localStorage.setItem('role', userData.role);
+        if (userData.company_name) localStorage.setItem('company_name', userData.company_name);
     };
 
     const logout = () => {
         setToken(null);
         setUser(null);
+        localStorage.removeItem('role');
+        localStorage.removeItem('company_name');
     };
 
     return (

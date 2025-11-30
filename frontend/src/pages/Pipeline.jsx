@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { FixedSizeGrid as Grid } from 'react-window';
 import AutoSizer from 'react-virtualized-auto-sizer';
 import { useHeadhunter } from '../context/HeadhunterContext';
+import { useAuth } from '../context/AuthContext';
 import { useUpload } from '../context/UploadContext';
 import PipelineHeader from '../components/pipeline/PipelineHeader';
 import CandidateCard from '../components/pipeline/CandidateCard';
@@ -9,6 +10,7 @@ import BulkActionBar from '../components/pipeline/BulkActionBar';
 import CandidateDrawer from '../components/pipeline/CandidateDrawer';
 import UploadModal from '../components/modals/UploadModal';
 import BulkAssignModal from '../components/modals/BulkAssignModal';
+import CreateJobModal from '../components/modals/CreateJobModal';
 import axios from 'axios';
 
 const Pipeline = ({ onOpenMobileSidebar }) => {
@@ -18,14 +20,14 @@ const Pipeline = ({ onOpenMobileSidebar }) => {
         search, setSearch, sortBy, setSortBy,
         selectedJobId, setSelectedJobId,
         updateApp, updateProfile, assignJob, removeJob,
-        loading
+        loading, jobsLoading
     } = useHeadhunter();
 
     const { uploadFiles: startUpload, uploading } = useUpload();
 
     // Derive selectedJob from context instead of local state
     const selectedJob = useMemo(() =>
-        jobs.find(j => j.id === selectedJobId) || null,
+        (jobs || []).find(j => j.id === selectedJobId) || null,
         [jobs, selectedJobId]);
 
     const [viewMode, setViewMode] = useState("list");
@@ -38,8 +40,49 @@ const Pipeline = ({ onOpenMobileSidebar }) => {
 
     // Local file selection state (before upload starts)
     const [uploadFiles, setUploadFiles] = useState(null);
+    const [selectedDepartment, setSelectedDepartment] = useState("All");
+    const [showEditJobModal, setShowEditJobModal] = useState(false);
 
-    const filteredProfiles = useMemo(() => profiles, [profiles]);
+    const handleEditJob = () => {
+        if (selectedJob) {
+            setShowEditJobModal(true);
+        }
+    };
+
+    const handleUpdateJob = async (updatedData, selectedMatches) => {
+        try {
+            await axios.patch(`/api/jobs/${selectedJob.id}`, updatedData);
+            // If matches were selected, assign them
+            if (selectedMatches && selectedMatches.length > 0) {
+                await axios.post('/api/jobs/bulk_assign', {
+                    job_id: selectedJob.id,
+                    cv_ids: selectedMatches
+                });
+            }
+            fetchJobs();
+            setShowEditJobModal(false);
+        } catch (err) {
+            console.error(err);
+            alert("Failed to update job");
+        }
+    };
+
+    const filteredProfiles = useMemo(() => {
+        let result = profiles || [];
+
+        // 1. Filter by Department (Only in General Pool)
+        if (!selectedJob && selectedDepartment !== "All") {
+            result = result.filter(p => {
+                // Check if candidate has ANY application to a job in this department
+                return Array.isArray(p.applications) && p.applications.some(app => {
+                    const job = (jobs || []).find(j => j.id === app.job_id);
+                    return job && job.department === selectedDepartment;
+                });
+            });
+        }
+
+        return result;
+    }, [profiles, selectedJob, selectedDepartment, jobs]);
 
     // Actions
     const toggleSelect = (id) => {
@@ -89,7 +132,7 @@ const Pipeline = ({ onOpenMobileSidebar }) => {
     // Kanban Logic
     const getStatus = (cv) => {
         if (!selectedJob) return "New";
-        const app = cv.applications?.find(a => a.job_id === selectedJob.id);
+        const app = Array.isArray(cv.applications) ? cv.applications.find(a => a.job_id === selectedJob.id) : null;
         return app ? app.status : "New";
     };
     const COLUMNS = ["New", "Screening", "Interview", "Offer", "Hired", "Silver Medalist", "Rejected"];
@@ -99,7 +142,8 @@ const Pipeline = ({ onOpenMobileSidebar }) => {
     const onDrop = async (e, newStatus) => {
         const id = parseInt(e.dataTransfer.getData("cvId"));
         const cv = profiles.find(p => p.id === id);
-        const app = cv?.applications.find(a => a.job_id === selectedJob.id);
+        if (!cv) return;
+        const app = cv.applications?.find(a => a.job_id === selectedJob.id);
         if (app) {
             setProfiles(prev => prev.map(p => {
                 if (p.id !== id) return p;
@@ -142,101 +186,113 @@ const Pipeline = ({ onOpenMobileSidebar }) => {
                 setShowUploadModal={setShowUploadModal}
                 sortBy={sortBy}
                 setSortBy={setSortBy}
+                selectedDepartment={selectedDepartment}
+                setSelectedDepartment={setSelectedDepartment}
+                departments={["All", ...new Set((jobs || []).map(j => j.department).filter(Boolean))]}
+                onEditJob={handleEditJob}
+                user={useAuth().user}
             />
 
             <div className="flex-1 overflow-hidden p-4 md:p-8 relative">
-                {loading && (
+                {(loading || jobsLoading) && (
                     <div className="absolute inset-0 bg-white/50 backdrop-blur-sm z-10 flex items-center justify-center">
                         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
                     </div>
                 )}
 
-                {!loading && filteredProfiles.length === 0 ? (
-                    <div className="h-full flex flex-col items-center justify-center text-slate-400">
-                        <div className="text-lg font-medium">No candidates found</div>
-                        <div className="text-sm">Upload CVs to get started</div>
-                    </div>
-                ) : (
-                    (viewMode === "list" || !selectedJob) ? (
-                        <div className="h-full w-full">
-                            <AutoSizer>
-                                {({ height, width }) => {
-                                    const COLUMN_WIDTH = 320;
-                                    const GAP = 16;
-                                    const columnCount = Math.floor(width / (COLUMN_WIDTH + GAP)) || 1;
-                                    const rowCount = Math.ceil(filteredProfiles.length / columnCount);
+                {
+                    !loading && filteredProfiles.length === 0 ? (
+                        <div className="h-full flex flex-col items-center justify-center text-slate-400">
+                            <div className="text-lg font-medium">No candidates found</div>
+                            <div className="text-sm">Upload CVs to get started</div>
+                        </div>
+                    ) : (
+                        (viewMode === "list" || !selectedJob) ? (
+                            <div className="h-full w-full">
+                                <AutoSizer>
+                                    {({ height, width }) => {
+                                        const COLUMN_WIDTH = 320;
+                                        const GAP = 16;
+                                        const columnCount = Math.floor(width / (COLUMN_WIDTH + GAP)) || 1;
+                                        const rowCount = Math.ceil(filteredProfiles.length / columnCount);
 
-                                    const Cell = ({ columnIndex, rowIndex, style }) => {
-                                        const index = rowIndex * columnCount + columnIndex;
-                                        if (index >= filteredProfiles.length) return null;
-                                        const cv = filteredProfiles[index];
+                                        const Cell = ({ columnIndex, rowIndex, style }) => {
+                                            const index = rowIndex * columnCount + columnIndex;
+                                            if (index >= filteredProfiles.length) return null;
+                                            const cv = filteredProfiles[index];
 
-                                        const adjustedStyle = {
-                                            ...style,
-                                            left: style.left + GAP,
-                                            top: style.top + GAP,
-                                            width: style.width - GAP,
-                                            height: style.height - GAP
+                                            const adjustedStyle = {
+                                                ...style,
+                                                left: style.left + GAP,
+                                                top: style.top + GAP,
+                                                width: style.width - GAP,
+                                                height: style.height - GAP
+                                            };
+
+                                            if (!cv) {
+                                                console.warn("Missing CV at index:", index);
+                                                return null;
+                                            }
+
+                                            return (
+                                                <div style={adjustedStyle}>
+                                                    <CandidateCard
+                                                        cv={cv}
+                                                        onClick={() => setSelectedCv(cv)}
+                                                        onDelete={handleDeleteCV}
+                                                        onReprocess={handleReprocess}
+                                                        status={selectedJob ? getStatus(cv) : null}
+                                                        jobs={jobs}
+                                                        selectable={!selectedJob}
+                                                        selected={selectedIds.includes(cv.id)}
+                                                        onSelect={() => toggleSelect(cv.id)}
+                                                    />
+                                                </div>
+                                            );
                                         };
 
                                         return (
-                                            <div style={adjustedStyle}>
-                                                <CandidateCard
-                                                    cv={cv}
-                                                    onClick={() => setSelectedCv(cv)}
-                                                    onDelete={handleDeleteCV}
-                                                    onReprocess={handleReprocess}
-                                                    status={selectedJob ? getStatus(cv) : null}
-                                                    jobs={jobs}
-                                                    selectable={!selectedJob}
-                                                    selected={selectedIds.includes(cv.id)}
-                                                    onSelect={() => toggleSelect(cv.id)}
-                                                />
-                                            </div>
+                                            <Grid
+                                                columnCount={columnCount}
+                                                columnWidth={(width - GAP) / columnCount}
+                                                height={height}
+                                                rowCount={rowCount}
+                                                rowHeight={220}
+                                                width={width}
+                                                onItemsRendered={({ visibleRowStopIndex }) => {
+                                                    if (visibleRowStopIndex >= rowCount - 2 && hasMore && !isFetchingMore) {
+                                                        loadMoreProfiles();
+                                                    }
+                                                }}
+                                            >
+                                                {Cell}
+                                            </Grid>
                                         );
-                                    };
-
-                                    return (
-                                        <Grid
-                                            columnCount={columnCount}
-                                            columnWidth={(width - GAP) / columnCount}
-                                            height={height}
-                                            rowCount={rowCount}
-                                            rowHeight={220}
-                                            width={width}
-                                            onItemsRendered={({ visibleRowStopIndex }) => {
-                                                if (visibleRowStopIndex >= rowCount - 2 && hasMore && !isFetchingMore) {
-                                                    loadMoreProfiles();
-                                                }
-                                            }}
-                                        >
-                                            {Cell}
-                                        </Grid>
-                                    );
-                                }}
-                            </AutoSizer>
-                        </div>
-                    ) : (
-                        <div className="flex gap-6 overflow-x-auto pb-4 h-full">
-                            {COLUMNS.map(col => (
-                                <div key={col} onDragOver={e => e.preventDefault()} onDrop={e => onDrop(e, col)} className="min-w-[320px] bg-slate-100 rounded-xl flex flex-col h-full border border-slate-200/60">
-                                    <div className="p-3 border-b border-slate-200/50 bg-slate-50/50 rounded-t-xl flex justify-between font-bold text-xs text-slate-600 uppercase">
-                                        <span>{col}</span>
-                                        <span className="bg-white px-2 py-0.5 rounded">{filteredProfiles.filter(p => getStatus(p) === col).length}</span>
+                                    }}
+                                </AutoSizer>
+                            </div>
+                        ) : (
+                            <div className="flex gap-6 overflow-x-auto pb-4 h-full">
+                                {COLUMNS.map(col => (
+                                    <div key={col} onDragOver={e => e.preventDefault()} onDrop={e => onDrop(e, col)} className="min-w-[320px] bg-slate-100 rounded-xl flex flex-col h-full border border-slate-200/60">
+                                        <div className="p-3 border-b border-slate-200/50 bg-slate-50/50 rounded-t-xl flex justify-between font-bold text-xs text-slate-600 uppercase">
+                                            <span>{col}</span>
+                                            <span className="bg-white px-2 py-0.5 rounded">{filteredProfiles.filter(p => getStatus(p) === col).length}</span>
+                                        </div>
+                                        <div className="flex-1 overflow-y-auto p-3 space-y-2">
+                                            {filteredProfiles.filter(p => getStatus(p) === col).map(cv => (
+                                                <div key={cv.id} draggable onDragStart={e => onDragStart(e, cv.id)}>
+                                                    <CandidateCard cv={cv} onClick={() => setSelectedCv(cv)} onDelete={handleDeleteCV} onReprocess={handleReprocess} compact jobs={jobs} />
+                                                </div>
+                                            ))}
+                                        </div>
                                     </div>
-                                    <div className="flex-1 overflow-y-auto p-3 space-y-2">
-                                        {filteredProfiles.filter(p => getStatus(p) === col).map(cv => (
-                                            <div key={cv.id} draggable onDragStart={e => onDragStart(e, cv.id)}>
-                                                <CandidateCard cv={cv} onClick={() => setSelectedCv(cv)} onDelete={handleDeleteCV} onReprocess={handleReprocess} compact jobs={jobs} />
-                                            </div>
-                                        ))}
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
+                                ))}
+                            </div>
+                        )
                     )
-                )}
-            </div>
+                }
+            </div >
 
             <BulkActionBar
                 selectedIds={selectedIds}
@@ -246,21 +302,24 @@ const Pipeline = ({ onOpenMobileSidebar }) => {
                 clearSelection={() => setSelectedIds([])}
             />
 
-            {selectedCv && (
-                <CandidateDrawer
-                    cv={selectedCv}
-                    onClose={() => setSelectedCv(null)}
-                    jobs={jobs}
-                    updateApp={updateApp}
-                    updateProfile={updateProfile}
-                    selectedJobId={selectedJobId}
-                    assignJob={assignJob}
-                    removeJob={removeJob}
-                />
-            )}
+            {
+                selectedCv && (
+                    <CandidateDrawer
+                        cv={selectedCv}
+                        onClose={() => setSelectedCv(null)}
+                        jobs={jobs}
+                        updateApp={updateApp}
+                        updateProfile={updateProfile}
+                        selectedJobId={selectedJobId}
+                        assignJob={assignJob}
+                        removeJob={removeJob}
+                    />
+                )
+            }
 
             {showUploadModal && <UploadModal jobs={jobs} uploadFiles={uploadFiles} performUpload={performUpload} onClose={() => setShowUploadModal(false)} />}
             {showBulkAssignModal && <BulkAssignModal jobs={jobs} selectedCount={selectedIds.length} performBulkAssign={() => { }} onClose={() => setShowBulkAssignModal(false)} />}
+            {showEditJobModal && <CreateJobModal onClose={() => setShowEditJobModal(false)} onCreate={handleUpdateJob} initialData={selectedJob} />}
         </>
     );
 };
