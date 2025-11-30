@@ -369,4 +369,4 @@ This project is proprietary software. All rights reserved.
 
 ---
 
-*Built with ❤️ by the Headhunter AI Engineering Team*
+*Built with ❤️ by the Headhunter AI Engineering Team - Samuel Toma*
