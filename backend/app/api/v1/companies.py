@@ -3,8 +3,8 @@ from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.models import models
 from app.schemas import company as schemas
-from app.api.v1.users import UserOut
-from app.api.v1.jobs import JobOut
+from app.schemas.user import UserOut
+from app.schemas.job import JobOut
 from app.api.deps import get_current_user
 
 router = APIRouter(

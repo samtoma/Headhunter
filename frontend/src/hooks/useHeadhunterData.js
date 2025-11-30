@@ -26,10 +26,13 @@ export const useHeadhunterData = () => {
     const [profiles, setProfiles] = useState([])
     const [loading, setLoading] = useState(true)
 
+    const [jobsLoading, setJobsLoading] = useState(true)
+
     // Pagination State
     const [page, setPage] = useState(1)
     const [hasMore, setHasMore] = useState(true)
     const [total, setTotal] = useState(0)
+    const [stats, setStats] = useState({ totalCandidates: 0, hired: 0, silver: 0, activeJobs: 0 })
     const [isFetchingMore, setIsFetchingMore] = useState(false)
 
     // Filters
@@ -41,10 +44,25 @@ export const useHeadhunterData = () => {
     const processingIdsRef = useRef(new Set())
 
     const fetchJobs = useCallback(async () => {
-        if (!localStorage.getItem('token')) return
+        if (!localStorage.getItem('token')) {
+            setJobsLoading(false)
+            return
+        }
         try {
             const res = await axios.get('/api/jobs/')
             setJobs(res.data)
+        } catch (err) {
+            console.error(err)
+        } finally {
+            setJobsLoading(false)
+        }
+    }, [])
+
+    const fetchStats = useCallback(async () => {
+        if (!localStorage.getItem('token')) return
+        try {
+            const res = await axios.get('/api/profiles/stats/overview')
+            setStats(res.data)
         } catch (err) {
             console.error(err)
         }
@@ -59,7 +77,10 @@ export const useHeadhunterData = () => {
     }, [])
 
     const fetchProfiles = useCallback(async (pageNum = 1, append = false) => {
-        if (!localStorage.getItem('token')) return
+        if (!localStorage.getItem('token')) {
+            setLoading(false)
+            return
+        }
 
         try {
             if (pageNum === 1) setLoading(true)
@@ -110,21 +131,36 @@ export const useHeadhunterData = () => {
         fetchProfiles(1, false)
     }, [search, sortBy, selectedJobId, resetList, fetchProfiles])
 
-    // Initial Jobs Load
+    // Initial Jobs & Stats Load
     useEffect(() => {
         fetchJobs()
-    }, [fetchJobs])
+        fetchStats()
+    }, [fetchJobs, fetchStats])
 
-    // Smart Polling
+    // Smart Polling with Versioning
     useEffect(() => {
         const pollStatus = async () => {
             if (!localStorage.getItem('token')) return
             try {
+                // Check version
+                const versionRes = await axios.get('/api/sync/version')
+                const serverVersion = versionRes.data.version
+                const localVersion = localStorage.getItem('data_version')
+
+                if (serverVersion !== localVersion) {
+                    console.log("New version detected, refreshing...", serverVersion)
+                    localStorage.setItem('data_version', serverVersion)
+                    fetchProfiles(page, false)
+                    fetchJobs()
+                    fetchStats()
+                }
+
+                // Also check processing status for specific CVs
                 const res = await axios.get('/api/cv/status')
                 const currentIds = new Set(res.data.processing_ids)
                 const prevIds = processingIdsRef.current
 
-                // Check if any ID finished processing (was in prev but not in current)
+                // Check if any ID finished processing
                 let somethingFinished = false
                 for (let id of prevIds) {
                     if (!currentIds.has(id)) {
@@ -133,20 +169,9 @@ export const useHeadhunterData = () => {
                     }
                 }
 
-                // Or if we have new processing items (e.g. just uploaded)
-                // We might want to refresh to show the "Processing..." cards if they aren't there yet
-                // But usually we add them optimistically. 
-                // The critical part is refreshing when they FINISH.
-
                 if (somethingFinished) {
-                    // Refresh current view without resetting scroll if possible, 
-                    // but for simplicity we just re-fetch the first page or current set.
-                    // For now, let's just re-fetch page 1 to update status.
-                    // Ideally we'd update specific items, but that's complex.
-                    // Let's just re-fetch the current page range? 
-                    // Simpler: Just re-fetch page 1.
                     fetchProfiles(1, false)
-                    fetchJobs() // Also refresh jobs in case stats changed
+                    fetchJobs()
                 }
 
                 processingIdsRef.current = currentIds
@@ -155,9 +180,9 @@ export const useHeadhunterData = () => {
             }
         }
 
-        const i = setInterval(pollStatus, 5000)
+        const i = setInterval(pollStatus, 4000) // Poll every 4s
         return () => clearInterval(i)
-    }, [fetchProfiles, fetchJobs])
+    }, [fetchProfiles, fetchJobs, fetchStats, page])
 
     // Actions
     const updateApp = useCallback(async (appId, data) => {
@@ -183,12 +208,12 @@ export const useHeadhunterData = () => {
     return {
         jobs, setJobs,
         profiles, setProfiles,
-        loading, isFetchingMore, hasMore,
+        loading, jobsLoading, isFetchingMore, hasMore,
         fetchJobs, fetchProfiles, loadMoreProfiles,
         search, setSearch,
         sortBy, setSortBy,
         selectedJobId, setSelectedJobId,
-        total,
+        total, stats,
         updateApp, updateProfile, assignJob, removeJob
     }
 }

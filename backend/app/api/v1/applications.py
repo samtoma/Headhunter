@@ -3,7 +3,9 @@ from sqlalchemy.orm import Session
 from pydantic import BaseModel
 from typing import Optional
 from app.core.database import get_db
-from app.models.models import Application
+from app.models.models import Application, User, UserRole, Interview
+from app.api.deps import get_current_user
+from app.services.sync import touch_company_state
 
 router = APIRouter(prefix="/applications", tags=["Applications"])
 
@@ -27,10 +29,11 @@ def create_application(data: ApplicationCreate, db: Session = Depends(get_db)):
     db.add(app)
     db.commit()
     db.refresh(app)
+    touch_company_state(db, app.job.company_id if app.job else None)
     return app
 
 @router.patch("/{app_id}")
-def update_application(app_id: int, data: ApplicationUpdate, db: Session = Depends(get_db)):
+def update_application(app_id: int, data: ApplicationUpdate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     app = db.query(Application).filter(Application.id == app_id).first()
     if not app:
         raise HTTPException(404, "Application not found")
@@ -42,7 +45,25 @@ def update_application(app_id: int, data: ApplicationUpdate, db: Session = Depen
     if data.notes is not None:
         app.notes = data.notes
     
+    # --- INTERVIEWER CHECK ---
+    if current_user.role == UserRole.INTERVIEWER:
+        # Check if assigned to any interview for this application
+        assigned = db.query(Interview).filter(
+            Interview.application_id == app.id,
+            Interview.interviewer_id == current_user.id
+        ).first()
+        
+        if not assigned:
+            raise HTTPException(403, "Not authorized to update this application")
+            
     db.commit()
+    touch_company_state(db, app.job.company_id if app.job else None)
+    
+    # Mask salary for interviewer
+    if current_user.role == UserRole.INTERVIEWER:
+        app.current_salary = "Confidential"
+        app.expected_salary = "Confidential"
+        
     return app
 
 @router.delete("/{app_id}")
@@ -50,6 +71,8 @@ def delete_application(app_id: int, db: Session = Depends(get_db)):
     app = db.query(Application).filter(Application.id == app_id).first()
     if not app:
         raise HTTPException(404, "Application not found")
+    company_id = app.job.company_id if app.job else None
     db.delete(app)
     db.commit()
+    touch_company_state(db, company_id)
     return {"message": "Application deleted"}

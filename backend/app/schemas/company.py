@@ -26,6 +26,7 @@ class CompanyBase(BaseModel):
     social_facebook: Optional[str] = None
     logo_url: Optional[str] = None
     website: Optional[str] = None
+    departments: Optional[str] = None # JSON string
 
 class CompanyUpdate(CompanyBase):
     pass

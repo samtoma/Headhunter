@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session, joinedload
 from typing import Optional
 from datetime import datetime, timezone
 from app.core.database import get_db
-from app.models.models import CV, ParsedCV, Application, User
+from app.models.models import CV, ParsedCV, Application, User, UserRole, Interview
 from app.api.deps import get_current_user
 from app.schemas.cv import CVResponse, UpdateProfile, PaginatedResponse
 from sqlalchemy import or_, desc, asc
@@ -21,6 +21,11 @@ def get_all_profiles(
     current_user: User = Depends(get_current_user)
 ):
     query = db.query(CV).options(joinedload(CV.parsed_data)).filter(CV.company_id == current_user.company_id)
+    
+    # --- INTERVIEWER RESTRICTIONS ---
+    if current_user.role == UserRole.INTERVIEWER:
+        # Only show candidates with assigned interviews
+        query = query.join(Application).join(Interview).filter(Interview.interviewer_id == current_user.id)
     
     # --- FILTERS ---
     if job_id:
@@ -77,7 +82,17 @@ def get_all_profiles(
             else:
                  # Standard logic
                  base_exp = cv.parsed_data.experience_years if (cv.parsed_data and cv.parsed_data.experience_years) else 0
+                 base_exp = cv.parsed_data.experience_years if (cv.parsed_data and cv.parsed_data.experience_years) else 0
                  cv.projected_experience = base_exp + int(years_passed)
+
+        # --- MASK SALARY FOR INTERVIEWERS ---
+        if current_user.role == UserRole.INTERVIEWER:
+            if cv.parsed_data:
+                cv.parsed_data.current_salary = "Confidential"
+                cv.parsed_data.expected_salary = "Confidential"
+            for app in cv.applications:
+                app.current_salary = "Confidential"
+                app.expected_salary = "Confidential"
 
     import math
     return {
@@ -104,3 +119,37 @@ def update_profile(cv_id: int, update_data: UpdateProfile, db: Session = Depends
 
     db.commit()
     return db.query(CV).filter(CV.id == cv_id).options(joinedload(CV.parsed_data)).first()
+
+@router.get("/stats/overview")
+def get_stats(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    # Base query for company
+    base_query = db.query(CV).filter(CV.company_id == current_user.company_id)
+    
+    total_candidates = base_query.count()
+    
+    # For status counts, we need to join applications
+    # Count Hired
+    hired = db.query(Application).join(CV).filter(
+        CV.company_id == current_user.company_id,
+        Application.status == "Hired"
+    ).count()
+    
+    # Count Silver Medalist
+    silver = db.query(Application).join(CV).filter(
+        CV.company_id == current_user.company_id,
+        Application.status == "Silver Medalist"
+    ).count()
+    
+    # Active Jobs
+    from app.models.models import Job
+    active_jobs = db.query(Job).filter(
+        Job.company_id == current_user.company_id,
+        Job.is_active
+    ).count()
+    
+    return {
+        "totalCandidates": total_candidates,
+        "hired": hired,
+        "silver": silver,
+        "activeJobs": active_jobs
+    }

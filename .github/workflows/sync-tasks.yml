@@ -1,0 +1,48 @@
+name: Sync Tasks to Issues
+
+on:
+  workflow_dispatch:  # Allow manual triggering
+  push:
+    # paths:
+    #   - 'task.md'  # Commented out to ensure it runs for debugging
+    branches:
+      - '**'       # Run on all branches
+
+permissions:
+  contents: write  # Needed to push changes back
+  issues: write    # Needed to create issues
+
+jobs:
+  sync-tasks:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Install dependencies
+        run: pip install httpx
+
+      - name: Run Sync Script
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TASK_FILE_PATH: task.md # Assuming task.md is in the root of the repo
+        run: python ops/sync_github.py --run
+
+      - name: Commit and Push Changes
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          
+          # Check if task.md was modified
+          if git diff --quiet task.md; then
+            echo "No changes to commit."
+          else
+            git add task.md
+            git commit -m "chore: update task issue links [skip ci]"
+            git push
+          fi
