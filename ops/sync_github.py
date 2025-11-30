@@ -5,6 +5,13 @@ import subprocess
 import httpx
 from pathlib import Path
 
+# Try to load .env file
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    pass
+
 # Configuration
 # Configuration
 # In CI, we expect the script to run from repo root, so task.md is at root or specific path
@@ -13,19 +20,33 @@ TASK_FILE = Path(os.getenv("TASK_FILE_PATH", "task.md"))
 GITHUB_API = "https://api.github.com"
 TOKEN = os.getenv("GITHUB_TOKEN")
 
+def clean_repo_name(repo):
+    """Clean repository name to ensure it's just 'owner/repo'."""
+    if not repo:
+        return None
+    repo = repo.strip()
+    # Remove https://github.com/ or http://github.com/
+    repo = re.sub(r'^https?://github\.com/', '', repo)
+    # Remove git@github.com:
+    repo = re.sub(r'^git@github\.com:', '', repo)
+    # Remove .git suffix
+    if repo.endswith('.git'):
+        repo = repo[:-4]
+    return repo
+
 def get_repo_nwo():
     """Get 'owner/repo' from git remote."""
+    repo = None
     try:
         url = subprocess.check_output(["git", "config", "--get", "remote.origin.url"]).decode().strip()
-        # Handle SSH and HTTPS URLs
-        if "github.com" in url:
-            if url.startswith("git@"):
-                return url.split(":")[1].replace(".git", "")
-            elif url.startswith("https://"):
-                return url.split("github.com/")[1].replace(".git", "")
+        repo = clean_repo_name(url)
     except Exception:
         pass
-    return os.getenv("GITHUB_REPOSITORY") # Fallback to env var
+        
+    if not repo:
+        repo = clean_repo_name(os.getenv("GITHUB_REPOSITORY"))
+        
+    return repo
 
 def parse_tasks(content):
     """Parse tasks from markdown content."""
@@ -33,34 +54,38 @@ def parse_tasks(content):
     lines = content.split('\n')
     for i, line in enumerate(lines):
         # Match - [ ] or - [/] or - [x]
-        match = re.match(r'^\s*-\s*\[([ x/])\]\s*(.*?)(\s*<!--\s*id:\s*(\d+)\s*-->)?$', line)
+        match = re.match(r'^\s*-\s*\[([ x/])\]\s*(.*?)(?:\s*<!--.*-->)?$', line)
         if match:
             status_char = match.group(1)
             text = match.group(2).strip()
-            existing_id = match.group(4)
             
-            # Check if already synced (look for #123 pattern or similar, but simplified for now)
-            # We'll use the <!-- id: X --> as a local ID, but we want to map it to a GH issue.
-            # For now, let's just create issues for tasks that don't look like they have a GH link.
+            # Extract GH ID if present
+            gh_match = re.search(r'<!--\s*gh:\s*(\d+)\s*-->', line)
+            gh_id = gh_match.group(1) if gh_match else None
             
             tasks.append({
                 "line_index": i,
                 "status": status_char,
                 "text": text,
-                "local_id": existing_id,
+                "gh_id": gh_id,
                 "raw": line
             })
     return tasks
 
-def create_issue(repo, title, body=""):
+def get_headers():
     if not TOKEN:
-        print("Error: GITHUB_TOKEN not set.")
         return None
-        
-    headers = {
+    return {
         "Authorization": f"token {TOKEN}",
         "Accept": "application/vnd.github.v3+json"
     }
+
+def create_issue(repo, title, body=""):
+    headers = get_headers()
+    if not headers:
+        print("Error: GITHUB_TOKEN not set.")
+        return None
+        
     url = f"{GITHUB_API}/repos/{repo}/issues"
     data = {
         "title": title,
@@ -77,6 +102,41 @@ def create_issue(repo, title, body=""):
             return None
     except Exception as e:
         print(f"Error connecting to GitHub: {e}")
+        return None
+
+def update_issue_status(repo, issue_number, state):
+    """Update the state of an issue (open/closed)."""
+    headers = get_headers()
+    if not headers:
+        return False
+        
+    url = f"{GITHUB_API}/repos/{repo}/issues/{issue_number}"
+    data = {"state": state}
+    
+    try:
+        resp = httpx.patch(url, json=data, headers=headers)
+        if resp.status_code == 200:
+            return True
+        else:
+            print(f"Failed to update issue #{issue_number}: {resp.status_code} {resp.text}")
+            return False
+    except Exception as e:
+        print(f"Error updating issue #{issue_number}: {e}")
+        return False
+
+def get_issue_state(repo, issue_number):
+    """Get the current state of an issue."""
+    headers = get_headers()
+    if not headers:
+        return None
+        
+    url = f"{GITHUB_API}/repos/{repo}/issues/{issue_number}"
+    try:
+        resp = httpx.get(url, headers=headers)
+        if resp.status_code == 200:
+            return resp.json().get("state")
+        return None
+    except Exception:
         return None
 
 def main():
@@ -97,31 +157,57 @@ def main():
     updated_lines = content.split('\n')
     changes_made = False
     
+    is_dry_run = "--run" not in sys.argv
+    
     for task in tasks:
-        # Simple logic: If it doesn't have a GH link (e.g. #123), create one.
-        # But wait, we don't want to duplicate.
-        # Let's assume if it has <!-- gh: 123 --> it's synced.
+        # 1. Create if missing
+        if not task["gh_id"]:
+            print(f"Creating issue for: {task['text']}")
+            if is_dry_run:
+                print("  [Dry Run] Would create issue.")
+                continue
+                
+            issue = create_issue(repo, task["text"], f"Imported from local task list.\n\nStatus: {task['status']}")
+            if issue:
+                issue_number = issue["number"]
+                print(f"  Created issue #{issue_number}")
+                
+                # Update line with GH ID
+                # Append to existing comments or add new one
+                if "<!--" in task["raw"]:
+                    # Insert before the last -->
+                    # This is a bit hacky, better to just append if not strictly parsing structure
+                    # But let's just append for safety to avoid breaking existing IDs
+                    new_line = f"{task['raw']} <!-- gh: {issue_number} -->"
+                else:
+                    new_line = f"{task['raw']} <!-- gh: {issue_number} -->"
+                
+                updated_lines[task["line_index"]] = new_line
+                changes_made = True
         
-        if "<!-- gh:" in task["raw"]:
-            continue
+        # 2. Update status if exists
+        else:
+            gh_id = task["gh_id"]
+            local_done = task["status"] == "x"
             
-        # Create issue
-        print(f"Creating issue for: {task['text']}")
-        # In a real scenario, we might want to prompt or be careful.
-        # For this tool, we'll do dry run by default unless --run is passed
-        if "--run" not in sys.argv:
-            print("  [Dry Run] Would create issue.")
-            continue
+            # We need to know current GH state to avoid unnecessary API calls
+            # For dry run, we can't really know unless we query, but let's assume we want to sync state.
+            # To save API calls, we could only update if we suspect a mismatch, but simpler is to just enforce local state.
             
-        issue = create_issue(repo, task["text"], f"Imported from local task list.\n\nStatus: {task['status']}")
-        if issue:
-            issue_number = issue["number"]
-            print(f"  Created issue #{issue_number}")
+            target_state = "closed" if local_done else "open"
             
-            # Update line with GH ID
-            new_line = f"{task['raw']} <!-- gh: {issue_number} -->"
-            updated_lines[task["line_index"]] = new_line
-            changes_made = True
+            if is_dry_run:
+                # In dry run, we don't query GH state to avoid spamming if we aren't going to fix it.
+                # But to show intent:
+                print(f"Checking task '{task['text']}' (GH #{gh_id}) -> Local: {task['status']}, Target: {target_state}")
+                continue
+
+            # Check current state to avoid redundant updates (optional but good)
+            current_state = get_issue_state(repo, gh_id)
+            if current_state and current_state != target_state:
+                print(f"Updating issue #{gh_id} state to {target_state}")
+                if update_issue_status(repo, gh_id, target_state):
+                    print(f"  Updated #{gh_id}")
             
     if changes_made:
         TASK_FILE.write_text('\n'.join(updated_lines))
