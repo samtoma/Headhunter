@@ -1,14 +1,9 @@
-import os
-import time
 import logging
-from pathlib import Path
 from fastapi import FastAPI, Depends
-from sqlalchemy.exc import OperationalError
 from app.core.database import engine, get_db
 from app.api.v1 import cv, profiles, jobs, applications, auth, company, sso, interviews, companies, logs, sync, stats
 from app.api.endpoints import search
 from app.models import models
-from app.tasks.cv_tasks import process_cv_task
 from sqlalchemy.orm import Session
 
 # ... (logging config)

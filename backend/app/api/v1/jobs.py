@@ -1,20 +1,18 @@
 from fastapi import APIRouter, Depends, HTTPException, Body
 from sqlalchemy.orm import Session, joinedload
 from typing import List, Optional, Any, Dict
-from pydantic import BaseModel, field_validator, ConfigDict
-from datetime import datetime
 import json
 from app.core.database import get_db
 from app.models.models import Job, ParsedCV, User, CV, UserRole
 from app.api.deps import get_current_user
 from app.services.parser import generate_job_metadata
 from app.services.sync import touch_company_state
+from app.schemas.job import JobCreate, JobUpdate, JobOut, CandidateMatch
 
 router = APIRouter(prefix="/jobs", tags=["Jobs"])
 
 # --- Schemas ---
-from app.schemas.job import JobCreate, JobUpdate, JobOut, CandidateMatch
-from app.schemas.company import CompanyOut as CompanySchema
+
 
 # --- Schemas ---
 # Schemas are now imported from app.schemas.job

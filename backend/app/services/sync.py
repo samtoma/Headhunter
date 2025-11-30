@@ -1,7 +1,6 @@
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 from app.models.models import Company
-from datetime import datetime
 
 def touch_company_state(db: Session, company_id: int):
     """

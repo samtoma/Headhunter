@@ -26,7 +26,7 @@ class ErrorBoundary extends React.Component {
                         </div>
 
                         <p className="text-slate-600 mb-6">
-                            An unexpected error occurred. We've logged this issue.
+                            An unexpected error occurred. We&apos;ve logged this issue.
                             We&apos;re sorry, but something went wrong. Please try refreshing the page. or contact support if the problem persists.
                         </p>
 

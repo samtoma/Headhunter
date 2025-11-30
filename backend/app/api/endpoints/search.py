@@ -1,11 +1,10 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
-from typing import List, Optional
+from typing import List
 from app.core.database import get_db
 from app.api.deps import get_current_user
-from app.models.models import User, CV, ParsedCV
+from app.models.models import User, CV
 from app.services.search.factory import get_search_engine
-from app.services.embeddings import generate_embedding
 import logging
 
 router = APIRouter()

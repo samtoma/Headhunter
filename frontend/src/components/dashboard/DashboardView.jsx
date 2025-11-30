@@ -1,4 +1,12 @@
-import { useEffect } from 'react'
+import { useState, useEffect } from 'react'
+import axios from 'axios'
+import { useNavigate } from 'react-router-dom'
+import { Users, Briefcase as BriefcaseIcon, Check, Award, TrendingUp } from 'lucide-react'
+import { useHeadhunter } from '../../context/HeadhunterContext'
+import KPICard from './KPICard'
+import JobInsightCard from './JobInsightCard'
+import CandidateList from './CandidateList'
+import CandidateDrawer from '../pipeline/CandidateDrawer'
 
 const DepartmentOverview = () => {
     const [deptStats, setDeptStats] = useState([])

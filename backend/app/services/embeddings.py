@@ -1,4 +1,3 @@
-import os
 import logging
 from typing import List
 from app.services.parser import get_openai_client

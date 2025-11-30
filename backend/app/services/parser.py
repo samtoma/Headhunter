@@ -340,7 +340,6 @@ async def parse_cv_with_llm(text: str, filename: str) -> Dict[str, Any]:
             
             # --- VECTOR DB INTEGRATION ---
             try:
-                from app.services.search.factory import get_search_engine
                 
                 # Create a rich text representation for the embedding
                 rich_text = f"""

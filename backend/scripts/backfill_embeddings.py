@@ -8,8 +8,7 @@ import logging
 # Add backend directory to path
 sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 
-from app.core.database import Base
-from app.models.models import ParsedCV, CV
+from app.models.models import ParsedCV
 from app.services.search.factory import get_search_engine
 
 # Configure logging

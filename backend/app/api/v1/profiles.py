@@ -144,7 +144,7 @@ def get_stats(db: Session = Depends(get_db), current_user: User = Depends(get_cu
     from app.models.models import Job
     active_jobs = db.query(Job).filter(
         Job.company_id == current_user.company_id,
-        Job.is_active == True
+        Job.is_active
     ).count()
     
     return {

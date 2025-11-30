@@ -5,9 +5,6 @@ import os
 sys.path.append(os.path.join(os.getcwd(), "backend"))
 
 try:
-    from app.services.vector_db import vector_db
-    from app.services.embeddings import generate_embedding
-    from app.api.endpoints.search import router
     from app.models.models import UserRole, User
     
     assert UserRole.INTERVIEWER == "interviewer"

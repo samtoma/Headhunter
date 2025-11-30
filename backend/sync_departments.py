@@ -16,7 +16,7 @@ def sync_departments():
                     existing_depts = json.loads(company.departments)
                     if not isinstance(existing_depts, list):
                         existing_depts = []
-                except:
+                except Exception:
                     existing_depts = []
             
             # Get all unique departments from jobs
