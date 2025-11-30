@@ -1,4 +1,4 @@
-import { BrainCircuit, LayoutDashboard, Briefcase as BriefcaseIcon, Archive, Layers, Lock, Plus, Settings, LogOut, Building2, X, ChevronDown, ChevronRight } from 'lucide-react'
+import { BrainCircuit, LayoutDashboard, Briefcase as BriefcaseIcon, Archive, Layers, Lock, Plus, Settings, LogOut, Building2, X, ChevronDown, ChevronRight, Users } from 'lucide-react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import { useHeadhunter } from '../../context/HeadhunterContext'
@@ -189,6 +189,9 @@ const Sidebar = ({ isMobileOpen, setIsMobileOpen }) => {
                             </button>
                             <button onClick={() => handleNavigation("/settings")} className={`w-full flex items-center gap-2 p-2.5 text-sm transition rounded-lg ${currentPath === "/settings" ? 'bg-indigo-50 text-indigo-700 ring-1 ring-indigo-200 font-medium' : 'text-slate-500 hover:text-slate-700 hover:bg-slate-50'}`}>
                                 <Settings size={16} /> Workflow Settings
+                            </button>
+                            <button onClick={() => handleNavigation("/team")} className={`w-full flex items-center gap-2 p-2.5 text-sm transition rounded-lg ${currentPath === "/team" ? 'bg-indigo-50 text-indigo-700 ring-1 ring-indigo-200 font-medium' : 'text-slate-500 hover:text-slate-700 hover:bg-slate-50'}`}>
+                                <Users size={16} /> Team Management
                             </button>
                         </>
                     )}

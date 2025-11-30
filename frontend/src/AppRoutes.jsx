@@ -8,6 +8,7 @@ import DashboardView from './components/dashboard/DashboardView';
 import Pipeline from './pages/Pipeline';
 import Settings from './pages/Settings';
 import SuperAdminDashboard from './components/dashboard/SuperAdminDashboard';
+import Team from './pages/Team';
 import Sidebar from './components/layout/Sidebar';
 import ErrorBoundary from './components/ErrorBoundary';
 import React, { useState } from 'react';
@@ -70,6 +71,14 @@ const AppRoutes = () => {
                 <ProtectedRoute>
                     <AppLayout>
                         <Settings />
+                    </AppLayout>
+                </ProtectedRoute>
+            } />
+
+            <Route path="/team" element={
+                <ProtectedRoute>
+                    <AppLayout>
+                        <Team />
                     </AppLayout>
                 </ProtectedRoute>
             } />
