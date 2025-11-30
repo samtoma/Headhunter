@@ -6,7 +6,7 @@ class ErrorBoundary extends React.Component {
         this.state = { hasError: false, error: null, errorInfo: null };
     }
 
-    static getDerivedStateFromError(error) {
+    static getDerivedStateFromError() {
         return { hasError: true };
     }
 
@@ -27,7 +27,7 @@ class ErrorBoundary extends React.Component {
 
                         <p className="text-slate-600 mb-6">
                             An unexpected error occurred. We've logged this issue.
-                            Please try refreshing the page or contact support if the problem persists.
+                            We&apos;re sorry, but something went wrong. Please try refreshing the page. or contact support if the problem persists.
                         </p>
 
                         <div className="bg-slate-900 text-slate-200 p-4 rounded-lg overflow-auto max-h-64 text-xs font-mono mb-6">

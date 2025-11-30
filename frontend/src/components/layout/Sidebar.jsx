@@ -25,19 +25,15 @@ const Sidebar = ({ isMobileOpen, setIsMobileOpen }) => {
     }
 
     const currentPath = location.pathname
-    const [selectedDepartment, setSelectedDepartment] = useState("All")
     const [expandedDepts, setExpandedDepts] = useState({});
 
     const toggleDept = (dept) => {
         setExpandedDepts(prev => ({ ...prev, [dept]: !prev[dept] }));
     };
 
-    const departments = ["All", ...new Set((jobs || []).map(j => j.department).filter(Boolean))]
-
     const displayedJobs = (jobs || []).filter(j => {
         const matchesArchive = showArchived ? !j.is_active : j.is_active
-        const matchesDept = selectedDepartment === "All" || j.department === selectedDepartment
-        return matchesArchive && matchesDept
+        return matchesArchive
     })
 
     const handleNavigation = (path, jobId = null) => {

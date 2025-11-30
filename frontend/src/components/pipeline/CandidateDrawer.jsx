@@ -10,7 +10,7 @@ import { safeList, getStatusColor } from '../../utils/helpers'
 const CandidateDrawer = ({ cv, onClose, updateApp, updateProfile, jobs, selectedJobId, assignJob, removeJob }) => {
     const [view, setView] = useState("parsed")
     const [isEditing, setIsEditing] = useState(false)
-    const d = cv?.parsed_data || {}
+    const d = useMemo(() => cv?.parsed_data || {}, [cv])
 
     // Allow switching context if in General Pool or multiple apps
     const [activeJobId, setActiveJobId] = useState(selectedJobId)

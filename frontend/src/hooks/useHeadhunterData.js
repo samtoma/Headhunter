@@ -182,7 +182,7 @@ export const useHeadhunterData = () => {
 
         const i = setInterval(pollStatus, 4000) // Poll every 4s
         return () => clearInterval(i)
-    }, [fetchProfiles, fetchJobs, page])
+    }, [fetchProfiles, fetchJobs, fetchStats, page])
 
     // Actions
     const updateApp = useCallback(async (appId, data) => {

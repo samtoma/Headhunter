@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import { FixedSizeGrid as Grid } from 'react-window';
 import AutoSizer from 'react-virtualized-auto-sizer';
 import { useHeadhunter } from '../context/HeadhunterContext';
@@ -18,7 +18,7 @@ const Pipeline = ({ onOpenMobileSidebar }) => {
         jobs, profiles, setProfiles, fetchJobs, fetchProfiles,
         loadMoreProfiles, hasMore, isFetchingMore,
         search, setSearch, sortBy, setSortBy,
-        selectedJobId, setSelectedJobId,
+        selectedJobId,
         updateApp, updateProfile, assignJob, removeJob,
         loading, jobsLoading
     } = useHeadhunter();

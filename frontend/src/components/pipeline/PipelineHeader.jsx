@@ -1,5 +1,5 @@
 
-import { Search, LayoutGrid, Kanban, Upload, Lock, Unlock } from 'lucide-react'
+import { Search, LayoutGrid, Kanban, Upload } from 'lucide-react'
 
 const PipelineHeader = ({
     selectedJob,

@@ -1,12 +1,3 @@
-import { useMemo, useState } from 'react'
-import { Briefcase as BriefcaseIcon, Users, Check, Award, TrendingUp } from 'lucide-react'
-import { useHeadhunter } from '../../context/HeadhunterContext'
-import { useNavigate } from 'react-router-dom'
-import KPICard from './KPICard'
-import JobInsightCard from './JobInsightCard'
-import CandidateList from './CandidateList'
-import CandidateDrawer from '../pipeline/CandidateDrawer'
-import axios from 'axios'
 import { useEffect } from 'react'
 
 const DepartmentOverview = () => {
