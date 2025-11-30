@@ -10,18 +10,21 @@ from sqlalchemy.orm import Session
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-app = FastAPI(
-    title="Headhunter API",
-    description="AI-Powered Recruitment Platform",
-    version="1.7.0-RC1"
-)
+from contextlib import asynccontextmanager
 
-# ... (startup event)
-@app.on_event("startup")
-async def startup_event():
+@asynccontextmanager
+async def lifespan(app: FastAPI):
     logger.info("Starting up Headhunter API...")
     # Ensure database tables are created
     models.Base.metadata.create_all(bind=engine)
+    yield
+
+app = FastAPI(
+    title="Headhunter API",
+    description="AI-Powered Recruitment Platform",
+    version="1.7.0-RC1",
+    lifespan=lifespan
+)
 
 # --- Register Routers ---
 app.include_router(cv.router)
