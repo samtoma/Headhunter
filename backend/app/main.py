@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 app = FastAPI(
     title="Headhunter API",
     description="AI-Powered Recruitment Platform",
-    version="1.6.0"
+    version="1.7.0-RC1"
 )
 
 # ... (startup event)
