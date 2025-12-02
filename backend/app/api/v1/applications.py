@@ -6,6 +6,7 @@ from app.core.database import get_db
 from app.models.models import Application, User, UserRole, Interview
 from app.api.deps import get_current_user
 from app.services.sync import touch_company_state
+from app.schemas.application import ApplicationOut
 
 router = APIRouter(prefix="/applications", tags=["Applications"])
 
@@ -18,12 +19,13 @@ class ApplicationUpdate(BaseModel):
     rating: Optional[int] = None
     notes: Optional[str] = None
 
-@router.post("/")
+@router.post("/", response_model=ApplicationOut)
 def create_application(data: ApplicationCreate, db: Session = Depends(get_db)):
     # Check if already applied
     exists = db.query(Application).filter_by(cv_id=data.cv_id, job_id=data.job_id).first()
     if exists:
-        return {"message": "Already in pipeline", "id": exists.id}
+        # Return existing app if duplicate
+        return exists
     
     app = Application(cv_id=data.cv_id, job_id=data.job_id, status="New")
     db.add(app)
@@ -32,7 +34,7 @@ def create_application(data: ApplicationCreate, db: Session = Depends(get_db)):
     touch_company_state(db, app.job.company_id if app.job else None)
     return app
 
-@router.patch("/{app_id}")
+@router.patch("/{app_id}", response_model=ApplicationOut)
 def update_application(app_id: int, data: ApplicationUpdate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     app = db.query(Application).filter(Application.id == app_id).first()
     if not app:

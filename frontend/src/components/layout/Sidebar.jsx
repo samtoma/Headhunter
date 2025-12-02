@@ -1,4 +1,4 @@
-import { BrainCircuit, LayoutDashboard, Briefcase as BriefcaseIcon, Archive, Layers, Lock, Plus, Settings, LogOut, Building2, X, ChevronDown, ChevronRight, Users } from 'lucide-react'
+import { BrainCircuit, LayoutDashboard, Briefcase as BriefcaseIcon, Archive, Layers, Lock, Plus, Settings, LogOut, Building2, X, ChevronDown, ChevronRight, Users, Calendar } from 'lucide-react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import { useHeadhunter } from '../../context/HeadhunterContext'
@@ -94,7 +94,14 @@ const Sidebar = ({ isMobileOpen, setIsMobileOpen }) => {
                     {role && <div className="text-[10px] bg-slate-100 text-slate-500 px-2 py-0.5 rounded-full w-fit mt-2 capitalize">{role}</div>}
                 </div>
                 <div className="flex-1 overflow-y-auto p-3 space-y-1">
-                    {role !== 'super_admin' && (
+                    {role === 'interviewer' && (
+                        <button onClick={() => handleNavigation("/interviewer")}
+                            className={`w-full flex items-center gap-3 p-2.5 rounded-lg text-sm font-medium transition ${currentPath === "/interviewer" ? 'bg-indigo-50 text-indigo-700 ring-1 ring-indigo-200' : 'text-slate-600 hover:bg-slate-50'}`}>
+                            <Calendar size={18} /> My Interviews
+                        </button>
+                    )}
+
+                    {role !== 'super_admin' && role !== 'interviewer' && (
                         <>
                             <button onClick={() => handleNavigation("/")}
                                 className={`w-full flex items-center gap-3 p-2.5 rounded-lg text-sm font-medium transition ${currentPath === "/" ? 'bg-indigo-50 text-indigo-700 ring-1 ring-indigo-200' : 'text-slate-600 hover:bg-slate-50'}`}>

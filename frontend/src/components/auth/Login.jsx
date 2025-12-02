@@ -28,7 +28,11 @@ const Login = () => {
                 role: res.data.role,
                 company_name: res.data.company_name
             })
-            navigate('/')
+            if (res.data.role === 'interviewer') {
+                navigate('/interviewer')
+            } else {
+                navigate('/')
+            }
         } catch (err) {
             console.error(err)
             setError("Invalid email or password")

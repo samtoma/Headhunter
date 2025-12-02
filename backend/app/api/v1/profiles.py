@@ -22,18 +22,30 @@ def get_all_profiles(
 ):
     query = db.query(CV).options(joinedload(CV.parsed_data)).filter(CV.company_id == current_user.company_id)
     
+    # Track joins to avoid duplicates
+    joined_application = False
+    joined_parsed_cv = False
+
     # --- INTERVIEWER RESTRICTIONS ---
     if current_user.role == UserRole.INTERVIEWER:
         # Only show candidates with assigned interviews
         query = query.join(Application).join(Interview).filter(Interview.interviewer_id == current_user.id)
+        joined_application = True
     
     # --- FILTERS ---
     if job_id:
-        query = query.join(Application).filter(Application.job_id == job_id)
+        if not joined_application:
+            query = query.join(Application)
+            joined_application = True
+        query = query.filter(Application.job_id == job_id)
 
     if search:
         search_term = f"%{search}%"
-        query = query.join(ParsedCV).filter(
+        if not joined_parsed_cv:
+            query = query.join(ParsedCV)
+            joined_parsed_cv = True
+            
+        query = query.filter(
             or_(
                 ParsedCV.name.ilike(search_term),
                 ParsedCV.skills.ilike(search_term),
@@ -46,9 +58,15 @@ def get_all_profiles(
     if sort_by == "oldest":
         query = query.order_by(asc(CV.uploaded_at))
     elif sort_by == "experience":
-        query = query.join(ParsedCV).order_by(desc(ParsedCV.experience_years))
+        if not joined_parsed_cv:
+            query = query.join(ParsedCV)
+            joined_parsed_cv = True
+        query = query.order_by(desc(ParsedCV.experience_years))
     elif sort_by == "name":
-        query = query.join(ParsedCV).order_by(asc(ParsedCV.name))
+        if not joined_parsed_cv:
+            query = query.join(ParsedCV)
+            joined_parsed_cv = True
+        query = query.order_by(asc(ParsedCV.name))
     else:
         # Default: Newest first
         query = query.order_by(desc(CV.uploaded_at))
@@ -102,6 +120,50 @@ def get_all_profiles(
         "pages": math.ceil(total / limit),
         "limit": limit
     }
+
+@router.get("/{cv_id}", response_model=CVResponse)
+def get_profile(cv_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    query = db.query(CV).options(joinedload(CV.parsed_data)).filter(CV.id == cv_id, CV.company_id == current_user.company_id)
+    
+    # --- INTERVIEWER RESTRICTIONS ---
+    if current_user.role == UserRole.INTERVIEWER:
+        # Only show candidates with assigned interviews
+        query = query.join(Application).join(Interview).filter(Interview.interviewer_id == current_user.id)
+    
+    cv = query.first()
+    if not cv:
+        raise HTTPException(404, "Profile not found or access denied")
+        
+    # --- MASK SALARY FOR INTERVIEWERS ---
+    if current_user.role == UserRole.INTERVIEWER:
+        if cv.parsed_data:
+            cv.parsed_data.current_salary = "Confidential"
+            cv.parsed_data.expected_salary = "Confidential"
+        for app in cv.applications:
+            app.current_salary = "Confidential"
+            app.expected_salary = "Confidential"
+            
+    # Calculate experience logic (same as list)
+    current_year = datetime.now(timezone.utc).year
+    cv.years_since_upload = 0.0
+    cv.projected_experience = 0
+    cv.is_outdated = False
+
+    if cv.uploaded_at:
+        delta = datetime.now(timezone.utc) - cv.uploaded_at
+        years_passed = delta.days / 365.25
+        cv.years_since_upload = round(years_passed, 1)
+        if years_passed > 2.0:
+            cv.is_outdated = True
+
+        grad_year = cv.parsed_data.bachelor_year if (cv.parsed_data and cv.parsed_data.bachelor_year) else None
+        if grad_year and grad_year > current_year:
+             cv.projected_experience = current_year - grad_year
+        else:
+             base_exp = cv.parsed_data.experience_years if (cv.parsed_data and cv.parsed_data.experience_years) else 0
+             cv.projected_experience = base_exp + int(years_passed)
+             
+    return cv
 
 @router.patch("/{cv_id}", response_model=CVResponse)
 def update_profile(cv_id: int, update_data: UpdateProfile, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):

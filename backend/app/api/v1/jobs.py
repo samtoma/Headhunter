@@ -232,7 +232,9 @@ def list_jobs(
     results = []
     for j in jobs:
         j_dict = j.__dict__.copy()
-        j_dict['candidate_count'] = len(j.applications)
+        # Count only active candidates (exclude Rejected/Withdrawn)
+        active_apps = [app for app in j.applications if app.status not in ["Rejected", "Withdrawn"]]
+        j_dict['candidate_count'] = len(active_apps)
         results.append(j_dict)
     return results
 

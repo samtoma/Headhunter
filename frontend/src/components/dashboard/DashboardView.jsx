@@ -13,7 +13,7 @@ const DepartmentOverview = () => {
     const [loading, setLoading] = useState(true)
 
     useEffect(() => {
-        axios.get('/api/v1/stats/departments')
+        axios.get('/api/stats/departments')
             .then(res => setDeptStats(res.data))
             .catch(console.error)
             .finally(() => setLoading(false))
@@ -54,7 +54,7 @@ const DepartmentOverview = () => {
 }
 
 const DashboardView = ({ onOpenMobileSidebar }) => {
-    const { jobs, profiles, setSelectedJobId, updateApp, updateProfile, assignJob, removeJob, stats } = useHeadhunter()
+    const { jobs, profiles, setSelectedJobId, updateApp, updateProfile, assignJob, removeJob, stats, jobsLoading } = useHeadhunter()
     const navigate = useNavigate()
     const [selectedCv, setSelectedCv] = useState(null)
 
@@ -64,6 +64,24 @@ const DashboardView = ({ onOpenMobileSidebar }) => {
     const handleNavigate = (job) => {
         setSelectedJobId(job.id)
         navigate('/pipeline')
+    }
+
+    if (jobsLoading) {
+        return (
+            <div className="p-4 md:p-8 space-y-8 animate-pulse">
+                <div className="h-8 w-48 bg-slate-200 rounded mb-8"></div>
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                    {[1, 2, 3, 4].map(i => (
+                        <div key={i} className="h-32 bg-slate-100 rounded-xl"></div>
+                    ))}
+                </div>
+                <div className="h-64 bg-slate-100 rounded-xl"></div>
+                <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+                    <div className="h-64 bg-slate-100 rounded-xl"></div>
+                    <div className="h-64 bg-slate-100 rounded-xl"></div>
+                </div>
+            </div>
+        )
     }
 
     return (

@@ -8,6 +8,7 @@ class UserRole(str, enum.Enum):
     ADMIN = "admin"
     RECRUITER = "recruiter"
     INTERVIEWER = "interviewer"
+    HIRING_MANAGER = "hiring_manager"
     SUPER_ADMIN = "super_admin"
 
 class Company(Base):

@@ -112,5 +112,14 @@ def get_company_jobs(
     if current_user.role != models.UserRole.SUPER_ADMIN:
         raise HTTPException(status_code=403, detail="Not authorized")
     
-    jobs = db.query(models.Job).filter(models.Job.company_id == company_id).all()
-    return jobs
+    from sqlalchemy.orm import joinedload
+    jobs = db.query(models.Job).options(joinedload(models.Job.applications)).filter(models.Job.company_id == company_id).all()
+    
+    results = []
+    for j in jobs:
+        j_dict = {c.name: getattr(j, c.name) for c in j.__table__.columns}
+        # For Super Admin view, show TOTAL candidates (including rejected) to reflect total volume/interest
+        j_dict['candidate_count'] = len(j.applications)
+        results.append(j_dict)
+        
+    return results

@@ -2,7 +2,7 @@ from contextlib import asynccontextmanager
 import logging
 from fastapi import FastAPI, Depends
 from app.core.database import engine, get_db
-from app.api.v1 import cv, profiles, jobs, applications, auth, company, sso, interviews, companies, logs, sync, stats
+from app.api.v1 import cv, profiles, jobs, applications, auth, company, sso, interviews, companies, logs, sync, stats, users
 from app.api.endpoints import search
 from app.models import models
 from sqlalchemy.orm import Session
@@ -39,7 +39,8 @@ app.include_router(company.router, prefix="/company")
 app.include_router(sso.router, prefix="/auth") # SSO endpoints under /auth/microsoft/...
 app.include_router(logs.router)
 app.include_router(sync.router)
-app.include_router(stats.router, prefix="/api/v1") # Register stats router
+app.include_router(users.router)
+app.include_router(stats.router) # Register stats router
 app.include_router(search.router, prefix="/search", tags=["Search"])
 
 @app.get("/api/debug/db_check")
