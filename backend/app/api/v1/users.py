@@ -7,9 +7,9 @@ from app.models.models import User, UserRole
 from app.api.deps import get_current_user
 from app.core.security import get_password_hash
 
-router = APIRouter(prefix="/users", tags=["Users"])
-
 from typing import Optional
+
+router = APIRouter(prefix="/users", tags=["Users"])
 
 class UserOut(BaseModel):
     id: int

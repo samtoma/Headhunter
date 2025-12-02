@@ -1,5 +1,4 @@
-import pytest
-from app.models.models import UserRole
+
 
 def test_team_features_lifecycle(authenticated_client):
     """

@@ -1,5 +1,4 @@
-import pytest
-from app.models.models import UserRole
+
 
 def test_hiring_manager_lifecycle(authenticated_client, client):
     """

@@ -79,7 +79,7 @@ def get_login_activity(
     ).all()
     
     # Format results
-    log_map = {str(l.date): l.count for l in logs}
+    log_map = {str(log.date): log.count for log in logs}
     
     results = []
     for i in range(7):

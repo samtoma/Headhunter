@@ -1,6 +1,4 @@
-import pytest
-from app.models.models import UserRole, Job, Application
-from app.core.security import get_password_hash
+
 
 def test_job_search_and_filters(authenticated_client, db):
     """Test job search and filtering logic in list_jobs"""
