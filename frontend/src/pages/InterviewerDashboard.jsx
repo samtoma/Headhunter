@@ -1,12 +1,12 @@
 import { useState, useEffect } from 'react';
-import { useAuth } from '../context/AuthContext';
+// import { useAuth } from '../context/AuthContext'; // Unused
 import { useHeadhunter } from '../context/HeadhunterContext';
-import { Calendar, CheckCircle, Clock, User, Briefcase, Star, ChevronRight, MessageSquare } from 'lucide-react';
+import { Calendar, CheckCircle, Clock, Briefcase, Star, ChevronRight, MessageSquare } from 'lucide-react';
 import axios from 'axios';
 import CandidateDrawer from '../components/pipeline/CandidateDrawer';
 
 const InterviewerDashboard = ({ onOpenMobileSidebar }) => {
-    const { user } = useAuth();
+    // const { user } = useAuth(); // Unused
     const { jobs } = useHeadhunter(); // To get job details if needed, though API provides titles
     const [interviews, setInterviews] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -40,13 +40,7 @@ const InterviewerDashboard = ({ onOpenMobileSidebar }) => {
         setSelectedJobId(jobId);
     };
 
-    const formatDate = (dateStr) => {
-        if (!dateStr) return "Unscheduled";
-        return new Date(dateStr).toLocaleString('en-US', {
-            weekday: 'short', month: 'short', day: 'numeric',
-            hour: 'numeric', minute: '2-digit'
-        });
-    };
+    // Unused formatDate function removed
 
     return (
         <div className="flex flex-col h-full bg-white">
@@ -95,7 +89,7 @@ const InterviewerDashboard = ({ onOpenMobileSidebar }) => {
                             {activeTab === 'upcoming' && (
                                 <div className="inline-flex items-center gap-2 px-4 py-2 bg-slate-50 text-slate-600 rounded-lg text-sm font-medium">
                                     <CheckCircle size={16} className="text-indigo-500" />
-                                    You're all caught up!
+                                    You&apos;re all caught up!
                                 </div>
                             )}
                         </div>

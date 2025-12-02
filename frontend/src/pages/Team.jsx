@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
-import { useHeadhunter } from '../context/HeadhunterContext';
+// import { useHeadhunter } from '../context/HeadhunterContext'; // Unused
 import { useAuth } from '../context/AuthContext';
-import { Users, Shield, Search, Filter, MoreVertical, Check, X, Building2, Plus, Trash2, UserPlus } from 'lucide-react';
+import { Users, Shield, Search, Filter, Check, X, Trash2, UserPlus } from 'lucide-react';
 import axios from 'axios';
 
 const DEPARTMENTS = [
@@ -133,7 +133,7 @@ const Team = ({ onOpenMobileSidebar }) => {
                         <h1 className="text-xl font-bold text-slate-900 flex items-center gap-2">
                             Team Management
                         </h1>
-                        <p className="text-xs text-slate-500 hidden md:block">Manage your organization's members and permissions</p>
+                        <p className="text-xs text-slate-500 hidden md:block">Manage your organization&apos;s members and permissions</p>
                     </div>
                 </div>
                 <button
