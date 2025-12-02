@@ -1,4 +1,4 @@
-# 🧠 Headhunter AI (v1.7.0-RC1)
+# 🧠 Headhunter AI (v1.8.0-RC1)
 
 **Headhunter AI** is a production-grade, self-hosted Applicant Tracking System (ATS) engineered for high-performance recruitment teams.
 
@@ -260,43 +260,51 @@ Every push to the repository triggers automated workflows that:
 *   **Database Tests:** In-memory SQLite for fast, isolated tests
 *   **Security Tests:** Authentication, authorization, RBAC validation
 
-**Run Backend Tests Locally:**
+### 🐳 Running Tests in Docker (Recommended)
+
+**IMPORTANT:** All tests and maintenance commands should be executed inside the Docker containers to ensure a consistent environment and access to all dependencies.
+
+### Backend Testing
+
+**Run Backend Tests:**
 ```bash
-cd backend
-python -m pytest                    # Run all tests
-python -m pytest -v                 # Verbose output
-python -m pytest tests/test_api.py  # Run specific test file
+# Run all tests
+docker exec headhunter_backend python -m pytest
+
+# Run with verbose output
+docker exec headhunter_backend python -m pytest -v
+
+# Run specific test file
+docker exec headhunter_backend python -m pytest tests/test_api.py
 ```
 
-**Linting:**
+**Backend Linting:**
 ```bash
-cd backend
-ruff check .                 # Check for issues
-ruff check . --fix          # Auto-fix issues
+# Check for issues
+docker exec headhunter_backend ruff check .
+
+# Auto-fix issues
+docker exec headhunter_backend ruff check . --fix
 ```
 
 ### Frontend Testing
 
-**Framework:** Vitest + React Testing Library
-**Coverage:** Component rendering, user interactions, integration tests
-
-**Test Suite Includes:**
-*   **Component Tests:** UI component rendering and behavior
-*   **Integration Tests:** Complete user flows (auth, navigation)
-*   **Mock Tests:** API calls, axios interceptors, localStorage
-
-**Run Frontend Tests Locally:**
+**Run Frontend Tests:**
 ```bash
-cd frontend
-npm run test                 # Run all tests (watch mode)
-npm run test -- --run        # Run once (CI mode)
-npm run test -- --coverage   # Generate coverage report
+# Run all tests (CI mode)
+docker exec headhunter_frontend npm run test -- --run
+
+# Run all tests (Watch mode - interactive)
+docker exec -it headhunter_frontend npm run test
+
+# Generate coverage report
+docker exec headhunter_frontend npm run test -- --coverage
 ```
 
-**Linting:**
+**Frontend Linting:**
 ```bash
-cd frontend
-npm run lint                 # Check for issues
+# Check for issues
+docker exec headhunter_frontend npm run lint
 ```
 
 ### Test Infrastructure
@@ -322,43 +330,36 @@ The CI/CD pipeline enforces:
 ---
 ##  Roadmap
 
-### Current Status: v1.7.0-RC1 (Release Candidate)
+### Current Status: v1.8.0-RC1 (Release Candidate)
 The system is a fully functional, enterprise-grade Applicant Tracking System with:
-*   ✅ Multi-company support with complete data isolation
-*   ✅ AI-powered LinkedIn-style company profiling (16 fields)
-*   ✅ Comprehensive job description generation (11 fields)
-*   ✅ AI regeneration with fine-tuning capabilities
-*   ✅ Advanced interview management
-*   ✅ Full mobile support
-*   ✅ Enterprise security & SSO
-*   ✅ Bulk operations & smart matching
+*   ✅ **Advanced Role Management:** Dedicated roles for Interviewers, Hiring Managers, Recruiters, and Admins.
+*   ✅ **Department-Level Isolation:** Jobs and candidates scoped to specific departments (e.g., Engineering, Sales).
+*   ✅ **Team Management:** Admin dashboard to manage users, roles, and department assignments.
+*   ✅ **Interviewer Dashboard:** Dedicated "My Interviews" view for streamlined feedback.
+*   ✅ **Smart Pipeline:** Grouping by department and robust versioning for real-time updates.
+*   ✅ **Multi-company support** with complete data isolation.
+*   ✅ **AI-powered Company Profiling** (16 fields).
+*   ✅ **Comprehensive Job Description Generation** (11 fields).
+*   ✅ **Enterprise Security & SSO**.
 
 ### Future Enhancements
-1.  **Semantic Search (The "AI Brain"):**
-    *   Connect ChromaDB for vector-based candidate search
-    *   Enable queries like "Find me a frontend dev who knows 3D graphics"
-    *   Return candidates with "ThreeJS" or "WebGL" even if keywords don't match exactly
+1.  **Comprehensive Frontend Testing:**
+    *   Achieve >80% coverage for React components using Vitest and React Testing Library.
+    *   Implement end-to-end (E2E) tests for critical user flows.
 
-2.  **Enhanced Analytics:**
-    *   Time-to-hire metrics
-    *   Source effectiveness tracking
-    *   Conversion rate analysis
-    *   Candidate engagement metrics
+2.  **Semantic Search UI (The "AI Brain"):**
+    *   Backend support is ready (ChromaDB + OpenAI Embeddings).
+    *   Next: Build the frontend search interface for natural language queries (e.g., "Find me a React expert").
 
-3.  **Calendar Integration:**
-    *   Two-way sync with Google/Outlook calendars
-    *   Automated interview scheduling
-    *   Meeting room booking
+3.  **Advanced Analytics & Reporting:**
+    *   Time-to-hire metrics and source effectiveness tracking.
+    *   Custom report builder with export to Excel/PDF.
 
-4.  **Email Automation:**
-    *   Template-based candidate communication
-    *   Automated status updates
-    *   Interview reminders
+4.  **Calendar Integration:**
+    *   Two-way sync with Google/Outlook calendars for automated scheduling.
 
-5.  **Advanced Reporting:**
-    *   Custom report builder
-    *   Export to Excel/PDF
-    *   Scheduled email reports
+5.  **Email Automation:**
+    *   Template-based candidate communication and status updates.
 
 ---
 

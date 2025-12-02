@@ -21,7 +21,10 @@ axios.interceptors.response.use(
     }
 )
 
+import { useAuth } from '../context/AuthContext'
+
 export const useHeadhunterData = () => {
+    const { token } = useAuth()
     const [jobs, setJobs] = useState([])
     const [profiles, setProfiles] = useState([])
     const [loading, setLoading] = useState(true)
@@ -44,7 +47,7 @@ export const useHeadhunterData = () => {
     const processingIdsRef = useRef(new Set())
 
     const fetchJobs = useCallback(async () => {
-        if (!localStorage.getItem('token')) {
+        if (!token) {
             setJobsLoading(false)
             return
         }
@@ -56,17 +59,17 @@ export const useHeadhunterData = () => {
         } finally {
             setJobsLoading(false)
         }
-    }, [])
+    }, [token])
 
     const fetchStats = useCallback(async () => {
-        if (!localStorage.getItem('token')) return
+        if (!token) return
         try {
             const res = await axios.get('/api/profiles/stats/overview')
             setStats(res.data)
         } catch (err) {
             console.error(err)
         }
-    }, [])
+    }, [token])
 
     // Reset list when filters change
     const resetList = useCallback(() => {
@@ -77,7 +80,7 @@ export const useHeadhunterData = () => {
     }, [])
 
     const fetchProfiles = useCallback(async (pageNum = 1, append = false) => {
-        if (!localStorage.getItem('token')) {
+        if (!token) {
             setLoading(false)
             return
         }
@@ -117,7 +120,7 @@ export const useHeadhunterData = () => {
             setLoading(false)
             setIsFetchingMore(false)
         }
-    }, [search, sortBy, selectedJobId])
+    }, [search, sortBy, selectedJobId, token])
 
     // Load More function for Infinite Scroll
     const loadMoreProfiles = useCallback(() => {
@@ -140,7 +143,7 @@ export const useHeadhunterData = () => {
     // Smart Polling with Versioning
     useEffect(() => {
         const pollStatus = async () => {
-            if (!localStorage.getItem('token')) return
+            if (!token) return
             try {
                 // Check version
                 const versionRes = await axios.get('/api/sync/version')
@@ -182,7 +185,7 @@ export const useHeadhunterData = () => {
 
         const i = setInterval(pollStatus, 4000) // Poll every 4s
         return () => clearInterval(i)
-    }, [fetchProfiles, fetchJobs, fetchStats, page])
+    }, [fetchProfiles, fetchJobs, fetchStats, page, token])
 
     // Actions
     const updateApp = useCallback(async (appId, data) => {

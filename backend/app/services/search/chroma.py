@@ -48,6 +48,16 @@ class ChromaSearchEngine(SearchEngine):
         except Exception as e:
             logger.error(f"Error indexing candidate {candidate_id}: {e}")
             return False
+            
+    def upsert(self, ids: List[str], documents: List[str], metadatas: List[Dict], embeddings: List[List[float]]) -> bool:
+        if not self.collection:
+            return False
+        try:
+            self.collection.upsert(ids=ids, documents=documents, metadatas=metadatas, embeddings=embeddings)
+            return True
+        except Exception as e:
+            logger.error(f"Error upserting to ChromaDB: {e}")
+            return False
 
     async def search(self, query_text: str, n_results: int = 10, filters: Optional[Dict] = None) -> List[Dict[str, Any]]:
         if not self.collection:

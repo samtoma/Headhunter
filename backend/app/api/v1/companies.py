@@ -43,7 +43,7 @@ def update_my_company(
     if not company:
         raise HTTPException(status_code=404, detail="Company not found")
     
-    for key, value in company_update.dict(exclude_unset=True).items():
+    for key, value in company_update.model_dump(exclude_unset=True).items():
         setattr(company, key, value)
     
     db.commit()
@@ -84,7 +84,7 @@ def update_company_by_id(
     if not company:
         raise HTTPException(status_code=404, detail="Company not found")
     
-    for key, value in company_update.dict(exclude_unset=True).items():
+    for key, value in company_update.model_dump(exclude_unset=True).items():
         setattr(company, key, value)
     
     db.commit()

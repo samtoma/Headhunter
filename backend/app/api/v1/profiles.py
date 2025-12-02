@@ -84,7 +84,11 @@ def get_all_profiles(
         cv.is_outdated = False
 
         if cv.uploaded_at:
-            delta = datetime.now(timezone.utc) - cv.uploaded_at
+            uploaded_at = cv.uploaded_at
+            if uploaded_at.tzinfo is None:
+                uploaded_at = uploaded_at.replace(tzinfo=timezone.utc)
+            
+            delta = datetime.now(timezone.utc) - uploaded_at
             years_passed = delta.days / 365.25
             cv.years_since_upload = round(years_passed, 1)
             if years_passed > 2.0:
@@ -150,7 +154,11 @@ def get_profile(cv_id: int, db: Session = Depends(get_db), current_user: User = 
     cv.is_outdated = False
 
     if cv.uploaded_at:
-        delta = datetime.now(timezone.utc) - cv.uploaded_at
+        uploaded_at = cv.uploaded_at
+        if uploaded_at.tzinfo is None:
+            uploaded_at = uploaded_at.replace(tzinfo=timezone.utc)
+            
+        delta = datetime.now(timezone.utc) - uploaded_at
         years_passed = delta.days / 365.25
         cv.years_since_upload = round(years_passed, 1)
         if years_passed > 2.0:

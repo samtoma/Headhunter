@@ -68,7 +68,7 @@ def get_my_interviews(db: Session = Depends(get_db), current_user: User = Depend
             "id": i.id,
             "scheduled_at": i.scheduled_at,
             "step": i.step,
-            "candidate_name": i.application.cv.name if i.application and i.application.cv else "Unknown",
+            "candidate_name": i.application.cv.filename if i.application and i.application.cv else "Unknown",
             "job_title": i.application.job.title if i.application and i.application.job else "Unknown",
             "application_id": i.application_id,
             "cv_id": i.application.cv_id if i.application else 0,
