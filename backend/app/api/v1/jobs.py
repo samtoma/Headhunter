@@ -194,10 +194,16 @@ async def match_candidates_for_new_job(
 
 @router.post("/", response_model=JobOut)
 def create_job(job: JobCreate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
-    if current_user.role not in [UserRole.ADMIN, UserRole.RECRUITER]:
+    if current_user.role not in [UserRole.ADMIN, UserRole.RECRUITER, UserRole.HIRING_MANAGER]:
         raise HTTPException(403, "Not authorized to create jobs")
         
     job_dict = job.model_dump()
+    
+    # Hiring Manager Restriction: Can only create jobs for their department
+    if current_user.role == UserRole.HIRING_MANAGER:
+        if not current_user.department:
+             raise HTTPException(400, "Hiring Manager must have a department assigned to create jobs")
+        job_dict['department'] = current_user.department
     
     # Serialize list fields
     list_fields = ['skills_required', 'responsibilities', 'qualifications', 'preferred_qualifications', 'benefits']
@@ -215,6 +221,7 @@ def create_job(job: JobCreate, db: Session = Depends(get_db), current_user: User
 @router.get("/", response_model=List[JobOut])
 def list_jobs(
     status: Optional[str] = None,
+    department: Optional[str] = None,
     db: Session = Depends(get_db), 
     current_user: User = Depends(get_current_user)
 ):
@@ -223,9 +230,13 @@ def list_jobs(
     # Filter by status if provided
     if status:
         query = query.filter(Job.status == status)
+        
+    # Filter by department if provided (for Admins/Recruiters who want to filter)
+    if department:
+        query = query.filter(Job.department == department)
     
-    # If Interviewer, filter by department
-    if current_user.role == UserRole.INTERVIEWER and current_user.department:
+    # If Interviewer or Hiring Manager, filter by department
+    if current_user.role in [UserRole.INTERVIEWER, UserRole.HIRING_MANAGER] and current_user.department:
         query = query.filter(Job.department == current_user.department)
         
     jobs = query.options(joinedload(Job.applications)).all()
@@ -240,12 +251,17 @@ def list_jobs(
 
 @router.patch("/{job_id}", response_model=JobOut)
 def update_job(job_id: int, job_data: JobUpdate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
-    if current_user.role not in [UserRole.ADMIN, UserRole.RECRUITER]:
+    if current_user.role not in [UserRole.ADMIN, UserRole.RECRUITER, UserRole.HIRING_MANAGER]:
         raise HTTPException(403, "Not authorized to update jobs")
 
     job = db.query(Job).filter(Job.id == job_id, Job.company_id == current_user.company_id).first()
     if not job:
         raise HTTPException(404, "Job not found")
+        
+    # Hiring Manager Restriction: Can only update jobs in their department
+    if current_user.role == UserRole.HIRING_MANAGER:
+        if job.department != current_user.department:
+             raise HTTPException(403, "Not authorized to update jobs outside your department")
     
     # Update fields
     update_data = job_data.model_dump(exclude_unset=True)
@@ -266,12 +282,17 @@ def update_job(job_id: int, job_data: JobUpdate, db: Session = Depends(get_db), 
 
 @router.delete("/{job_id}")
 def delete_job(job_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
-    if current_user.role not in [UserRole.ADMIN, UserRole.RECRUITER]:
+    if current_user.role not in [UserRole.ADMIN, UserRole.RECRUITER, UserRole.HIRING_MANAGER]:
         raise HTTPException(403, "Not authorized to delete jobs")
 
     job = db.query(Job).filter(Job.id == job_id, Job.company_id == current_user.company_id).first()
     if not job:
         raise HTTPException(404, "Job not found")
+        
+    # Hiring Manager Restriction: Can only delete jobs in their department
+    if current_user.role == UserRole.HIRING_MANAGER:
+        if job.department != current_user.department:
+             raise HTTPException(403, "Not authorized to delete jobs outside your department")
     db.delete(job)
     db.commit()
     touch_company_state(db, current_user.company_id)

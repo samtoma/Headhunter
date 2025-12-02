@@ -39,6 +39,7 @@ def get_user_stats(db: Session = Depends(get_db), current_user: User = Depends(g
     recruiters = query.filter(User.role == UserRole.RECRUITER).count()
     interviewers = query.filter(User.role == UserRole.INTERVIEWER).count()
     admins = query.filter(User.role == UserRole.ADMIN).count()
+    hiring_managers = query.filter(User.role == UserRole.HIRING_MANAGER).count()
     
     return {
         "total": total,
@@ -46,6 +47,7 @@ def get_user_stats(db: Session = Depends(get_db), current_user: User = Depends(g
         "roles": {
             "recruiter": recruiters,
             "interviewer": interviewers,
+            "hiring_manager": hiring_managers,
             "admin": admins
         }
     }
@@ -58,8 +60,8 @@ def get_users(db: Session = Depends(get_db), current_user: User = Depends(get_cu
     if current_user.company_id:
         query = query.filter(User.company_id == current_user.company_id)
         
-    # Filter by Department for Interviewers
-    if current_user.role == "interviewer" and current_user.department:
+    # Filter by Department for Interviewers and Hiring Managers
+    if current_user.role in [UserRole.INTERVIEWER, UserRole.HIRING_MANAGER] and current_user.department:
         query = query.filter(User.department == current_user.department)
         
     users = query.all()

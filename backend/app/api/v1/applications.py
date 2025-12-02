@@ -58,6 +58,11 @@ def update_application(app_id: int, data: ApplicationUpdate, db: Session = Depen
         if not assigned:
             raise HTTPException(403, "Not authorized to update this application")
             
+    # --- HIRING MANAGER CHECK ---
+    if current_user.role == UserRole.HIRING_MANAGER:
+        if not app.job or app.job.department != current_user.department:
+            raise HTTPException(403, "Not authorized to update applications outside your department")
+            
     db.commit()
     touch_company_state(db, app.job.company_id if app.job else None)
     
@@ -69,10 +74,19 @@ def update_application(app_id: int, data: ApplicationUpdate, db: Session = Depen
     return app
 
 @router.delete("/{app_id}")
-def delete_application(app_id: int, db: Session = Depends(get_db)):
+def delete_application(app_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     app = db.query(Application).filter(Application.id == app_id).first()
     if not app:
         raise HTTPException(404, "Application not found")
+        
+    # Permission Check
+    if current_user.role not in [UserRole.ADMIN, UserRole.RECRUITER, UserRole.HIRING_MANAGER]:
+         raise HTTPException(403, "Not authorized to delete applications")
+         
+    if current_user.role == UserRole.HIRING_MANAGER:
+        if not app.job or app.job.department != current_user.department:
+            raise HTTPException(403, "Not authorized to delete applications outside your department")
+            
     company_id = app.job.company_id if app.job else None
     db.delete(app)
     db.commit()

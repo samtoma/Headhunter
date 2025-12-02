@@ -55,10 +55,15 @@ Headhunter AI is built with a "Security First" mindset, ensuring data privacy an
 *   **JWT Authentication (HS256):** Stateless, secure token-based authentication with automatic expiration (30 mins) and refresh mechanisms.
 *   **Argon2 Password Hashing:** Industry-standard memory-hard password hashing to prevent brute-force and rainbow table attacks.
 *   **Role-Based Access Control (RBAC):**
-    *   **Super Admin:** Platform-wide management.
-    *   **Admin:** Full control over company data, users, and settings.
-    *   **Recruiter:** Can manage jobs, candidates, and pipelines.
-    *   **Interviewer:** Limited access to assigned interviews and feedback.
+    ### Roles & Permissions
+
+| Role | Scope | Responsibilities |
+| :--- | :--- | :--- |
+| **Super Admin** | Platform-Wide | Platform-wide management. |
+| **Admin** | Company-Wide | Full access to billing, users, and all jobs. Can invite/remove users. |
+| **Recruiter** | Company-Wide | Create/Manage jobs for any department. Manage candidates through the pipeline. |
+| **Hiring Manager** | Department Only | Create/Manage jobs for their department. View candidates and team members for their department. |
+| **Interviewer** | Assigned Only | View only assigned candidates. Submit feedback and scorecards. |
 *   **Multi-Tenancy & Data Isolation:** Strict logical isolation ensures users can ONLY access data belonging to their specific company (`company_id` checks on every query).
 
 ### 🌐 Network & Infrastructure Security

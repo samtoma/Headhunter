@@ -189,14 +189,18 @@ const Sidebar = ({ isMobileOpen, setIsMobileOpen }) => {
                     )}
                 </div >
                 <div className="p-4 border-t border-slate-100">
-                    {role === 'admin' && (
+                    {(role === 'admin' || role === 'hiring_manager') && (
                         <>
-                            <button onClick={() => setShowCompanyProfile(true)} className="w-full flex items-center gap-2 p-2.5 text-sm text-slate-500 hover:text-slate-700 hover:bg-slate-50 rounded-lg transition mb-1">
-                                <Building2 size={16} /> Company Profile
-                            </button>
-                            <button onClick={() => handleNavigation("/settings")} className={`w-full flex items-center gap-2 p-2.5 text-sm transition rounded-lg ${currentPath === "/settings" ? 'bg-indigo-50 text-indigo-700 ring-1 ring-indigo-200 font-medium' : 'text-slate-500 hover:text-slate-700 hover:bg-slate-50'}`}>
-                                <Settings size={16} /> Workflow Settings
-                            </button>
+                            {role === 'admin' && (
+                                <>
+                                    <button onClick={() => setShowCompanyProfile(true)} className="w-full flex items-center gap-2 p-2.5 text-sm text-slate-500 hover:text-slate-700 hover:bg-slate-50 rounded-lg transition mb-1">
+                                        <Building2 size={16} /> Company Profile
+                                    </button>
+                                    <button onClick={() => handleNavigation("/settings")} className={`w-full flex items-center gap-2 p-2.5 text-sm transition rounded-lg ${currentPath === "/settings" ? 'bg-indigo-50 text-indigo-700 ring-1 ring-indigo-200 font-medium' : 'text-slate-500 hover:text-slate-700 hover:bg-slate-50'}`}>
+                                        <Settings size={16} /> Workflow Settings
+                                    </button>
+                                </>
+                            )}
                             <button onClick={() => handleNavigation("/team")} className={`w-full flex items-center gap-2 p-2.5 text-sm transition rounded-lg ${currentPath === "/team" ? 'bg-indigo-50 text-indigo-700 ring-1 ring-indigo-200 font-medium' : 'text-slate-500 hover:text-slate-700 hover:bg-slate-50'}`}>
                                 <Users size={16} /> Team Management
                             </button>
