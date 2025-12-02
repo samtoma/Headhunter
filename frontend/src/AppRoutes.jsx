@@ -10,6 +10,8 @@ import Settings from './pages/Settings';
 import SuperAdminDashboard from './components/dashboard/SuperAdminDashboard';
 import Team from './pages/Team';
 import InterviewerDashboard from './pages/InterviewerDashboard';
+import Search from './pages/Search';
+import Analytics from './pages/Analytics';
 import Sidebar from './components/layout/Sidebar';
 import ErrorBoundary from './components/ErrorBoundary';
 import React, { useState } from 'react';
@@ -96,6 +98,22 @@ const AppRoutes = () => {
                 <ProtectedRoute>
                     <AppLayout>
                         <SuperAdminDashboard />
+                    </AppLayout>
+                </ProtectedRoute>
+            } />
+
+            <Route path="/search" element={
+                <ProtectedRoute>
+                    <AppLayout>
+                        <Search />
+                    </AppLayout>
+                </ProtectedRoute>
+            } />
+
+            <Route path="/analytics" element={
+                <ProtectedRoute>
+                    <AppLayout>
+                        <Analytics />
                     </AppLayout>
                 </ProtectedRoute>
             } />

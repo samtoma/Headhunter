@@ -1,4 +1,4 @@
-import { BrainCircuit, LayoutDashboard, Briefcase as BriefcaseIcon, Archive, Layers, Lock, Plus, Settings, LogOut, Building2, X, ChevronDown, ChevronRight, Users, Calendar } from 'lucide-react'
+import { BrainCircuit, LayoutDashboard, Briefcase as BriefcaseIcon, Archive, Layers, Lock, Plus, Settings, LogOut, Building2, X, ChevronDown, ChevronRight, Users, Calendar, Sparkles, TrendingUp } from 'lucide-react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import { useHeadhunter } from '../../context/HeadhunterContext'
@@ -108,6 +108,11 @@ const Sidebar = ({ isMobileOpen, setIsMobileOpen }) => {
                                 <LayoutDashboard size={18} /> Dashboard
                             </button>
 
+                            <button onClick={() => handleNavigation("/search")}
+                                className={`w-full flex items-center gap-3 p-2.5 rounded-lg text-sm font-medium transition ${currentPath === "/search" ? 'bg-indigo-50 text-indigo-700 ring-1 ring-indigo-200' : 'text-slate-600 hover:bg-slate-50'}`}>
+                                <Sparkles size={18} /> AI Search
+                            </button>
+
                             <div className="mt-6 px-3 flex justify-between items-center mb-2">
                                 <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">{showArchived ? "Archived" : "Pipelines"}</span>
                                 <button onClick={() => setShowArchived(!showArchived)} className="text-[10px] font-bold text-indigo-600 hover:text-indigo-800 flex items-center gap-1 bg-indigo-50 px-2 py-0.5 rounded-full transition">
@@ -181,10 +186,16 @@ const Sidebar = ({ isMobileOpen, setIsMobileOpen }) => {
                         </>
                     )}
 
-                    {role === 'super_admin' && (
-                        <button onClick={() => handleNavigation("/super-admin")}
-                            className={`w-full flex items-center gap-3 p-2.5 rounded-lg text-sm font-medium transition ${currentPath === "/super-admin" ? 'bg-indigo-50 text-indigo-700 ring-1 ring-indigo-200' : 'text-slate-600 hover:bg-slate-50'}`}>
-                            <Building2 size={18} /> Global Dashboard
+                    <button onClick={() => handleNavigation("/super-admin")}
+                        className={`w-full flex items-center gap-3 p-2.5 rounded-lg text-sm font-medium transition ${currentPath === "/super-admin" ? 'bg-indigo-50 text-indigo-700 ring-1 ring-indigo-200' : 'text-slate-600 hover:bg-slate-50'}`}>
+                        <Building2 size={18} /> Global Dashboard
+                    </button>
+                    )}
+
+                    {(role === 'admin' || role === 'super_admin') && (
+                        <button onClick={() => handleNavigation("/analytics")}
+                            className={`w-full flex items-center gap-3 p-2.5 rounded-lg text-sm font-medium transition ${currentPath === "/analytics" ? 'bg-indigo-50 text-indigo-700 ring-1 ring-indigo-200' : 'text-slate-600 hover:bg-slate-50'}`}>
+                            <TrendingUp size={18} /> Analytics
                         </button>
                     )}
                 </div >
