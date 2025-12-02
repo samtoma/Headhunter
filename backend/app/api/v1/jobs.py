@@ -56,7 +56,7 @@ async def analyze_job_request(
 @router.post("/{job_id}/regenerate", response_model=Dict[str, Any])
 async def regenerate_job_description(
     job_id: int,
-    fine_tuning: Optional[str] = Body(None),
+    fine_tuning: Optional[str] = Body(None, embed=True),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):

@@ -153,16 +153,7 @@ const InterviewerDashboard = ({ onOpenMobileSidebar }) => {
                 <div className="fixed inset-0 z-50 flex justify-end">
                     <div className="absolute inset-0 bg-slate-900/20 backdrop-blur-sm" onClick={() => setSelectedCvId(null)} />
                     <div className="relative w-full max-w-5xl h-full bg-white shadow-2xl animate-in slide-in-from-right duration-300">
-                        <CandidateDrawer
-                            cv={null} // We need to fetch CV? Or CandidateDrawer fetches it?
-                            // CandidateDrawer expects a full CV object.
-                            // I should fetch it or modify CandidateDrawer to fetch by ID.
-                            // Currently Pipeline.jsx passes the full object.
-                            // I'll wrap it in a fetcher or just fetch it here.
-                            onClose={() => setSelectedCvId(null)}
-                            jobs={jobs}
-                            selectedJobId={selectedJobId} // This sets the active context
-                        />
+
                         {/* Wait, CandidateDrawer needs the CV object. I need to fetch it. */}
                         <CandidateFetcher cvId={selectedCvId} onClose={() => setSelectedCvId(null)} jobs={jobs} selectedJobId={selectedJobId} />
                     </div>
@@ -179,7 +170,7 @@ const CandidateFetcher = ({ cvId, onClose, jobs, selectedJobId }) => {
     useEffect(() => {
         const fetchCv = async () => {
             try {
-                const res = await axios.get(`/api/cvs/${cvId}`); // Assuming this endpoint exists
+                const res = await axios.get(`/api/profiles/${cvId}`);
                 // Wait, /api/cvs/{id} might not exist or return what we need.
                 // Let's check backend/app/api/v1/cv.py
                 // It has DELETE, POST (upload).
