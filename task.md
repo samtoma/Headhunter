@@ -12,7 +12,7 @@
     - [x] Add regression tests for assignment/removal <!-- gh: 27 -->
     - [x] Improve UX (loading states, filtering assigned jobs) <!-- gh: 28 -->
 - [/] Frontend: Increase Unit Test Coverage <!-- gh: 29 -->
-    - [/] Pipeline Components (Board, Column, Card) <!-- gh: 30 -->
+    - [x] Pipeline Components (Board, Column, Card) <!-- gh: 30 -->
     - [ ] Modals (Add Candidate, Bulk Assign) <!-- gh: 31 -->
     - [ ] Shared Components (UI Kit) <!-- gh: 32 -->
 - [ ] End-to-End Tests <!-- gh: 33 -->
