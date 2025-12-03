@@ -11,8 +11,7 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
-    services:
-      # Optional: if your app needs a database or other services, define them here
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
