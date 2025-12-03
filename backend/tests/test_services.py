@@ -32,7 +32,8 @@ def test_extract_text_error():
 
 @pytest.mark.asyncio
 async def test_parse_cv_with_llm():
-    with patch("app.services.parser.get_openai_client") as mock_client:
+    with patch("app.services.parser.get_openai_client") as mock_client, \
+         patch("app.services.parser.OPENAI_API_KEY", "test-key"):
         mock_completion = MagicMock()
         mock_completion.choices[0].message.content = '{"name": "John", "email": ["j@d.com"]}'
         mock_client.return_value.chat.completions.create = AsyncMock(return_value=mock_completion)
@@ -43,7 +44,8 @@ async def test_parse_cv_with_llm():
 
 @pytest.mark.asyncio
 async def test_generate_job_metadata():
-    with patch("app.services.parser.get_openai_client") as mock_client:
+    with patch("app.services.parser.get_openai_client") as mock_client, \
+         patch("app.services.parser.OPENAI_API_KEY", "test-key"):
         mock_completion = MagicMock()
         mock_completion.choices[0].message.content = '{"description": "Job Desc"}'
         mock_client.return_value.chat.completions.create = AsyncMock(return_value=mock_completion)

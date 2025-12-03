@@ -75,11 +75,14 @@ def get_dashboard_stats(
     total_days_for_avg = 0
     count_for_avg = 0
     for app in hired_apps:
-        if app.created_at and app.updated_at:
-            # Calculate days between application creation and hired status update
-            days_diff = (app.updated_at - app.created_at).days
-            total_days_for_avg += days_diff
-            count_for_avg += 1
+        # We currently don't track the exact 'hired_at' timestamp or 'updated_at' on Application.
+        # So we cannot accurately calculate time-to-hire without a schema change.
+        # For now, we will skip this calculation to prevent errors.
+        pass
+        # if app.applied_at and hasattr(app, 'updated_at'):
+        #     days_diff = (app.updated_at - app.applied_at).days
+        #     total_days_for_avg += days_diff
+        #     count_for_avg += 1
     
     avg_time_to_hire = round(total_days_for_avg / count_for_avg) if count_for_avg > 0 else 0
     total_hires = len(hired_apps) # Total hires in the period, regardless of date availability for avg_time_to_hire
