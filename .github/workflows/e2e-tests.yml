@@ -29,7 +29,7 @@ jobs:
 
       - name: Build Cypress Docker image
         run: |
-          docker build -t headhunter-cypress -f frontend/Dockerfile .
+          docker build -t headhunter-cypress -f frontend/Dockerfile frontend
 
       - name: Run Cypress tests (with retries)
         env:
