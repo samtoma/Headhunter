@@ -93,7 +93,7 @@ def get_dashboard_stats(
         "kpi": {
             "total_hires": total_hires,
             "active_jobs": active_jobs_count,
-            "avg_time_to_hire": "N/A" # Placeholder until we add better tracking
+            "avg_time_to_hire": avg_time_to_hire
         }
     }
 
