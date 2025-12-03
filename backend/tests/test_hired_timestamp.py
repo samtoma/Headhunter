@@ -1,8 +1,4 @@
-import pytest
 from datetime import datetime, timedelta, timezone
-from app.models.models import Job, Application, CV
-from app.api.v1.analytics import get_dashboard_stats
-
 from app.models.models import Job, Application, CV, User
 
 def test_hired_timestamp_logic(authenticated_client, db):
