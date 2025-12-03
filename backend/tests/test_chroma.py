@@ -73,7 +73,7 @@ async def test_search_success(mock_chroma_client, mock_generate_embedding):
     
     assert len(results) == 2
     assert results[0]['id'] == '1'
-    assert results[0]['score'] == 0.9 # 1.0 - 0.1
+    assert results[0]['score'] == 0.95 # (2.0 - 0.1) / 2.0
 
 @pytest.mark.asyncio
 async def test_search_no_collection(mock_chroma_client):
