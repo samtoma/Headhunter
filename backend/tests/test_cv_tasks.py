@@ -1,5 +1,5 @@
 import pytest
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 from app.tasks.cv_tasks import process_cv_task
 
 @patch("app.tasks.cv_tasks.r")

@@ -1,6 +1,5 @@
-from app.models.models import User, UserRole, Company
+from app.models.models import User
 from app.core.security import create_access_token
-from datetime import timedelta
 
 def test_signup_flow(client, db):
     # 1. Successful Signup (New Company)
@@ -71,7 +70,6 @@ def test_verification_flow(client, db):
         mock_send.assert_called_once()
     
     # 2. Verify Email (Manual Token Creation since we can't intercept email easily here without mocking)
-    from app.core.security import create_access_token
     token = create_access_token(data={"sub": "verify@test.com", "type": "verification"})
     
     res = client.get(f"/auth/verify?token={token}")

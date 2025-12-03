@@ -1,6 +1,5 @@
-import pytest
-from unittest.mock import MagicMock, patch, AsyncMock
-from app.models.models import UserRole, Job
+from unittest.mock import patch, AsyncMock
+from app.models.models import UserRole
 
 def test_create_job(authenticated_client):
     """Test creating a job."""

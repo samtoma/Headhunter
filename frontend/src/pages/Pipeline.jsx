@@ -167,6 +167,10 @@ const Pipeline = ({ onOpenMobileSidebar }) => {
         }
     };
 
+    /**
+     * Handles the bulk deletion of selected candidates.
+     * Prompts for confirmation before sending a request to the backend.
+     */
     const handleBulkDelete = async () => {
         if (!confirm(`Delete ${selectedIds.length} candidates? This cannot be undone.`)) return;
         try {
@@ -180,6 +184,10 @@ const Pipeline = ({ onOpenMobileSidebar }) => {
         }
     };
 
+    /**
+     * Handles the bulk assignment of selected candidates to a specific job.
+     * @param {number} jobId - The ID of the job to assign candidates to.
+     */
     const handleBulkAssign = async (jobId) => {
         try {
             await axios.post('/api/jobs/bulk_assign', {

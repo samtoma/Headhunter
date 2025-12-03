@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 from app.models.models import CV, ParsedCV, Application, Job, User, UserRole, Interview
 
 def test_profiles_lifecycle(authenticated_client, db):

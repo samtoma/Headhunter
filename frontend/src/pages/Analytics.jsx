@@ -9,20 +9,19 @@ const Analytics = ({ onOpenMobileSidebar }) => {
     const [days, setDays] = useState(30);
 
     useEffect(() => {
+        const fetchData = async () => {
+            setLoading(true);
+            try {
+                const res = await axios.get('/api/analytics/dashboard', { params: { days } });
+                setData(res.data);
+            } catch (err) {
+                console.error("Failed to fetch analytics", err);
+            } finally {
+                setLoading(false);
+            }
+        };
         fetchData();
     }, [days]);
-
-    const fetchData = async () => {
-        setLoading(true);
-        try {
-            const res = await axios.get('/api/analytics/dashboard', { params: { days } });
-            setData(res.data);
-        } catch (err) {
-            console.error("Failed to fetch analytics", err);
-        } finally {
-            setLoading(false);
-        }
-    };
 
     const handleExport = async () => {
         try {

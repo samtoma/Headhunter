@@ -1,4 +1,3 @@
-import pytest
 from app.models.models import UserRole, Company, User
 
 def test_company_crud_regular_user(authenticated_client, db):

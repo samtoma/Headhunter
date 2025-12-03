@@ -84,8 +84,8 @@ describe('Analytics Component', () => {
         axios.get.mockResolvedValueOnce({ data: mockBlob }); // Export call
 
         // Mock URL.createObjectURL
-        global.URL.createObjectURL = vi.fn(() => 'blob:url');
-        global.URL.revokeObjectURL = vi.fn();
+        window.URL.createObjectURL = vi.fn(() => 'blob:url');
+        window.URL.revokeObjectURL = vi.fn();
 
         render(<Analytics onOpenMobileSidebar={() => { }} />);
         await waitFor(() => screen.getByText('Total Hires'));

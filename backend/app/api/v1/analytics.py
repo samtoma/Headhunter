@@ -1,7 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
-from sqlalchemy import func, desc
-from typing import List, Optional
+from sqlalchemy import func
 from datetime import datetime, timedelta, timezone
 import csv
 import io

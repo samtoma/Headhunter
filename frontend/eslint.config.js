@@ -42,4 +42,22 @@ export default [
       'no-unused-vars': 'warn',
     },
   },
+  {
+    files: ['**/*.test.{js,jsx}', '**/*.cy.{js,jsx}', 'cypress/**/*.{js,jsx}'],
+    languageOptions: {
+      globals: {
+        ...globals.browser,
+        describe: 'readonly',
+        it: 'readonly',
+        expect: 'readonly',
+        beforeEach: 'readonly',
+        afterEach: 'readonly',
+        beforeAll: 'readonly',
+        afterAll: 'readonly',
+        vi: 'readonly',
+        cy: 'readonly',
+        Cypress: 'readonly',
+      },
+    },
+  },
 ];

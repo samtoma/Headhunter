@@ -1,5 +1,5 @@
 from datetime import datetime, timedelta
-from app.models.models import Application, Job, CV
+from app.models.models import Application, CV
 
 def test_interview_lifecycle(authenticated_client, db):
     client = authenticated_client
