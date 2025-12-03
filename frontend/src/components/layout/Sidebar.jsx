@@ -31,10 +31,10 @@ const Sidebar = ({ isMobileOpen, setIsMobileOpen }) => {
         setExpandedDepts(prev => ({ ...prev, [dept]: !prev[dept] }));
     };
 
-    const displayedJobs = (jobs || []).filter(j => {
+    const displayedJobs = Array.isArray(jobs) ? jobs.filter(j => {
         const matchesArchive = showArchived ? !j.is_active : j.is_active
         return matchesArchive
-    })
+    }) : [];
 
     const handleNavigation = (path, jobId = null) => {
         if (jobId !== undefined) setSelectedJobId(jobId)
@@ -186,10 +186,11 @@ const Sidebar = ({ isMobileOpen, setIsMobileOpen }) => {
                         </>
                     )}
 
-                    <button onClick={() => handleNavigation("/super-admin")}
-                        className={`w-full flex items-center gap-3 p-2.5 rounded-lg text-sm font-medium transition ${currentPath === "/super-admin" ? 'bg-indigo-50 text-indigo-700 ring-1 ring-indigo-200' : 'text-slate-600 hover:bg-slate-50'}`}>
-                        <Building2 size={18} /> Global Dashboard
-                    </button>
+                    {role === 'super_admin' && (
+                        <button onClick={() => handleNavigation("/super-admin")}
+                            className={`w-full flex items-center gap-3 p-2.5 rounded-lg text-sm font-medium transition ${currentPath === "/super-admin" ? 'bg-indigo-50 text-indigo-700 ring-1 ring-indigo-200' : 'text-slate-600 hover:bg-slate-50'}`}>
+                            <Building2 size={18} /> Global Dashboard
+                        </button>
                     )}
 
                     {(role === 'admin' || role === 'super_admin') && (

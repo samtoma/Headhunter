@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import axios from 'axios'
 import { Lock, Mail } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
@@ -9,8 +9,18 @@ const Login = () => {
     const [password, setPassword] = useState("")
     const [error, setError] = useState("")
     const [loading, setLoading] = useState(false)
-    const { login } = useAuth()
+    const { login, token, user } = useAuth()
     const navigate = useNavigate()
+
+    useEffect(() => {
+        if (token && user) {
+            if (user.role === 'interviewer') {
+                navigate('/interviewer')
+            } else {
+                navigate('/')
+            }
+        }
+    }, [token, user, navigate])
 
     const handleSubmit = async (e) => {
         e.preventDefault()
@@ -28,11 +38,7 @@ const Login = () => {
                 role: res.data.role,
                 company_name: res.data.company_name
             })
-            if (res.data.role === 'interviewer') {
-                navigate('/interviewer')
-            } else {
-                navigate('/')
-            }
+            // Navigation handled by useEffect
         } catch (err) {
             console.error(err)
             setError("Invalid email or password")

@@ -7,7 +7,7 @@ const UploadModal = ({ jobs, uploadFiles, performUpload, onClose }) => {
             <div className="bg-white p-6 rounded-xl shadow-xl max-w-sm w-full">
                 <h3 className="text-lg font-bold text-slate-900 mb-4">Select Pipeline</h3>
                 <div className="space-y-2 mb-6 max-h-60 overflow-y-auto">
-                    {jobs.filter(j => j.is_active).map(j => (
+                    {(Array.isArray(jobs) ? jobs : []).filter(j => j.is_active).map(j => (
                         <button key={j.id} onClick={() => performUpload(uploadFiles, j.id)} className="w-full flex justify-between items-center p-3 rounded-lg border hover:bg-indigo-50 transition text-left text-sm font-medium text-slate-700">
                             {j.title} <ChevronRight size={14} className="text-slate-400" />
                         </button>

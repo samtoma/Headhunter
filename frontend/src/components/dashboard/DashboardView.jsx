@@ -108,7 +108,7 @@ const DashboardView = ({ onOpenMobileSidebar }) => {
             <div>
                 <h2 className="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2"><TrendingUp size={20} /> Pipeline Insights</h2>
                 <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-                    {(jobs || []).filter(j => j.is_active).map(job => (
+                    {(Array.isArray(jobs) ? jobs : []).filter(j => j.is_active).map(job => (
                         <JobInsightCard key={job.id} job={job} profiles={profiles} onEdit={() => { }} onNavigate={() => handleNavigate(job)} />
                     ))}
                 </div>

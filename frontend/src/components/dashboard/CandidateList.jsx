@@ -2,7 +2,7 @@
 import { ChevronRight } from 'lucide-react'
 
 const CandidateList = ({ title, status, profiles, onViewProfile }) => {
-    const candidates = profiles.filter(p => p.applications?.some(a => a.status === status))
+    const candidates = Array.isArray(profiles) ? profiles.filter(p => p.applications?.some(a => a.status === status)) : []
     return (
         <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-5 flex-1">
             <h3 className="text-sm font-bold text-slate-900 uppercase mb-4 flex items-center justify-between">{title} <span className="bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full text-xs">{candidates.length}</span></h3>

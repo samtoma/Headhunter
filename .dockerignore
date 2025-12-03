@@ -1,16 +1,2 @@
-# Ignore local environment
-venv/
-.venv/
-__pycache__/
-*.pyc
-
-# Ignore data folders
-data/raw/
-data/processed/
-data/embeddings/
-data/profiles/
-data/storage/
-
-# Ignore OS clutter
-.DS_Store
-Thumbs.db
+data/
+node_modules/

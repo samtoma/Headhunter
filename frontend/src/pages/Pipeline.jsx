@@ -167,12 +167,51 @@ const Pipeline = ({ onOpenMobileSidebar }) => {
         }
     };
 
+    const handleBulkDelete = async () => {
+        if (!confirm(`Delete ${selectedIds.length} candidates? This cannot be undone.`)) return;
+        try {
+            await axios.post('/api/cv/bulk_delete', { cv_ids: selectedIds });
+            setProfiles(prev => prev.filter(p => !selectedIds.includes(p.id)));
+            setSelectedIds([]);
+            fetchJobs(); // Update counts
+        } catch (err) {
+            console.error("Failed to bulk delete", err);
+            alert("Failed to delete candidates");
+        }
+    };
+
+    const handleBulkAssign = async (jobId) => {
+        try {
+            await axios.post('/api/jobs/bulk_assign', {
+                job_id: jobId,
+                cv_ids: selectedIds
+            });
+            fetchJobs();
+            fetchProfiles();
+            setShowBulkAssignModal(false);
+            setSelectedIds([]);
+            alert("Candidates assigned successfully");
+        } catch (err) {
+            console.error("Failed to bulk assign", err);
+            alert("Failed to assign candidates");
+        }
+    };
+
     return (
         <>
             <PipelineHeader
                 onOpenMobileSidebar={onOpenMobileSidebar}
                 selectedJob={selectedJob}
-                handleToggleArchive={() => { }} // TODO: Implement
+                handleToggleArchive={async (job, newStatus) => {
+                    try {
+                        const isActive = newStatus === 'Open';
+                        await axios.patch(`/api/jobs/${job.id}`, { status: newStatus, is_active: isActive });
+                        fetchJobs();
+                    } catch (err) {
+                        console.error("Failed to update job status", err);
+                        alert("Failed to update job status");
+                    }
+                }}
                 viewMode={viewMode}
                 setViewMode={setViewMode}
                 handleSelectAll={handleSelectAll}
@@ -298,7 +337,7 @@ const Pipeline = ({ onOpenMobileSidebar }) => {
                 selectedIds={selectedIds}
                 setShowBulkAssignModal={setShowBulkAssignModal}
                 performBulkReprocess={handleBulkReprocess}
-                performBulkDelete={() => { }} // TODO
+                performBulkDelete={handleBulkDelete}
                 clearSelection={() => setSelectedIds([])}
             />
 
@@ -318,7 +357,7 @@ const Pipeline = ({ onOpenMobileSidebar }) => {
             }
 
             {showUploadModal && <UploadModal jobs={jobs} uploadFiles={uploadFiles} performUpload={performUpload} onClose={() => setShowUploadModal(false)} />}
-            {showBulkAssignModal && <BulkAssignModal jobs={jobs} selectedCount={selectedIds.length} performBulkAssign={() => { }} onClose={() => setShowBulkAssignModal(false)} />}
+            {showBulkAssignModal && <BulkAssignModal jobs={jobs} selectedCount={selectedIds.length} performBulkAssign={handleBulkAssign} onClose={() => setShowBulkAssignModal(false)} />}
             {showEditJobModal && <CreateJobModal onClose={() => setShowEditJobModal(false)} onCreate={handleUpdateJob} initialData={selectedJob} />}
         </>
     );

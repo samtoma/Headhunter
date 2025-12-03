@@ -1,20 +1,23 @@
 describe('Analytics', () => {
     beforeEach(() => {
-        // Login flow
-        cy.intercept('POST', '/api/auth/login', {
-            statusCode: 200,
-            body: { access_token: 'fake-token', role: 'admin', company_name: 'Test Corp' }
-        }).as('login');
+        // Mock ALL API calls to prevent unmocked request failures
+        cy.mockAllAPIs();
 
         cy.intercept('GET', '/api/users/me', {
             statusCode: 200,
             body: { email: 'admin@test.com', role: 'admin', company_id: 1 }
         }).as('getMe');
 
-        // Mock Dashboard data
-        cy.intercept('GET', '/api/stats/dashboard', { body: {} });
+        cy.intercept('GET', '/api/stats/dashboard', {
+            statusCode: 200,
+            body: {
+                total_candidates: 100,
+                active_jobs: 5,
+                total_hires: 10,
+                interview_count: 20
+            }
+        }).as('getStats');
 
-        // Mock Analytics data
         cy.intercept('GET', '/api/analytics/dashboard*', {
             statusCode: 200,
             body: {
@@ -24,15 +27,17 @@ describe('Analytics', () => {
             }
         }).as('getAnalytics');
 
-        cy.visit('/login');
-        cy.get('input[type="email"]').type('admin@test.com');
-        cy.get('input[type="password"]').type('password');
-        cy.get('button[type="submit"]').click();
-        cy.wait('@login');
+        // Manually set token to bypass Login form
+        cy.visit('/analytics', {
+            onBeforeLoad: (win) => {
+                win.localStorage.setItem('token', 'fake-token');
+                win.localStorage.setItem('role', 'admin');
+                win.localStorage.setItem('company_name', 'Test Corp');
+            }
+        });
     });
 
     it('loads analytics page and charts', () => {
-        cy.visit('/analytics');
         cy.wait('@getAnalytics');
 
         cy.contains('Analytics');

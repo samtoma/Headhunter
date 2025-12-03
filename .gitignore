@@ -36,3 +36,11 @@ frontend/.cache/
 .vscode/
 .idea/
 .DS_Store
+
+# --- Testing ---
+cypress_debug_output.txt
+frontend/cypress/screenshots/
+frontend/cypress/videos/
+frontend/cypress/results/
+coverage/
+junit.xml

@@ -24,6 +24,14 @@ const ProtectedRoute = ({ children }) => {
     return children;
 };
 
+// Role Protected Route Wrapper
+const RoleProtected = ({ children, requiredRole }) => {
+    const { user, loading } = useAuth();
+    if (loading) return <div>Loading...</div>;
+    if (!user || user.role !== requiredRole) return <Navigate to="/" replace />;
+    return children;
+};
+
 // Layout Component to wrap protected pages
 const AppLayout = ({ children }) => {
     const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
@@ -96,9 +104,11 @@ const AppRoutes = () => {
 
             <Route path="/super-admin" element={
                 <ProtectedRoute>
-                    <AppLayout>
-                        <SuperAdminDashboard />
-                    </AppLayout>
+                    <RoleProtected requiredRole="super_admin">
+                        <AppLayout>
+                            <SuperAdminDashboard />
+                        </AppLayout>
+                    </RoleProtected>
                 </ProtectedRoute>
             } />
 
