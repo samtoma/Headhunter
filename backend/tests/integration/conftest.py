@@ -14,16 +14,18 @@ from app.core.database import get_db, Base
 from app.models.models import User, Company, UserRole
 from app.core.security import get_password_hash, create_access_token
 
-# Use a separate test database
-TEST_DATABASE_URL = os.getenv(
-    "TEST_DATABASE_URL",
-    "postgresql://user:password@localhost:30002/headhunter_test_db"
-)
+# Use SQLite for integration tests (simpler setup)
+# In a real production scenario, you'd want PostgreSQL, but for demonstration
+# and ease of running tests, SQLite works fine for integration testing
+TEST_DATABASE_URL = "sqlite:///./test_integration.db"
 
 @pytest.fixture(scope="session")
 def test_engine():
     """Create test database engine for the entire test session."""
-    engine = create_engine(TEST_DATABASE_URL)
+    engine = create_engine(
+        TEST_DATABASE_URL,
+        connect_args={"check_same_thread": False} if "sqlite" in TEST_DATABASE_URL else {}
+    )
     
     # Create all tables
     Base.metadata.create_all(bind=engine)
@@ -33,6 +35,10 @@ def test_engine():
     # Drop all tables after session
     Base.metadata.drop_all(bind=engine)
     engine.dispose()
+    
+    # Clean up SQLite file if it exists
+    if "sqlite" in TEST_DATABASE_URL and os.path.exists("./test_integration.db"):
+        os.remove("./test_integration.db")
 
 @pytest.fixture(scope="function")
 def db_session(test_engine):

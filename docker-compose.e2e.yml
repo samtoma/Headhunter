@@ -1,0 +1,152 @@
+version: '3.8'
+
+# E2E Testing Stack - Complete isolated environment for end-to-end tests
+# This runs the full application stack with test database for Cypress E2E tests
+
+services:
+  # Test Database - Fresh PostgreSQL for each E2E run
+  db-e2e:
+    image: postgres:15-alpine
+    container_name: headhunter_db_e2e
+    environment:
+      POSTGRES_USER: testuser
+      POSTGRES_PASSWORD: testpass
+      POSTGRES_DB: headhunter_e2e_db
+    ports:
+      - "30012:5432"
+    networks:
+      - e2e_net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U testuser -d headhunter_e2e_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # Test Redis - Message broker for Celery
+  redis-e2e:
+    image: redis:7-alpine
+    container_name: headhunter_redis_e2e
+    ports:
+      - "6381:6379"
+    networks:
+      - e2e_net
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  # Test Vector DB - ChromaDB for semantic search
+  vector_db-e2e:
+    image: chromadb/chroma:latest
+    container_name: headhunter_vector_e2e
+    ports:
+      - "30013:8000"
+    networks:
+      - e2e_net
+
+  # Backend - API server with test database
+  backend-e2e:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: headhunter_backend_e2e
+    command: uvicorn app.main:app --host 0.0.0.0 --port 30001
+    volumes:
+      - ./backend:/app
+      - ./data/e2e/raw:/app/data/raw
+    ports:
+      - "30011:30001"
+    environment:
+      - DATABASE_URL=postgresql://testuser:testpass@db-e2e:5432/headhunter_e2e_db
+      - REDIS_URL=redis://redis-e2e:6379/0
+      - CHROMA_HOST=vector_db-e2e
+      - CHROMA_PORT=8000
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-mock-key-for-testing}
+      - TESTING=true
+      - SECRET_KEY=test-secret-key-for-e2e
+    depends_on:
+      db-e2e:
+        condition: service_healthy
+      redis-e2e:
+        condition: service_healthy
+    networks:
+      - e2e_net
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:30001/"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  # Celery Worker - Background task processing
+  celery-e2e:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: headhunter_celery_e2e
+    command: celery -A app.celery_app worker --loglevel=info --concurrency=2
+    volumes:
+      - ./backend:/app
+      - ./data/e2e/raw:/app/data/raw
+    environment:
+      - DATABASE_URL=postgresql://testuser:testpass@db-e2e:5432/headhunter_e2e_db
+      - REDIS_URL=redis://redis-e2e:6379/0
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-mock-key-for-testing}
+      - TESTING=true
+    depends_on:
+      - backend-e2e
+      - redis-e2e
+    networks:
+      - e2e_net
+
+  # Frontend - React app pointing to test backend
+  frontend-e2e:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: headhunter_frontend_e2e
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    ports:
+      - "30014:5173"
+    environment:
+      - VITE_API_URL=http://backend-e2e:30001
+    depends_on:
+      - backend-e2e
+    networks:
+      - e2e_net
+    command: npm run dev -- --host
+
+  # Cypress - E2E test runner
+  cypress:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: headhunter_cypress_e2e
+    working_dir: /app
+    volumes:
+      - ./frontend:/app
+      - ./frontend/cypress/videos:/app/cypress/videos
+      - ./frontend/cypress/screenshots:/app/cypress/screenshots
+    environment:
+      - CYPRESS_BASE_URL=http://frontend-e2e:5173
+      - CYPRESS_API_URL=http://backend-e2e:30001
+    depends_on:
+      backend-e2e:
+        condition: service_healthy
+      frontend-e2e:
+        condition: service_started
+    networks:
+      - e2e_net
+    # Don't start automatically - run via command
+    entrypoint: ""
+    command: sleep infinity
+
+networks:
+  e2e_net:
+    driver: bridge
+
+volumes:
+  e2e_data:
