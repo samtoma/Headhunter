@@ -42,6 +42,10 @@ def update_application(app_id: int, data: ApplicationUpdate, db: Session = Depen
     
     if data.status is not None:
         app.status = data.status
+        if data.status == "Hired" and not app.hired_at:
+            from datetime import datetime, timezone
+            app.hired_at = datetime.now(timezone.utc)
+            
     if data.rating is not None:
         app.rating = data.rating
     if data.notes is not None:

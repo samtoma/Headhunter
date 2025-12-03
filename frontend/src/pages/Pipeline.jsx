@@ -143,6 +143,11 @@ const Pipeline = ({ onOpenMobileSidebar }) => {
         const id = parseInt(e.dataTransfer.getData("cvId"));
         const cv = profiles.find(p => p.id === id);
         if (!cv) return;
+
+        if (newStatus === "Hired") {
+            if (!confirm(`Confirm Hiring ${cv.name || 'Candidate'}? This will record the official hire date.`)) return;
+        }
+
         const app = cv.applications?.find(a => a.job_id === selectedJob.id);
         if (app) {
             setProfiles(prev => prev.map(p => {
