@@ -49,21 +49,51 @@ async def search_candidates(
         # Map scores
         scores_map = {int(res['id']): res['score'] for res in results}
         
+        # 4. Silver Medalist Logic
+        # Fetch applications for these CVs to identify silver medalists
+        # Silver Medalist = Candidate who reached advanced stages in previous applications
+        from app.models.models import Application
+        advanced_stages = ["Interview", "Offer", "Technical Assessment", "Final Round"]
+        
+        # Find CVs that have ANY application in advanced stages (even if rejected later)
+        # We check for applications associated with these CVs
+        silver_medalist_cv_ids = set()
+        if cv_ids:
+            silver_apps = db.query(Application.cv_id).filter(
+                Application.cv_id.in_(cv_ids),
+                Application.status.in_(advanced_stages)
+            ).all()
+            silver_medalist_cv_ids = {app.cv_id for app in silver_apps}
+
         ordered_response = []
         for cv_id in cv_ids:
             if cv_id in cv_map:
                 cv = cv_map[cv_id]
+                
+                # Calculate final score with boost
+                base_score = scores_map.get(cv.id, 0)
+                is_silver_medalist = cv.id in silver_medalist_cv_ids
+                
+                # Apply 15% boost for silver medalists, capped at 1.0 (unless it was already 1.0)
+                final_score = base_score
+                if is_silver_medalist:
+                    final_score = min(1.0, base_score * 1.15)
+                
                 # Basic info to return
                 item = {
                     "id": cv.id,
                     "filename": cv.filename,
-                    "score": scores_map.get(cv.id, 0),
+                    "score": final_score,
+                    "is_silver_medalist": is_silver_medalist, # Return flag for UI if needed
                     "name": cv.parsed_data.name if cv.parsed_data else "Unknown",
                     "skills": cv.parsed_data.skills if cv.parsed_data else [],
                     "summary": cv.parsed_data.summary if cv.parsed_data else "",
                     "last_job_title": cv.parsed_data.last_job_title if cv.parsed_data else ""
                 }
                 ordered_response.append(item)
+        
+        # Re-sort by final score descending since boosts might have changed the order
+        ordered_response.sort(key=lambda x: x["score"], reverse=True)
                 
         return ordered_response
 

@@ -8,6 +8,7 @@ class UserRole(str, enum.Enum):
     ADMIN = "admin"
     RECRUITER = "recruiter"
     INTERVIEWER = "interviewer"
+    HIRING_MANAGER = "hiring_manager"
     SUPER_ADMIN = "super_admin"
 
 class Company(Base):
@@ -129,6 +130,7 @@ class Application(Base):
     current_salary = Column(String, nullable=True)
     expected_salary = Column(String, nullable=True)
     applied_at = Column(DateTime(timezone=True), server_default=func.now())
+    hired_at = Column(DateTime(timezone=True), nullable=True)
     cv = relationship("CV", back_populates="applications")
     job = relationship("Job", back_populates="applications")
     interviews = relationship("Interview", back_populates="application", cascade="all, delete-orphan")

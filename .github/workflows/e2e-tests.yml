@@ -1,0 +1,54 @@
+name: CI
+permissions:
+  contents: read
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+        working-directory: ./frontend
+
+      - name: Build Cypress Docker image
+        run: |
+          docker build -t headhunter-cypress -f frontend/Dockerfile frontend
+
+      - name: Run Cypress tests (with retries)
+        env:
+          CI: true
+        run: |
+          # Run the test suite multiple times to ensure consistency
+          for i in $(seq 1 5); do
+            docker run --rm -e CI=true headhunter-cypress sh -c "npm run dev -- --host & sleep 12 && npx cypress run --spec \"cypress/e2e/**/*.cy.js\" --browser electron" || exit 1
+          done
+
+      - name: Upload Cypress artifacts
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cypress-artifacts
+          path: |
+            frontend/cypress/screenshots/**
+            frontend/cypress/videos/**
+
+      - name: Report success rate
+        run: |
+          echo "All Cypress runs completed successfully."

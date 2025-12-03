@@ -24,7 +24,7 @@ const SuperAdminDashboard = ({ onOpenMobileSidebar }) => {
         try {
             const res = await axios.get('/api/companies/')
             // Filter out Headhunter AI (ID 1)
-            setCompanies(res.data.filter(c => c.id !== 1))
+            setCompanies(res.data)
         } catch (err) {
             console.error("Failed to fetch companies", err)
         } finally {
@@ -60,7 +60,7 @@ const SuperAdminDashboard = ({ onOpenMobileSidebar }) => {
             const [usersRes, jobsRes, logsRes] = await Promise.all([
                 axios.get(`/api/companies/${company.id}/users`),
                 axios.get(`/api/companies/${company.id}/jobs`),
-                axios.get(`/api/logs/${company.id}`)
+                axios.get(`/api/logs/company/${company.id}`)
             ])
             setCompanyUsers(usersRes.data)
             setCompanyJobs(jobsRes.data)
@@ -82,32 +82,31 @@ const SuperAdminDashboard = ({ onOpenMobileSidebar }) => {
 
     // --- RENDER HELPERS ---
 
-    const renderOverview = () => {
-        // Mock data for charts since we don't have historical data yet
-        const loginData = [
-            { name: 'Mon', logins: 4 },
-            { name: 'Tue', logins: 7 },
-            { name: 'Wed', logins: 5 },
-            { name: 'Thu', logins: 12 },
-            { name: 'Fri', logins: 9 },
-            { name: 'Sat', logins: 2 },
-            { name: 'Sun', logins: 1 },
-        ]
+    const CompanyOverview = ({ company, usersCount, jobsCount, logsCount }) => {
+        const [loginData, setLoginData] = useState([])
+
+        useEffect(() => {
+            if (company) {
+                axios.get(`/api/stats/login-activity/${company.id}`)
+                    .then(res => setLoginData(res.data))
+                    .catch(console.error)
+            }
+        }, [company])
 
         return (
             <div className="space-y-6">
                 <div className="grid grid-cols-3 gap-4">
                     <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
                         <div className="text-sm text-slate-500 mb-1">Total Users</div>
-                        <div className="text-2xl font-bold">{companyUsers.length}</div>
+                        <div className="text-2xl font-bold">{usersCount}</div>
                     </div>
                     <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
                         <div className="text-sm text-slate-500 mb-1">Active Jobs</div>
-                        <div className="text-2xl font-bold">{companyJobs.length}</div>
+                        <div className="text-2xl font-bold">{jobsCount}</div>
                     </div>
                     <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
                         <div className="text-sm text-slate-500 mb-1">Total Activity</div>
-                        <div className="text-2xl font-bold">{companyLogs.length}</div>
+                        <div className="text-2xl font-bold">{logsCount}</div>
                     </div>
                 </div>
 
@@ -118,7 +117,7 @@ const SuperAdminDashboard = ({ onOpenMobileSidebar }) => {
                             <LineChart data={loginData}>
                                 <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
                                 <XAxis dataKey="name" stroke="#94a3b8" fontSize={12} />
-                                <YAxis stroke="#94a3b8" fontSize={12} />
+                                <YAxis stroke="#94a3b8" fontSize={12} allowDecimals={false} />
                                 <Tooltip />
                                 <Line type="monotone" dataKey="logins" stroke="#6366f1" strokeWidth={2} dot={{ r: 4 }} />
                             </LineChart>
@@ -250,7 +249,14 @@ const SuperAdminDashboard = ({ onOpenMobileSidebar }) => {
                 </div>
 
                 <div className="flex-1 overflow-y-auto p-8">
-                    {activeTab === "overview" && renderOverview()}
+                    {activeTab === "overview" && (
+                        <CompanyOverview
+                            company={managedCompany}
+                            usersCount={companyUsers.length}
+                            jobsCount={companyJobs.length}
+                            logsCount={companyLogs.length}
+                        />
+                    )}
                     {activeTab === "users" && renderUsers()}
                     {activeTab === "jobs" && renderJobs()}
                     {activeTab === "logs" && renderLogs()}

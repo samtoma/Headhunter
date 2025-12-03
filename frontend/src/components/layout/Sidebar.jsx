@@ -1,4 +1,4 @@
-import { BrainCircuit, LayoutDashboard, Briefcase as BriefcaseIcon, Archive, Layers, Lock, Plus, Settings, LogOut, Building2, X, ChevronDown, ChevronRight } from 'lucide-react'
+import { BrainCircuit, LayoutDashboard, Briefcase as BriefcaseIcon, Archive, Layers, Lock, Plus, Settings, LogOut, Building2, X, ChevronDown, ChevronRight, Users, Calendar, Sparkles, TrendingUp } from 'lucide-react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import { useHeadhunter } from '../../context/HeadhunterContext'
@@ -31,10 +31,10 @@ const Sidebar = ({ isMobileOpen, setIsMobileOpen }) => {
         setExpandedDepts(prev => ({ ...prev, [dept]: !prev[dept] }));
     };
 
-    const displayedJobs = (jobs || []).filter(j => {
+    const displayedJobs = Array.isArray(jobs) ? jobs.filter(j => {
         const matchesArchive = showArchived ? !j.is_active : j.is_active
         return matchesArchive
-    })
+    }) : [];
 
     const handleNavigation = (path, jobId = null) => {
         if (jobId !== undefined) setSelectedJobId(jobId)
@@ -94,11 +94,23 @@ const Sidebar = ({ isMobileOpen, setIsMobileOpen }) => {
                     {role && <div className="text-[10px] bg-slate-100 text-slate-500 px-2 py-0.5 rounded-full w-fit mt-2 capitalize">{role}</div>}
                 </div>
                 <div className="flex-1 overflow-y-auto p-3 space-y-1">
-                    {role !== 'super_admin' && (
+                    {role === 'interviewer' && (
+                        <button onClick={() => handleNavigation("/interviewer")}
+                            className={`w-full flex items-center gap-3 p-2.5 rounded-lg text-sm font-medium transition ${currentPath === "/interviewer" ? 'bg-indigo-50 text-indigo-700 ring-1 ring-indigo-200' : 'text-slate-600 hover:bg-slate-50'}`}>
+                            <Calendar size={18} /> My Interviews
+                        </button>
+                    )}
+
+                    {role !== 'super_admin' && role !== 'interviewer' && (
                         <>
                             <button onClick={() => handleNavigation("/")}
                                 className={`w-full flex items-center gap-3 p-2.5 rounded-lg text-sm font-medium transition ${currentPath === "/" ? 'bg-indigo-50 text-indigo-700 ring-1 ring-indigo-200' : 'text-slate-600 hover:bg-slate-50'}`}>
                                 <LayoutDashboard size={18} /> Dashboard
+                            </button>
+
+                            <button onClick={() => handleNavigation("/search")}
+                                className={`w-full flex items-center gap-3 p-2.5 rounded-lg text-sm font-medium transition ${currentPath === "/search" ? 'bg-indigo-50 text-indigo-700 ring-1 ring-indigo-200' : 'text-slate-600 hover:bg-slate-50'}`}>
+                                <Sparkles size={18} /> AI Search
                             </button>
 
                             <div className="mt-6 px-3 flex justify-between items-center mb-2">
@@ -180,15 +192,29 @@ const Sidebar = ({ isMobileOpen, setIsMobileOpen }) => {
                             <Building2 size={18} /> Global Dashboard
                         </button>
                     )}
+
+                    {(role === 'admin' || role === 'super_admin') && (
+                        <button onClick={() => handleNavigation("/analytics")}
+                            className={`w-full flex items-center gap-3 p-2.5 rounded-lg text-sm font-medium transition ${currentPath === "/analytics" ? 'bg-indigo-50 text-indigo-700 ring-1 ring-indigo-200' : 'text-slate-600 hover:bg-slate-50'}`}>
+                            <TrendingUp size={18} /> Analytics
+                        </button>
+                    )}
                 </div >
                 <div className="p-4 border-t border-slate-100">
-                    {role === 'admin' && (
+                    {(role === 'admin' || role === 'hiring_manager') && (
                         <>
-                            <button onClick={() => setShowCompanyProfile(true)} className="w-full flex items-center gap-2 p-2.5 text-sm text-slate-500 hover:text-slate-700 hover:bg-slate-50 rounded-lg transition mb-1">
-                                <Building2 size={16} /> Company Profile
-                            </button>
-                            <button onClick={() => handleNavigation("/settings")} className={`w-full flex items-center gap-2 p-2.5 text-sm transition rounded-lg ${currentPath === "/settings" ? 'bg-indigo-50 text-indigo-700 ring-1 ring-indigo-200 font-medium' : 'text-slate-500 hover:text-slate-700 hover:bg-slate-50'}`}>
-                                <Settings size={16} /> Workflow Settings
+                            {role === 'admin' && (
+                                <>
+                                    <button onClick={() => setShowCompanyProfile(true)} className="w-full flex items-center gap-2 p-2.5 text-sm text-slate-500 hover:text-slate-700 hover:bg-slate-50 rounded-lg transition mb-1">
+                                        <Building2 size={16} /> Company Profile
+                                    </button>
+                                    <button onClick={() => handleNavigation("/settings")} className={`w-full flex items-center gap-2 p-2.5 text-sm transition rounded-lg ${currentPath === "/settings" ? 'bg-indigo-50 text-indigo-700 ring-1 ring-indigo-200 font-medium' : 'text-slate-500 hover:text-slate-700 hover:bg-slate-50'}`}>
+                                        <Settings size={16} /> Workflow Settings
+                                    </button>
+                                </>
+                            )}
+                            <button onClick={() => handleNavigation("/team")} className={`w-full flex items-center gap-2 p-2.5 text-sm transition rounded-lg ${currentPath === "/team" ? 'bg-indigo-50 text-indigo-700 ring-1 ring-indigo-200 font-medium' : 'text-slate-500 hover:text-slate-700 hover:bg-slate-50'}`}>
+                                <Users size={16} /> Team Management
                             </button>
                         </>
                     )}
@@ -196,7 +222,7 @@ const Sidebar = ({ isMobileOpen, setIsMobileOpen }) => {
 
                     {/* Version & Attribution */}
                     <div className="mt-4 pt-4 border-t border-slate-100 text-center space-y-1">
-                        <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">v1.6.0</div>
+                        <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">v1.8.0-RC1</div>
                         <div className="text-[9px] text-slate-400">Powered by ChatGPT 5.1</div>
                     </div>
                 </div>

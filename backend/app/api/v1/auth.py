@@ -35,7 +35,7 @@ def signup(user: UserCreate, db: Session = Depends(get_db)):
     company = db.query(Company).filter(Company.domain == domain).first()
     
     is_new_company = False
-    user_role = UserRole.RECRUITER
+    user_role = UserRole.INTERVIEWER
     
     if not company:
         # New Domain -> Create Company -> Admin Role

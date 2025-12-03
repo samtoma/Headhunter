@@ -24,6 +24,7 @@ export const AuthProvider = ({ children }) => {
     }, [token]);
 
     const login = (newToken, userData) => {
+        console.log("AuthContext login called", userData);
         setToken(newToken);
         setUser(userData);
         localStorage.setItem('role', userData.role);

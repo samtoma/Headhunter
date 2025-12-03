@@ -2,7 +2,7 @@ from contextlib import asynccontextmanager
 import logging
 from fastapi import FastAPI, Depends
 from app.core.database import engine, get_db
-from app.api.v1 import cv, profiles, jobs, applications, auth, company, sso, interviews, companies, logs, sync, stats
+from app.api.v1 import cv, profiles, jobs, applications, auth, company, sso, interviews, companies, logs, sync, stats, users, analytics
 from app.api.endpoints import search
 from app.models import models
 from sqlalchemy.orm import Session
@@ -10,8 +10,6 @@ from sqlalchemy.orm import Session
 # ... (logging config)
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
-
-
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -23,7 +21,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="Headhunter API",
     description="AI-Powered Recruitment Platform",
-    version="1.7.0-RC1",
+    version="1.8.0-RC1",
     lifespan=lifespan
 )
 
@@ -39,7 +37,9 @@ app.include_router(company.router, prefix="/company")
 app.include_router(sso.router, prefix="/auth") # SSO endpoints under /auth/microsoft/...
 app.include_router(logs.router)
 app.include_router(sync.router)
-app.include_router(stats.router, prefix="/api/v1") # Register stats router
+app.include_router(users.router)
+app.include_router(stats.router) # Register stats router
+app.include_router(analytics.router) # Register analytics router
 app.include_router(search.router, prefix="/search", tags=["Search"])
 
 @app.get("/api/debug/db_check")
@@ -59,7 +59,6 @@ def debug_db_check(db: Session = Depends(get_db)):
         samuel = next((u for u in users if u.company_id == 1), None)
         
         cvs = db.query(models.CV).all()
-        # cv_info removed as it was unused
         
         parsed_cvs = db.query(models.ParsedCV).all()
         parsed_info = [{"id": p.id, "cv_id": p.cv_id, "name": p.name, "skills_sample": p.skills[:50] if p.skills else "None"} for p in parsed_cvs]

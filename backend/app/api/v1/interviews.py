@@ -42,6 +42,41 @@ class InterviewOut(BaseModel):
 
     model_config = ConfigDict(from_attributes=True)
 
+class InterviewDashboardOut(BaseModel):
+    id: int
+    scheduled_at: Optional[datetime]
+    step: str
+    candidate_name: str
+    job_title: str
+    application_id: int
+    cv_id: int
+    status: Optional[str] = None
+    rating: Optional[int] = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+@router.get("/my", response_model=List[InterviewDashboardOut])
+def get_my_interviews(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    interviews = db.query(Interview).join(Application).join(Application.cv).join(Application.job)\
+        .filter(Interview.interviewer_id == current_user.id)\
+        .order_by(Interview.scheduled_at.desc().nulls_last(), Interview.created_at.desc())\
+        .all()
+    
+    results = []
+    for i in interviews:
+        results.append({
+            "id": i.id,
+            "scheduled_at": i.scheduled_at,
+            "step": i.step,
+            "candidate_name": i.application.cv.filename if i.application and i.application.cv else "Unknown",
+            "job_title": i.application.job.title if i.application and i.application.job else "Unknown",
+            "application_id": i.application_id,
+            "cv_id": i.application.cv_id if i.application else 0,
+            "status": i.outcome,
+            "rating": i.rating
+        })
+    return results
+
 @router.post("/", response_model=InterviewOut)
 def create_interview(
     interview: InterviewCreate, 

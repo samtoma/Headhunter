@@ -13,6 +13,8 @@ chromadb>=0.4.0
 tiktoken>=0.7.0
 alembic>=1.13.0  # <--- CRITICAL ADDITION
 pytest
+pytest-cov
+pytest-asyncio
 httpx
 ruff
 passlib[argon2]

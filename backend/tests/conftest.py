@@ -33,7 +33,7 @@ def client(db):
         try:
             yield db
         finally:
-            db.close()
+            pass # Do not close the session here, let the fixture handle it
     app.dependency_overrides[get_db] = override_get_db
     yield TestClient(app)
 
@@ -71,7 +71,7 @@ def authenticated_client(db):
         try:
             yield db
         finally:
-            db.close()
+            pass
     app.dependency_overrides[get_db] = override_get_db
     
     # Create client with auth header

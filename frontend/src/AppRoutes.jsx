@@ -8,6 +8,10 @@ import DashboardView from './components/dashboard/DashboardView';
 import Pipeline from './pages/Pipeline';
 import Settings from './pages/Settings';
 import SuperAdminDashboard from './components/dashboard/SuperAdminDashboard';
+import Team from './pages/Team';
+import InterviewerDashboard from './pages/InterviewerDashboard';
+import Search from './pages/Search';
+import Analytics from './pages/Analytics';
 import Sidebar from './components/layout/Sidebar';
 import ErrorBoundary from './components/ErrorBoundary';
 import React, { useState } from 'react';
@@ -17,6 +21,14 @@ const ProtectedRoute = ({ children }) => {
     const { token, loading } = useAuth();
     if (loading) return <div>Loading...</div>;
     if (!token) return <Navigate to="/login" replace />;
+    return children;
+};
+
+// Role Protected Route Wrapper
+const RoleProtected = ({ children, requiredRole }) => {
+    const { user, loading } = useAuth();
+    if (loading) return <div>Loading...</div>;
+    if (!user || user.role !== requiredRole) return <Navigate to="/" replace />;
     return children;
 };
 
@@ -74,10 +86,44 @@ const AppRoutes = () => {
                 </ProtectedRoute>
             } />
 
-            <Route path="/super-admin" element={
+            <Route path="/team" element={
                 <ProtectedRoute>
                     <AppLayout>
-                        <SuperAdminDashboard />
+                        <Team />
+                    </AppLayout>
+                </ProtectedRoute>
+            } />
+
+            <Route path="/interviewer" element={
+                <ProtectedRoute>
+                    <AppLayout>
+                        <InterviewerDashboard />
+                    </AppLayout>
+                </ProtectedRoute>
+            } />
+
+            <Route path="/super-admin" element={
+                <ProtectedRoute>
+                    <RoleProtected requiredRole="super_admin">
+                        <AppLayout>
+                            <SuperAdminDashboard />
+                        </AppLayout>
+                    </RoleProtected>
+                </ProtectedRoute>
+            } />
+
+            <Route path="/search" element={
+                <ProtectedRoute>
+                    <AppLayout>
+                        <Search />
+                    </AppLayout>
+                </ProtectedRoute>
+            } />
+
+            <Route path="/analytics" element={
+                <ProtectedRoute>
+                    <AppLayout>
+                        <Analytics />
                     </AppLayout>
                 </ProtectedRoute>
             } />
