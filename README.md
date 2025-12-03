@@ -247,6 +247,15 @@ E2E Tests (10%) - Full-stack workflows
 Integration Tests (20%) - API + Database  
     ↓
 Unit Tests (70%) - Business logic
+
+### 📊 Current Test Coverage (as of Dec 2025)
+
+| Component | Coverage | Status |
+|-----------|----------|--------|
+| **Backend** | **76%** | ✅ Healthy (>70%) |
+| **Frontend** | **26.5%** | ⚠️ Needs Improvement |
+
+*Backend coverage includes 100% coverage for Models, Schemas, and Auth.*
 ```
 
 ### Continuous Integration/Continuous Deployment (CI/CD)

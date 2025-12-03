@@ -106,6 +106,24 @@ docker exec headhunter_frontend npm run lint
 - **Frontend:** Vitest + React Testing Library
 - **Coverage:** 53 backend tests, comprehensive coverage
 
+### 📊 Current Coverage Stats (v1.8.0-RC1)
+
+**Backend: 83%** (Previously 76%)
+- ✅ **Stats API:** 100%
+- ✅ **SSO API:** 100%
+- ✅ **Embeddings:** 100%
+- ✅ **Email Service:** 100%
+- ✅ **Sync API:** 100%
+- ✅ **Jobs API:** 94%
+- ✅ **Users API:** 83%
+- ✅ **Parser Service:** 86%
+- ⚠️ **Main App:** 57% (Startup/Shutdown logic)
+
+**Frontend: 26.5%**
+- ✅ App.jsx: 95%
+- ✅ Analytics: 86%
+- ⚠️ Components: <10%
+
 ### Integration Tests (Infrastructure Ready)
 - **Location:** `backend/tests/integration/`
 - **Database:** Real SQLite connections
