@@ -20,7 +20,7 @@ const CandidateDrawer = ({ cv, onClose, updateApp, updateProfile, jobs, selected
         if (!selectedJobId && !activeJobId && Array.isArray(cv?.applications) && cv.applications.length > 0) {
             setActiveJobId(cv.applications[0].job_id)
         }
-    }, [selectedJobId, activeJobId, cv])
+    }, [selectedJobId, cv])
 
     const app = activeJobId && Array.isArray(cv?.applications) ? cv.applications.find(a => a.job_id === activeJobId) : null
 
@@ -44,6 +44,7 @@ const CandidateDrawer = ({ cv, onClose, updateApp, updateProfile, jobs, selected
     const [exp, setExp] = useState(app ? app.expected_salary : d.expected_salary || "")
     const [saved, setSaved] = useState(false)
     const [assignOpen, setAssignOpen] = useState(false)
+    const [isRemoving, setIsRemoving] = useState(false)
     const [users, setUsers] = useState([])
     const [newInterview, setNewInterview] = useState({ step: "", outcome: "Pending", feedback: "", rating: 5, interviewer_id: "", custom_data: {} })
     const [showAddInterview, setShowAddInterview] = useState(false)
@@ -203,6 +204,18 @@ const CandidateDrawer = ({ cv, onClose, updateApp, updateProfile, jobs, selected
         }
         setSaved(true)
         setTimeout(() => setSaved(false), 2000)
+    }
+
+
+    const handleRemove = async () => {
+        if (!app) return
+        setIsRemoving(true)
+        try {
+            await removeJob(app.id)
+        } catch (err) {
+            console.error("Failed to remove job", err)
+            setIsRemoving(false)
+        }
     }
 
     if (!cv) return null
@@ -367,6 +380,11 @@ const CandidateDrawer = ({ cv, onClose, updateApp, updateProfile, jobs, selected
                                 <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">Active Pipeline</div>
                                 <div className="font-bold text-slate-900 flex items-center gap-2">
                                     {activeJobId ? <><Layers size={16} className="text-indigo-600" /> {(jobs || []).find(j => j.id === activeJobId)?.title}</> : <><LayoutGrid size={16} /> General Pool</>}
+                                    {activeJobId && !selectedJobId && (
+                                        <button onClick={() => setActiveJobId(null)} className="ml-auto p-1 text-slate-400 hover:text-slate-600 hover:bg-slate-200 rounded transition" title="Back to General Pool">
+                                            <X size={14} />
+                                        </button>
+                                    )}
                                 </div>
                                 {activeJobId && (
                                     <div className="mt-3 pt-3 border-t border-indigo-200/50">
@@ -602,26 +620,49 @@ const CandidateDrawer = ({ cv, onClose, updateApp, updateProfile, jobs, selected
                             </button>
 
                             {assignOpen && (
-                                <div className="absolute bottom-full left-0 right-0 mb-2 bg-white border border-slate-200 shadow-xl rounded-xl p-2 z-50 animate-in fade-in slide-in-from-bottom-2">
-                                    {(jobs || []).filter(j => j.is_active).map(j => {
-                                        const isAssigned = Array.isArray(cv.applications) && cv.applications.some(a => a.job_id === j.id)
-                                        return <button key={j.id} onClick={() => { !isAssigned && assignJob(cv.id, j.id); setAssignOpen(false) }} disabled={isAssigned} className="w-full text-left px-3 py-2 text-xs font-bold hover:bg-slate-50 rounded-lg text-slate-700 truncate disabled:opacity-50">{j.title} {isAssigned && "✓"}</button>
-                                    })}
+                                <div className="absolute bottom-full left-0 right-0 mb-2 bg-white border border-slate-200 shadow-xl rounded-xl p-2 z-50 animate-in fade-in slide-in-from-bottom-2 max-h-60 overflow-y-auto">
+                                    {(jobs || [])
+                                        .filter(j => j.is_active)
+                                        .filter(j => !(Array.isArray(cv.applications) && cv.applications.some(a => a.job_id === j.id)))
+                                        .map(j => (
+                                            <button
+                                                key={j.id}
+                                                onClick={async (e) => {
+                                                    e.stopPropagation();
+                                                    try {
+                                                        await assignJob(cv.id, j.id);
+                                                    } catch (err) {
+                                                        console.error("Assignment failed", err);
+                                                        alert("Failed to assign job");
+                                                    }
+                                                    setAssignOpen(false);
+                                                }}
+                                                className="w-full text-left px-3 py-2 text-xs font-bold hover:bg-slate-50 rounded-lg text-slate-700 truncate"
+                                            >
+                                                {j.title}
+                                            </button>
+                                        ))
+                                    }
+                                    {(jobs || []).filter(j => j.is_active && !(Array.isArray(cv.applications) && cv.applications.some(a => a.job_id === j.id))).length === 0 && (
+                                        <div className="px-3 py-2 text-xs text-slate-400 italic text-center">No active jobs available</div>
+                                    )}
                                 </div>
                             )}
                         </div>
                     )}
 
                     {activeJobId && app && (
-                        <button onClick={() => removeJob(app.id)} className="w-full py-2 text-red-500 hover:bg-red-50 rounded-lg text-xs font-bold transition">
-                            Remove from Pipeline
+                        <button
+                            onClick={handleRemove}
+                            disabled={isRemoving}
+                            className="w-full py-2 text-red-500 hover:bg-red-50 rounded-lg text-xs font-bold transition disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                            {isRemoving ? "Removing..." : "Remove from Pipeline"}
                         </button>
                     )}
                 </div>
             </div>
         </div>
-
-
     )
 }
 

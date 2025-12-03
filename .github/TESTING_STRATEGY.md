@@ -122,6 +122,7 @@ docker exec headhunter_frontend npm run lint
 **Frontend: 26.5%**
 - ✅ App.jsx: 95%
 - ✅ Analytics: 86%
+- ✅ CandidateDrawer: Added regression tests for assignment, removal, loading states, and duplicate prevention
 - ⚠️ Components: <10%
 
 ### Integration Tests (Infrastructure Ready)
@@ -149,12 +150,14 @@ All PRs must pass:
 
 ## Key Improvements
 
-| Metric | Before | After |
-|--------|--------|-------|
-| E2E retry loops | 5 retries | 0 retries ✅ |
-| Test reliability | Flaky | Stable ✅ |
-| Testing layers | Unit only | Full pyramid ✅ |
-| E2E approach | Mocked APIs | Real services ✅ |
+## Key Improvements
+
+| Metric           | Before      | After            |
+| :--------------- | :---------- | :--------------- |
+| E2E retry loops  | 5 retries   | 0 retries ✅     |
+| Test reliability | Flaky       | Stable ✅        |
+| Testing layers   | Unit only   | Full pyramid ✅  |
+| E2E approach     | Mocked APIs | Real services ✅ |
 
 ---
 
