@@ -20,7 +20,7 @@ const Search = ({ onOpenMobileSidebar }) => {
         setLoading(true);
         setSearched(true);
         try {
-            const res = await axios.get(`/ api / search / candidates`, {
+            const res = await axios.get(`/api/search/candidates`, {
                 params: { q: query }
             });
             setResults(res.data);
@@ -34,7 +34,7 @@ const Search = ({ onOpenMobileSidebar }) => {
     const handleViewProfile = async (cvId) => {
         try {
             // Fetch full profile details
-            const res = await axios.get(`/ api / profiles / ${cvId} `);
+            const res = await axios.get(`/api/profiles/${cvId}`);
             setSelectedCv(res.data);
         } catch (err) {
             console.error("Failed to fetch profile", err);

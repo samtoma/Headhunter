@@ -72,20 +72,20 @@ def get_dashboard_stats(
         Application.applied_at >= start_date
     ).all()
     
-    total_days = 0
-    count = 0
+    total_days_for_avg = 0
+    count_for_avg = 0
     for app in hired_apps:
-        # Assuming we track 'hired_at' or using updated_at if status changed?
-        # Application doesn't have hired_at. We can use current time if just switched, 
-        # but for historical data, we might lack precision without an audit log.
-        # For now, we'll skip precise time-to-hire or use a proxy if available.
-        # Let's use a simple metric: Total Hires in period
-        count += 1
-        
-    total_hires = count
+        if app.created_at and app.updated_at:
+            # Calculate days between application creation and hired status update
+            days_diff = (app.updated_at - app.created_at).days
+            total_days_for_avg += days_diff
+            count_for_avg += 1
+    
+    avg_time_to_hire = round(total_days_for_avg / count_for_avg) if count_for_avg > 0 else 0
+    total_hires = len(hired_apps) # Total hires in the period, regardless of date availability for avg_time_to_hire
     
     # 4. Active Jobs
-    active_jobs_count = db.query(Job).filter(*filters, Job.is_active == True).count()
+    active_jobs_count = db.query(Job).filter(*filters, Job.is_active).count()
 
     return {
         "pipeline": formatted_pipeline,
