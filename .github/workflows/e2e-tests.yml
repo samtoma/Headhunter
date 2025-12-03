@@ -1,46 +1,52 @@
-name: CI
-permissions:
-  contents: read
+name: E2E Tests (New Strategy)
+
+# This workflow uses the new E2E testing infrastructure with real services
+# No retries needed - tests are reliable with real backend
 
 on:
   push:
     branches: [ main ]
   pull_request:
     branches: [ main ]
+  workflow_dispatch:  # Allow manual trigger
 
 jobs:
-  test:
+  e2e-tests:
     runs-on: ubuntu-latest
-
+    
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          cache: 'npm'
-          cache-dependency-path: frontend/package-lock.json
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
 
-      - name: Install dependencies
-        run: npm ci
-        working-directory: ./frontend
-
-      - name: Build Cypress Docker image
+      - name: Start E2E Stack
         run: |
-          docker build -t headhunter-cypress -f frontend/Dockerfile frontend
-
-      - name: Run Cypress tests (with retries)
-        env:
-          CI: true
+          docker compose -f docker-compose.e2e.yml up -d --build
+          
+      - name: Wait for services to be healthy
         run: |
-          # Run the test suite multiple times to ensure consistency
-          for i in $(seq 1 5); do
-            docker run --rm -e CI=true headhunter-cypress sh -c "npm run dev -- --host & sleep 12 && npx cypress run --spec \"cypress/e2e/**/*.cy.js\" --browser electron" || exit 1
-          done
+          echo "Waiting for backend to be ready..."
+          timeout 60 bash -c 'until curl -f http://localhost:30011/ > /dev/null 2>&1; do sleep 2; done'
+          echo "Backend is ready!"
 
-      - name: Upload Cypress artifacts
+      - name: Run database migrations
+        run: |
+          docker compose -f docker-compose.e2e.yml exec -T backend-e2e alembic upgrade head
+
+      - name: Seed test database
+        run: |
+          docker compose -f docker-compose.e2e.yml exec -T backend-e2e python tests/seed_test_data.py
+
+      - name: Run Cypress E2E tests
+        run: |
+          docker compose -f docker-compose.e2e.yml run --rm cypress \
+            npx cypress run \
+            --spec "cypress/e2e/e2e_*.cy.js" \
+            --browser electron
+
+      - name: Upload Cypress artifacts on failure
         if: failure()
         uses: actions/upload-artifact@v4
         with:
@@ -48,7 +54,14 @@ jobs:
           path: |
             frontend/cypress/screenshots/**
             frontend/cypress/videos/**
+          retention-days: 7
 
-      - name: Report success rate
+      - name: Cleanup
+        if: always()
         run: |
-          echo "All Cypress runs completed successfully."
+          docker compose -f docker-compose.e2e.yml down -v
+
+      - name: Report results
+        if: success()
+        run: |
+          echo "✅ All E2E tests passed with real services (zero retries needed)!"

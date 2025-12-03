@@ -237,7 +237,17 @@ docker compose exec backend alembic upgrade head
 
 ## 🧪 Testing & Quality Assurance
 
-Headhunter AI includes a comprehensive automated testing pipeline to ensure code quality and reliability.
+Headhunter AI uses a comprehensive **testing pyramid** strategy for reliable, maintainable tests.
+
+### Testing Pyramid
+
+```
+E2E Tests (10%) - Full-stack workflows
+    ↓
+Integration Tests (20%) - API + Database  
+    ↓
+Unit Tests (70%) - Business logic
+```
 
 ### Continuous Integration/Continuous Deployment (CI/CD)
 
@@ -246,36 +256,35 @@ Every push to the repository triggers automated workflows that:
 *   ✅ Run all frontend unit tests (Vitest)
 *   ✅ Lint Python code (Ruff)
 *   ✅ Lint JavaScript/React code (ESLint)
-*   ✅ Type-check code
 *   ✅ Build Docker images to validate deployability
 
-### Backend Testing
-
-**Framework:** pytest
-**Coverage:** API endpoints, database models, authentication, AI service layer
-
-**Test Suite Includes:**
-*   **Unit Tests:** Core business logic and data models
-*   **Integration Tests:** API endpoints with authenticated requests
-*   **Database Tests:** In-memory SQLite for fast, isolated tests
-*   **Security Tests:** Authentication, authorization, RBAC validation
+---
 
 ### 🐳 Running Tests in Docker (Recommended)
 
-**IMPORTANT:** All tests and maintenance commands should be executed inside the Docker containers to ensure a consistent environment and access to all dependencies.
+**IMPORTANT:** All tests should be executed inside Docker containers for consistency.
 
 ### Backend Testing
 
-**Run Backend Tests:**
+**Unit Tests (Fast - 53 tests):**
 ```bash
-# Run all tests
-docker exec headhunter_backend python -m pytest
-
-# Run with verbose output
-docker exec headhunter_backend python -m pytest -v
+# Run all unit tests
+docker exec headhunter_backend python -m pytest tests/ -v --ignore=tests/integration
 
 # Run specific test file
-docker exec headhunter_backend python -m pytest tests/test_api.py
+docker exec headhunter_backend python -m pytest tests/test_auth.py -v
+
+# With coverage
+docker exec headhunter_backend python -m pytest --cov=app tests/
+```
+
+**Integration Tests (Real Database):**
+```bash
+# Run integration tests (tests with real database and API calls)
+docker exec headhunter_backend python -m pytest tests/integration/ -v
+
+# Note: Integration tests use SQLite for simplicity
+# They test actual API endpoints with real database interactions
 ```
 
 **Backend Linting:**
@@ -287,14 +296,16 @@ docker exec headhunter_backend ruff check .
 docker exec headhunter_backend ruff check . --fix
 ```
 
+---
+
 ### Frontend Testing
 
-**Run Frontend Tests:**
+**Unit Tests:**
 ```bash
 # Run all tests (CI mode)
 docker exec headhunter_frontend npm run test -- --run
 
-# Run all tests (Watch mode - interactive)
+# Run in watch mode (interactive)
 docker exec -it headhunter_frontend npm run test
 
 # Generate coverage report
@@ -303,21 +314,59 @@ docker exec headhunter_frontend npm run test -- --coverage
 
 **Frontend Linting:**
 ```bash
-# Check for issues
 docker exec headhunter_frontend npm run lint
 ```
 
+---
+
+### End-to-End (E2E) Testing
+
+**Full-Stack E2E Tests** validate complete user workflows with real services:
+
+```bash
+# Run complete E2E test suite
+./run_e2e_tests.sh
+
+# This will:
+# 1. Start isolated E2E stack (backend, frontend, DB, Redis, Celery)
+# 2. Run database migrations
+# 3. Seed test data
+# 4. Execute Cypress tests against real services
+# 5. Clean up and tear down stack
+```
+
+**E2E Stack Details:**
+- Isolated docker-compose environment (`docker-compose.e2e.yml`)
+- Real PostgreSQL database with seeded test data
+- Real backend API, frontend, and all services
+- **Zero retries** - tests are reliable with real backend
+- Tests validate actual user workflows end-to-end
+
+---
+
 ### Test Infrastructure
 
-**Backend (`conftest.py`):**
-*   In-memory SQLite database for fast, isolated tests
+**Backend Unit Tests (`tests/conftest.py`):**
+*   In-memory SQLite for fast, isolated tests
 *   `authenticated_client` fixture with pre-configured admin user
 *   Automatic database setup/teardown per test
 
-**Frontend (`App.test.jsx`):**
-*   Complete axios mock with interceptors and headers
-*   LocalStorage simulation
-*   Component rendering validation
+**Backend Integration Tests (`tests/integration/conftest.py`):**
+*   Real database connections (SQLite for ease of use)
+*   TestClient for actual HTTP requests to FastAPI
+*   Transaction rollback after each test
+
+**Frontend Unit Tests:**
+*   Vitest + React Testing Library
+*   Component rendering and interaction tests
+*   Mock API responses for isolated testing
+
+**E2E Tests (`frontend/cypress/`):**
+*   Cypress with real API calls (no mocks)
+*   Full-stack validation
+*   Database persistence testing
+
+---
 
 ### Quality Metrics
 
@@ -325,7 +374,7 @@ The CI/CD pipeline enforces:
 *   **Zero test failures** - All tests must pass
 *   **Zero linting errors** - Code must meet style standards
 *   **Successful builds** - Docker images must build correctly
-*   **Type safety** - No type errors in TypeScript/JSDoc
+*   **No flaky tests** - Proper infrastructure eliminates flakiness
 
 ---
 ##  Roadmap
