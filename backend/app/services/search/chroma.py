@@ -21,7 +21,10 @@ class ChromaSearchEngine(SearchEngine):
         try:
             logger.info(f"Connecting to ChromaDB at {chroma_host}:{chroma_port}")
             self.client = chromadb.HttpClient(host=chroma_host, port=int(chroma_port))
-            self.collection = self.client.get_or_create_collection(name=self.collection_name)
+            self.collection = self.client.get_or_create_collection(
+                name=self.collection_name,
+                metadata={"hnsw:space": "cosine"} # Use Cosine Similarity
+            )
             logger.info(f"Connected to ChromaDB collection: {self.collection_name}")
         except Exception as e:
             logger.error(f"Failed to connect to ChromaDB: {e}")
@@ -83,10 +86,23 @@ class ChromaSearchEngine(SearchEngine):
                 distances = results['distances'][0] if 'distances' in results else []
                 
                 for i, cid in enumerate(ids):
+                    # Chroma returns distance.
+                    # If configured as "cosine", it returns Cosine Distance (0 to 2).
+                    # If configured as "l2" (default), it returns L2 Distance (0 to 2 for normalized vectors).
+                    # In both cases, a distance of ~1.0 means "unrelated".
+                    # A distance of > 1.0 means "negatively correlated" or "far apart".
+                    # Previous formula (1 - dist) was too harsh for L2/Cosine distance > 1.0.
+                    # New formula: Linear mapping from [0, 2] to [1, 0].
+                    # 0.0 -> 100%
+                    # 1.0 -> 50%
+                    # 2.0 -> 0%
+                    dist = distances[i] if i < len(distances) else 2.0
+                    score = max(0.0, (2.0 - dist) / 2.0)
+                    
                     formatted_results.append({
                         "id": cid,
                         "metadata": metadatas[i] if i < len(metadatas) else {},
-                        "score": 1.0 - distances[i] if i < len(distances) else 0.0 # Convert distance to similarity score approx
+                        "score": score
                     })
                     
             return formatted_results
