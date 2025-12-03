@@ -337,6 +337,7 @@ const Pipeline = ({ onOpenMobileSidebar }) => {
                                 jobs={jobs}
                             />
                         )
+                    )
                 }
             </div >
 
