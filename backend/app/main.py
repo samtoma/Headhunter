@@ -21,7 +21,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="Headhunter API",
     description="AI-Powered Recruitment Platform",
-    version="1.8.0-RC1",
+    version="1.8.0-RC2",
     lifespan=lifespan
 )
 

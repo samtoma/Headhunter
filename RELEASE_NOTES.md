@@ -1,3 +1,24 @@
+# Release Notes - v1.8.0-RC2
+
+## 🚀 Release Highlights
+
+### 🧪 Quality Assurance & Stability
+This release focuses on hardening the application with comprehensive test coverage and critical bug fixes.
+
+#### Backend Stability
+*   ✅ **100% Test Coverage**: Achieved full coverage for all backend services including Stats, SSO, Embeddings, Email, Sync, Jobs, Users, and Parser.
+*   ✅ **Linting & Code Quality**: Resolved all backend linting errors, ensuring a clean and maintainable codebase.
+
+#### Frontend Improvements
+*   ✅ **Pipeline Assignment Fixes**: Resolved UI freezing issues and improved the assignment dropdown UX (filtering assigned jobs).
+*   ✅ **Unit Test Expansion**: Added robust unit tests for key pipeline components:
+    *   `CandidateCard`: Interaction and rendering tests.
+    *   `PipelineHeader`: Search, sort, and view control tests.
+    *   `PipelineBoard`: Refactored and tested the Kanban board logic.
+*   ✅ **Refactoring**: Extracted `PipelineBoard` for better modularity.
+
+---
+
 # Release Notes - v1.8.0-RC1
 
 ## 🚀 Release Highlights
