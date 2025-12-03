@@ -37,7 +37,7 @@ jobs:
         run: |
           # Run the test suite multiple times to ensure consistency
           for i in $(seq 1 5); do
-            docker run --rm -e CI=true headhunter-cypress sh -c "npm run dev -- --host & sleep 12 && npx cypress run --spec \"cypress/e2e/**/*.cy.js\" --browser chrome" || exit 1
+            docker run --rm -e CI=true headhunter-cypress sh -c "npm run dev -- --host & sleep 12 && npx cypress run --spec \"cypress/e2e/**/*.cy.js\" --browser electron" || exit 1
           done
 
       - name: Upload Cypress artifacts
