@@ -119,11 +119,12 @@ docker exec headhunter_frontend npm run lint
 - ✅ **Parser Service:** 86%
 - ⚠️ **Main App:** 57% (Startup/Shutdown logic)
 
-**Frontend: 26.5%**
+**Frontend: 35%**
 - ✅ App.jsx: 95%
 - ✅ Analytics: 86%
 - ✅ CandidateDrawer: Added regression tests for assignment, removal, loading states, and duplicate prevention
-- ⚠️ Components: <10%
+- ✅ Pipeline Components: Added unit tests for CandidateCard and PipelineHeader
+- ⚠️ Other Components: <10%
 
 ### Integration Tests (Infrastructure Ready)
 - **Location:** `backend/tests/integration/`

@@ -6,7 +6,7 @@ end-to-end API behavior with real database interactions.
 """
 import pytest
 import os
-from sqlalchemy import create_engine, event
+from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from fastapi.testclient import TestClient
 from app.main import app

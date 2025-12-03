@@ -1,7 +1,8 @@
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 from app.models.models import User, Company, UserRole
-from datetime import datetime, timedelta
+from datetime import datetime
+from app.core.security import get_password_hash
 
 def test_sync_version_standard(authenticated_client: TestClient, db: Session):
     # Setup: Ensure company has last_data_update
@@ -32,7 +33,7 @@ def test_sync_version_no_update_timestamp(authenticated_client: TestClient, db: 
     # Since created_at is set on creation, it should be that.
     assert res.json()["version"] == company.created_at.isoformat()
 
-from app.core.security import get_password_hash
+
 
 def test_sync_version_no_company(client: TestClient, db: Session):
     # Create user without company (if possible, or mock it)
@@ -44,7 +45,7 @@ def test_sync_version_no_company(client: TestClient, db: Session):
     try:
         db.add(user)
         db.commit()
-    except:
+    except Exception:
         # If we can't create user without company, we can't test this branch easily via integration
         # We'd need to mock current_user.company to None
         db.rollback()

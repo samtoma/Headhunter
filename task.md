@@ -1,10 +1,21 @@
-# Tasks
-
-- [x] Review project structure and documentation <!-- id: 0 --> <!-- gh: 7 -->
-- [x] Identify next steps from roadmap <!-- id: 1 --> <!-- gh: 8 -->
-- [x] Investigate GitHub sync capabilities <!-- id: 3 --> <!-- gh: 9 -->
-- [x] Plan AI Brain (Semantic Search) implementation <!-- id: 2 --> <!-- gh: 10 -->
-- [x] Plan Departments & Interviewer Role implementation <!-- id: 4 --> <!-- gh: 11 -->
-- [ ] Verify changes inside Docker container <!-- id: 5 --> <!-- gh: 12 -->
+- [x] Backend: Achieve 100% Test Coverage <!-- gh: 16 -->
+    - [x] Stats API <!-- gh: 17 -->
+    - [x] SSO API <!-- gh: 18 -->
+    - [x] Embeddings Service <!-- gh: 19 -->
+    - [x] Email Service <!-- gh: 20 -->
+    - [x] Sync API <!-- gh: 21 -->
+    - [x] Jobs API <!-- gh: 22 -->
+    - [x] Users API <!-- gh: 23 -->
+    - [x] Parser Service <!-- gh: 24 -->
+- [x] Debug Frontend Pipeline Assignment <!-- gh: 25 -->
+    - [x] Fix "freeze" issue (overflow/layout) <!-- gh: 26 -->
+    - [x] Add regression tests for assignment/removal <!-- gh: 27 -->
+    - [x] Improve UX (loading states, filtering assigned jobs) <!-- gh: 28 -->
+- [/] Frontend: Increase Unit Test Coverage <!-- gh: 29 -->
+    - [/] Pipeline Components (Board, Column, Card) <!-- gh: 30 -->
+    - [ ] Modals (Add Candidate, Bulk Assign) <!-- gh: 31 -->
+    - [ ] Shared Components (UI Kit) <!-- gh: 32 -->
+- [ ] End-to-End Tests <!-- gh: 33 -->
+    - [ ] Critical User Flows (Login -> Upload -> Assign -> Move) <!-- gh: 34 -->
 
 

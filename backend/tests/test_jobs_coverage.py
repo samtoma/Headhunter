@@ -1,9 +1,8 @@
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 from app.models.models import User, UserRole, Job, Company, CV, ParsedCV, Application
-from unittest.mock import AsyncMock, patch, MagicMock
+from unittest.mock import AsyncMock, patch
 from app.core.security import get_password_hash
-import json
 
 def test_hiring_manager_rbac(client: TestClient, db: Session):
     # Setup: Hiring Manager in "Engineering"

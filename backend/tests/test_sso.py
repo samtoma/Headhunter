@@ -2,7 +2,6 @@ from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 from app.models.models import User, Company, UserRole
 from unittest.mock import AsyncMock, patch
-from app.api.v1.sso import sso
 
 def test_microsoft_login_redirect(client: TestClient):
     with patch("app.api.v1.sso.sso.get_login_redirect", new_callable=AsyncMock) as mock_redirect:
@@ -82,7 +81,7 @@ def test_microsoft_callback_existing_user(client: TestClient, db: Session):
         db.refresh(user)
         assert user.sso_provider == "microsoft"
         assert user.sso_id == "ms_789"
-        assert user.is_verified == True
+        assert user.is_verified
 
 def test_microsoft_callback_invalid_email(client: TestClient):
     mock_user = AsyncMock()

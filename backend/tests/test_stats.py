@@ -1,7 +1,7 @@
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
-from app.models.models import User, UserRole, Job, Application, ActivityLog, Company
-from datetime import datetime, timedelta, timezone
+from app.models.models import User, UserRole, Job, Application, ActivityLog
+from datetime import datetime, timedelta
 from app.core.security import get_password_hash
 
 def test_get_department_stats(authenticated_client: TestClient, db: Session):
@@ -88,7 +88,7 @@ def test_login_activity(client: TestClient, db: Session):
     db.commit()
     
     # 3. Call API
-    res = client.get(f"/stats/login-activity/1", headers=headers)
+    res = client.get("/stats/login-activity/1", headers=headers)
     assert res.status_code == 200
     data = res.json()
     

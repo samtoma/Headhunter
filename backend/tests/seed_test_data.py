@@ -11,7 +11,6 @@ Populates the test database with realistic data for E2E testing:
 Usage:
     python backend/tests/seed_test_data.py
 """
-import asyncio
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from app.core.database import Base
@@ -111,7 +110,7 @@ def seed_database():
         
         session.add_all([admin, recruiter, hiring_manager, interviewer])
         session.commit()
-        print(f"✅ Created users: Admin, Recruiter, Hiring Manager, Interviewer")
+        print("✅ Created users: Admin, Recruiter, Hiring Manager, Interviewer")
         
         # Create Jobs
         job1 = Job(
@@ -243,16 +242,16 @@ def seed_database():
         
         session.add(interview1)
         session.commit()
-        print(f"✅ Created interview record")
+        print("✅ Created interview record")
         
         print("\n🎉 Database seeding completed successfully!")
         print("\n📊 Summary:")
-        print(f"   - Companies: 2")
-        print(f"   - Users: 4 (Admin, Recruiter, Hiring Manager, Interviewer)")
-        print(f"   - Jobs: 3")
+        print("   - Companies: 2")
+        print("   - Users: 4 (Admin, Recruiter, Hiring Manager, Interviewer)")
+        print("   - Jobs: 3")
         print(f"   - Candidate Profiles: {len(profiles)}")
-        print(f"   - Applications: 4")
-        print(f"   - Interviews: 1")
+        print("   - Applications: 4")
+        print("   - Interviews: 1")
         
     except Exception as e:
         print(f"❌ Error seeding database: {e}")
