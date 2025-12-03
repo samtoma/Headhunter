@@ -347,7 +347,7 @@ async def parse_cv_with_llm(text: str, filename: str) -> Dict[str, Any]:
                 if isinstance(job_history_list, str):
                     try:
                         job_history_list = json.loads(job_history_list)
-                    except:
+                    except Exception:
                         job_history_list = []
                 
                 titles = [j.get('title', '') for j in job_history_list if isinstance(j, dict)]
