@@ -1,9 +1,8 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
-from typing import List, Optional, Dict, Any
-from datetime import datetime
+from typing import Optional, Dict, Any
 from app.core.database import get_db
-from app.models.models import ActivityLog, User, Application, Interview
+from app.models.models import ActivityLog, User, Interview
 from app.api.deps import get_current_user
 import json
 

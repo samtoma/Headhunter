@@ -3,9 +3,6 @@ from sqlalchemy.orm import Session, joinedload
 from typing import List, Optional, Any, Dict
 import json
 from app.core.database import get_db
-from typing import List, Optional, Any, Dict
-import json
-from app.core.database import get_db
 from app.models.models import Job, ParsedCV, User, CV, UserRole, Application, Department
 from app.api.deps import get_current_user
 from app.services.parser import generate_job_metadata

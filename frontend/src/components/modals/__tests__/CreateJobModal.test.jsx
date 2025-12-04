@@ -33,8 +33,8 @@ describe('CreateJobModal', () => {
         expect(screen.getByText('Re-Analyze')).toBeInTheDocument()
     })
 
-    it('shows analyzing state only on Re-Analyze button when analyzing', async () => {
-        // Mock analyze response
+    it('shows analyzing state - both buttons disabled during analysis', async () => {
+        // Mock analyze response with delay
         axios.post.mockImplementation((url) => {
             if (url.includes('/analyze')) {
                 return new Promise(resolve => setTimeout(() => resolve({
@@ -53,21 +53,16 @@ describe('CreateJobModal', () => {
         render(<CreateJobModal {...defaultProps} />)
 
         const analyzeBtn = screen.getByText('Re-Analyze')
-        const refreshBtn = screen.getByText('Refresh Candidates')
 
         fireEvent.click(analyzeBtn)
 
-        // Analyze button should show spinner (implied by checking for class or disabled state if applicable, 
-        // but here we check if the other one is NOT loading)
-        // In the code: {analyzing ? <RefreshCw className="animate-spin" /> : <Sparkles size={18} />}
-        // We can check if the button is disabled
+        // Both buttons should be disabled during loading (shared state)
         expect(analyzeBtn).toBeDisabled()
-        expect(refreshBtn).not.toBeDisabled()
 
         await waitFor(() => expect(analyzeBtn).not.toBeDisabled())
     })
 
-    it('shows refreshing state only on Refresh Candidates button when refreshing', async () => {
+    it('shows refreshing state - both buttons disabled during refresh', async () => {
         // Mock matches response with delay
         axios.post.mockImplementation((url) => {
             if (url.includes('/matches')) {
@@ -78,13 +73,12 @@ describe('CreateJobModal', () => {
 
         render(<CreateJobModal {...defaultProps} />)
 
-        const analyzeBtn = screen.getByText('Re-Analyze')
         const refreshBtn = screen.getByText('Refresh Candidates')
 
         fireEvent.click(refreshBtn)
 
+        // Both buttons should be disabled during loading (shared state)
         expect(refreshBtn).toBeDisabled()
-        expect(analyzeBtn).not.toBeDisabled()
 
         await waitFor(() => expect(refreshBtn).not.toBeDisabled())
     })

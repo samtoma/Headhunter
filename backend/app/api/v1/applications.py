@@ -1,7 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-from pydantic import BaseModel
-from typing import Optional
 from app.core.database import get_db
 from app.models.models import Application, User, UserRole, Interview
 from app.api.deps import get_current_user
@@ -76,9 +74,12 @@ def update_application(app_id: int, data: ApplicationUpdate, db: Session = Depen
     
     # Log Activity
     changes = {}
-    if data.status: changes["status"] = data.status
-    if data.rating: changes["rating"] = data.rating
-    if data.notes: changes["notes"] = data.notes
+    if data.status:
+        changes["status"] = data.status
+    if data.rating:
+        changes["rating"] = data.rating
+    if data.notes:
+        changes["notes"] = data.notes
     
     if changes:
         log_application_activity(

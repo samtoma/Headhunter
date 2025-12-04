@@ -1,5 +1,4 @@
-import pytest
-from app.models.models import Department, ActivityLog, Application, Job, UserRole
+from app.models.models import ActivityLog, Application
 from app.core.security import create_access_token
 import json
 

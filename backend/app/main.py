@@ -6,6 +6,7 @@ from app.api.v1 import cv, profiles, jobs, applications, auth, company, sso, int
 from app.api.endpoints import search
 from app.models import models
 from sqlalchemy.orm import Session
+from app.core.cache import init_cache
 
 # ... (logging config)
 from app.core.logging import setup_logging
@@ -13,8 +14,6 @@ from sqlalchemy import text
 
 setup_logging()
 logger = logging.getLogger(__name__)
-
-from app.core.cache import init_cache
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):

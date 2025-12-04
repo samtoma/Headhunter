@@ -2,8 +2,7 @@
 Tests for the AI-powered department profile generation feature.
 Tests the /departments/generate endpoint and related functionality.
 """
-import pytest
-from unittest.mock import patch, MagicMock, AsyncMock
+from unittest.mock import patch
 
 
 class TestDepartmentGenerate:
