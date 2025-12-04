@@ -8,6 +8,7 @@ echo "=============================="
 
 # Step 0: Ensure a clean E2E stack before starting
 docker compose -f docker-compose.e2e.yml down -v --remove-orphans
+docker compose -f docker-compose.e2e.yml rm -s -f -v db-e2e # Ensure DB volume is gone
 
 # Step 1: Start the E2E stack
 echo "📦 Starting docker-compose.e2e.yml stack..."

@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import axios from 'axios'
 import { Building2, Users, TrendingUp, Search, Edit2, Check, X, ArrowLeft } from 'lucide-react'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
+import PageHeader from '../layout/PageHeader'
 
 const SuperAdminDashboard = ({ onOpenMobileSidebar }) => {
     const [companies, setCompanies] = useState([])
@@ -267,140 +268,134 @@ const SuperAdminDashboard = ({ onOpenMobileSidebar }) => {
 
     // --- MAIN DASHBOARD ---
     return (
-        <div className="p-4 md:p-8 h-full overflow-y-auto">
-            <div className="mb-8 flex items-center gap-3">
-                <button
-                    onClick={onOpenMobileSidebar}
-                    className="md:hidden p-2 -ml-2 text-slate-600 hover:bg-slate-100 rounded-lg transition"
-                >
-                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-                    </svg>
-                </button>
-                <div>
-                    <h1 className="text-2xl font-bold text-slate-900 mb-2">Global Dashboard</h1>
-                    <p className="text-slate-500">Manage all registered companies and view platform metrics.</p>
-                </div>
-            </div>
+        <div className="h-full overflow-y-auto bg-slate-50">
+            <PageHeader
+                title="Global Dashboard"
+                subtitle="Manage all registered companies and view platform metrics"
+                icon={Building2}
+                onOpenMobileSidebar={onOpenMobileSidebar}
+            />
+            <div className="p-4 md:p-8">
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-                <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
-                    <div className="flex items-center gap-4">
-                        <div className="p-3 bg-indigo-50 text-indigo-600 rounded-lg">
-                            <Building2 size={24} />
-                        </div>
-                        <div>
-                            <div className="text-2xl font-bold text-slate-900">{companies.length}</div>
-                            <div className="text-sm text-slate-500">Total Companies</div>
-                        </div>
-                    </div>
-                </div>
-                <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
-                    <div className="flex items-center gap-4">
-                        <div className="p-3 bg-green-50 text-green-600 rounded-lg">
-                            <Users size={24} />
-                        </div>
-                        <div>
-                            <div className="text-2xl font-bold text-slate-900">
-                                {companies.reduce((acc, c) => acc + (c.user_count || 0), 0)}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                    <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+                        <div className="flex items-center gap-4">
+                            <div className="p-3 bg-indigo-50 text-indigo-600 rounded-lg">
+                                <Building2 size={24} />
                             </div>
-                            <div className="text-sm text-slate-500">Total Users</div>
-                        </div>
-                    </div>
-                </div>
-                <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
-                    <div className="flex items-center gap-4">
-                        <div className="p-3 bg-blue-50 text-blue-600 rounded-lg">
-                            <TrendingUp size={24} />
-                        </div>
-                        <div>
-                            <div className="text-2xl font-bold text-slate-900">
-                                {companies.reduce((acc, c) => acc + (c.job_count || 0), 0)}
+                            <div>
+                                <div className="text-2xl font-bold text-slate-900">{companies.length}</div>
+                                <div className="text-sm text-slate-500">Total Companies</div>
                             </div>
-                            <div className="text-sm text-slate-500">Active Jobs</div>
+                        </div>
+                    </div>
+                    <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+                        <div className="flex items-center gap-4">
+                            <div className="p-3 bg-green-50 text-green-600 rounded-lg">
+                                <Users size={24} />
+                            </div>
+                            <div>
+                                <div className="text-2xl font-bold text-slate-900">
+                                    {companies.reduce((acc, c) => acc + (c.user_count || 0), 0)}
+                                </div>
+                                <div className="text-sm text-slate-500">Total Users</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+                        <div className="flex items-center gap-4">
+                            <div className="p-3 bg-blue-50 text-blue-600 rounded-lg">
+                                <TrendingUp size={24} />
+                            </div>
+                            <div>
+                                <div className="text-2xl font-bold text-slate-900">
+                                    {companies.reduce((acc, c) => acc + (c.job_count || 0), 0)}
+                                </div>
+                                <div className="text-sm text-slate-500">Active Jobs</div>
+                            </div>
                         </div>
                     </div>
                 </div>
-            </div>
 
-            <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-                <div className="p-4 border-b border-slate-100 bg-slate-50/50 flex justify-between items-center">
-                    <h2 className="font-bold text-slate-700">Registered Companies</h2>
-                    <div className="relative">
-                        <Search className="absolute left-3 top-2.5 text-slate-400 w-4 h-4" />
-                        <input
-                            placeholder="Search companies..."
-                            className="pl-9 pr-4 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
-                        />
+                <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+                    <div className="p-4 border-b border-slate-100 bg-slate-50/50 flex justify-between items-center">
+                        <h2 className="font-bold text-slate-700">Registered Companies</h2>
+                        <div className="relative">
+                            <Search className="absolute left-3 top-2.5 text-slate-400 w-4 h-4" />
+                            <input
+                                placeholder="Search companies..."
+                                className="pl-9 pr-4 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                            />
+                        </div>
                     </div>
-                </div>
 
-                <table className="w-full text-left text-sm">
-                    <thead className="bg-slate-50 text-slate-500 font-medium border-b border-slate-100">
-                        <tr>
-                            <th className="p-4">ID</th>
-                            <th className="p-4">Name</th>
-                            <th className="p-4">Domain</th>
-                            <th className="p-4">Users</th>
-                            <th className="p-4">Jobs</th>
-                            <th className="p-4">Industry</th>
-                            <th className="p-4 text-right">Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100">
-                        {companies.map(company => (
-                            <tr key={company.id} className="hover:bg-slate-50/50 transition">
-                                <td className="p-4 text-slate-400">#{company.id}</td>
-                                <td className="p-4 font-medium text-slate-900">
-                                    {editingId === company.id ? (
-                                        <input
-                                            value={editForm.name || ""}
-                                            onChange={e => setEditForm({ ...editForm, name: e.target.value })}
-                                            className="w-full p-1 border rounded"
-                                        />
-                                    ) : company.name}
-                                </td>
-                                <td className="p-4 text-slate-600">
-                                    {editingId === company.id ? (
-                                        <input
-                                            value={editForm.domain || ""}
-                                            onChange={e => setEditForm({ ...editForm, domain: e.target.value })}
-                                            className="w-full p-1 border rounded"
-                                        />
-                                    ) : company.domain}
-                                </td>
-                                <td className="p-4 text-slate-600 font-bold">{company.user_count || 0}</td>
-                                <td className="p-4 text-slate-600 font-bold">{company.job_count || 0}</td>
-                                <td className="p-4 text-slate-600">
-                                    {editingId === company.id ? (
-                                        <input
-                                            value={editForm.industry || ""}
-                                            onChange={e => setEditForm({ ...editForm, industry: e.target.value })}
-                                            className="w-full p-1 border rounded"
-                                        />
-                                    ) : company.industry || "-"}
-                                </td>
-                                <td className="p-4 text-right flex justify-end gap-2">
-                                    {editingId === company.id ? (
-                                        <>
-                                            <button onClick={saveEdit} className="p-1 text-green-600 hover:bg-green-50 rounded"><Check size={16} /></button>
-                                            <button onClick={cancelEdit} className="p-1 text-red-600 hover:bg-red-50 rounded"><X size={16} /></button>
-                                        </>
-                                    ) : (
-                                        <>
-                                            <button onClick={() => handleManage(company)} className="px-3 py-1 text-xs font-bold text-indigo-600 bg-indigo-50 hover:bg-indigo-100 rounded-lg transition">
-                                                Manage
-                                            </button>
-                                            <button onClick={() => startEdit(company)} className="p-1 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded transition">
-                                                <Edit2 size={16} />
-                                            </button>
-                                        </>
-                                    )}
-                                </td>
+                    <table className="w-full text-left text-sm">
+                        <thead className="bg-slate-50 text-slate-500 font-medium border-b border-slate-100">
+                            <tr>
+                                <th className="p-4">ID</th>
+                                <th className="p-4">Name</th>
+                                <th className="p-4">Domain</th>
+                                <th className="p-4">Users</th>
+                                <th className="p-4">Jobs</th>
+                                <th className="p-4">Industry</th>
+                                <th className="p-4 text-right">Actions</th>
                             </tr>
-                        ))}
-                    </tbody>
-                </table>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100">
+                            {companies.map(company => (
+                                <tr key={company.id} className="hover:bg-slate-50/50 transition">
+                                    <td className="p-4 text-slate-400">#{company.id}</td>
+                                    <td className="p-4 font-medium text-slate-900">
+                                        {editingId === company.id ? (
+                                            <input
+                                                value={editForm.name || ""}
+                                                onChange={e => setEditForm({ ...editForm, name: e.target.value })}
+                                                className="w-full p-1 border rounded"
+                                            />
+                                        ) : company.name}
+                                    </td>
+                                    <td className="p-4 text-slate-600">
+                                        {editingId === company.id ? (
+                                            <input
+                                                value={editForm.domain || ""}
+                                                onChange={e => setEditForm({ ...editForm, domain: e.target.value })}
+                                                className="w-full p-1 border rounded"
+                                            />
+                                        ) : company.domain}
+                                    </td>
+                                    <td className="p-4 text-slate-600 font-bold">{company.user_count || 0}</td>
+                                    <td className="p-4 text-slate-600 font-bold">{company.job_count || 0}</td>
+                                    <td className="p-4 text-slate-600">
+                                        {editingId === company.id ? (
+                                            <input
+                                                value={editForm.industry || ""}
+                                                onChange={e => setEditForm({ ...editForm, industry: e.target.value })}
+                                                className="w-full p-1 border rounded"
+                                            />
+                                        ) : company.industry || "-"}
+                                    </td>
+                                    <td className="p-4 text-right flex justify-end gap-2">
+                                        {editingId === company.id ? (
+                                            <>
+                                                <button onClick={saveEdit} className="p-1 text-green-600 hover:bg-green-50 rounded"><Check size={16} /></button>
+                                                <button onClick={cancelEdit} className="p-1 text-red-600 hover:bg-red-50 rounded"><X size={16} /></button>
+                                            </>
+                                        ) : (
+                                            <>
+                                                <button onClick={() => handleManage(company)} className="px-3 py-1 text-xs font-bold text-indigo-600 bg-indigo-50 hover:bg-indigo-100 rounded-lg transition">
+                                                    Manage
+                                                </button>
+                                                <button onClick={() => startEdit(company)} className="p-1 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded transition">
+                                                    <Edit2 size={16} />
+                                                </button>
+                                            </>
+                                        )}
+                                    </td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
             </div>
         </div>
     )
