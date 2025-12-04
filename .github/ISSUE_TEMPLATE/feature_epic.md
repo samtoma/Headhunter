@@ -47,4 +47,4 @@ Brief description of the feature and its value to users.
 Phase X (Weeks Y-Z)
 
 ---
-*Part of Headhunter AI v2.0 Roadmap*
+<!-- Part of Headhunter AI v2.0 Roadmap -->
