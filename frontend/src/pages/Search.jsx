@@ -4,6 +4,7 @@ import { Search as SearchIcon, Sparkles, Briefcase, ChevronRight, ArrowRight } f
 import axios from 'axios';
 import CandidateDrawer from '../components/pipeline/CandidateDrawer';
 import { useHeadhunter } from '../context/HeadhunterContext';
+import PageHeader from '../components/layout/PageHeader';
 
 const Search = ({ onOpenMobileSidebar }) => {
     const { jobs } = useHeadhunter();
@@ -43,20 +44,12 @@ const Search = ({ onOpenMobileSidebar }) => {
 
     return (
         <div className="flex flex-col h-full bg-slate-50/50">
-            {/* Header */}
-            <div className="h-16 border-b border-slate-200 bg-white flex items-center justify-between px-4 md:px-8 shrink-0 sticky top-0 z-20">
-                <div className="flex items-center gap-4">
-                    <button onClick={onOpenMobileSidebar} className="md:hidden p-2 -ml-2 text-slate-500 hover:bg-slate-100 rounded-lg">
-                        <SearchIcon size={20} />
-                    </button>
-                    <div>
-                        <h1 className="text-xl font-bold text-slate-900 flex items-center gap-2">
-                            <Sparkles className="text-indigo-600" size={20} /> AI Search
-                        </h1>
-                        <p className="text-xs text-slate-500 hidden md:block">Find candidates using natural language</p>
-                    </div>
-                </div>
-            </div>
+            <PageHeader
+                title="AI Search"
+                subtitle="Find candidates using natural language"
+                icon={Sparkles}
+                onOpenMobileSidebar={onOpenMobileSidebar}
+            />
 
             {/* Content */}
             <div className="flex-1 overflow-y-auto p-4 md:p-8">

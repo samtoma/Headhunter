@@ -134,6 +134,30 @@ className="px-2 py-0.5 bg-slate-100 text-slate-600 rounded-full text-xs font-bol
 
 ## Layout Patterns
 
+### Page Header
+
+Standardized header for all main pages.
+
+```jsx
+<PageHeader
+    title="Page Title"
+    subtitle="Optional subtitle text"
+    icon={IconComponent}
+    onOpenMobileSidebar={() => setShowSidebar(true)}
+    actions={
+        <button className="...">Action Button</button>
+    }
+/>
+```
+
+**Props:**
+
+- `title`: String or React Node (required)
+- `subtitle`: String (required) - Mini description of the page's purpose
+- `icon`: Lucide Icon Component (required) - Displayed next to the title
+- `actions`: React Node (optional) - Buttons or controls on the right
+- `onOpenMobileSidebar`: Function (required) - Handler for mobile menu trigger
+
 ### Modal Header
 
 ```jsx

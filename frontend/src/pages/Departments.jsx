@@ -3,7 +3,9 @@ import axios from 'axios'
 import { Plus, Search, Building2, Trash2, Edit2, Code2, FileText } from 'lucide-react'
 import DepartmentModal from '../components/modals/DepartmentModal'
 
-const Departments = () => {
+import PageHeader from '../components/layout/PageHeader'
+
+const Departments = ({ onOpenMobileSidebar }) => {
     const [departments, setDepartments] = useState([])
     const [loading, setLoading] = useState(true)
     const [search, setSearch] = useState("")
@@ -38,20 +40,21 @@ const Departments = () => {
     const filtered = departments.filter(d => d.name.toLowerCase().includes(search.toLowerCase()))
 
     return (
-        <div className="h-full flex flex-col bg-slate-50">
-            {/* Header */}
-            <div className="bg-white border-b border-slate-200 px-8 py-6 flex justify-between items-center">
-                <div>
-                    <h1 className="text-2xl font-extrabold text-slate-900 tracking-tight">Departments</h1>
-                    <p className="text-slate-500 mt-1">Manage team profiles and AI context</p>
-                </div>
-                <button
-                    onClick={() => { setSelectedDept(null); setIsModalOpen(true) }}
-                    className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg font-bold flex items-center gap-2 transition shadow-sm"
-                >
-                    <Plus size={20} /> Add Department
-                </button>
-            </div>
+        <div className="flex flex-col h-full bg-slate-50/50">
+            <PageHeader
+                title="Departments"
+                subtitle="Manage team profiles and AI context"
+                icon={Building2}
+                onOpenMobileSidebar={onOpenMobileSidebar}
+                actions={
+                    <button
+                        onClick={() => { setSelectedDept(null); setIsModalOpen(true) }}
+                        className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg font-bold flex items-center gap-2 transition shadow-sm"
+                    >
+                        <Plus size={20} /> <span className="hidden md:inline">Add Department</span>
+                    </button>
+                }
+            />
 
             {/* Content */}
             <div className="flex-1 p-8 overflow-y-auto">

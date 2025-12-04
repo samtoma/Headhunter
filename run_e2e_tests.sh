@@ -6,6 +6,9 @@ set -e
 echo "🚀 Starting E2E Test Suite..."
 echo "=============================="
 
+# Temporarily remove backend-e2e healthcheck for docker compose to start without blocking
+sed -i '/backend-e2e:/,/# --- END backend-e2e healthcheck ---/ {/healthcheck:/,/^\s*start_period:/s/^/#/}' docker-compose.e2e.yml
+
 # Step 1: Start the E2E stack
 echo "📦 Starting docker-compose.e2e.yml stack..."
 docker compose -f docker-compose.e2e.yml up -d
@@ -21,6 +24,9 @@ curl --retry 5 --retry-delay 3 --retry-connrefused http://localhost:30011/api/he
     docker compose -f docker-compose.e2e.yml logs backend-e2e
     exit 1
 }
+
+# Restore backend-e2e healthcheck in docker-compose.e2e.yml
+sed -i '/backend-e2e:/,/# --- END backend-e2e healthcheck ---/ s/^#//' docker-compose.e2e.yml
 
 # Step 3: Run database migrations
 echo "🗄️  Running database migrations..."

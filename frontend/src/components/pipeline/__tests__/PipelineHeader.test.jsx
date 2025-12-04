@@ -7,7 +7,8 @@ vi.mock('lucide-react', () => ({
     Search: () => <span data-testid="icon-search" />,
     LayoutGrid: () => <span data-testid="icon-layout-grid" />,
     Kanban: () => <span data-testid="icon-kanban" />,
-    Upload: () => <span data-testid="icon-upload" />
+    Upload: () => <span data-testid="icon-upload" />,
+    Menu: () => <span data-testid="icon-menu" />
 }))
 
 describe('PipelineHeader', () => {
