@@ -458,27 +458,54 @@ The system is a fully functional, enterprise-grade Applicant Tracking System wit
 * ✅ **Multi-company support** with complete data isolation.
 * ✅ **AI-powered Company Profiling** (16 fields).
 * ✅ **Comprehensive Job Description Generation** (11 fields).
-* ✅ **Enterprise Security & SSO**.
+* ✅ **Enterprise Security & SSO** (Microsoft).
 
-### Future Enhancements
+---
 
-1. **Comprehensive Frontend Testing:**
-    * Achieve >80% coverage for React components using Vitest and React Testing Library.
-    * Implement end-to-end (E2E) tests for critical user flows.
+### 🚀 v2.0 Roadmap - Intelligent Recruitment Platform
 
-2. **Semantic Search UI (The "AI Brain"):**
-    * Backend support is ready (ChromaDB + OpenAI Embeddings).
-    * Next: Build the frontend search interface for natural language queries (e.g., "Find me a React expert").
+> **Full Details:** See [ROADMAP_V2.md](docs/wiki/ROADMAP_V2.md) | **Backlog:** See [BACKLOG_V2.md](docs/wiki/BACKLOG_V2.md)
 
-3. **Advanced Analytics & Reporting:**
-    * Time-to-hire metrics and source effectiveness tracking.
-    * Custom report builder with export to Excel/PDF.
+#### Phase 1: Foundation (Weeks 1-4)
 
-4. **Calendar Integration:**
-    * Two-way sync with Google/Outlook calendars for automated scheduling.
+| Feature | Description | Priority |
+|---------|-------------|----------|
+| **Google Sign-In** | OAuth 2.0 authentication with Google accounts | 🔴 High |
+| **Audit Infrastructure** | Comprehensive action logging for admin dashboard | 🔴 High |
 
-5. **Email Automation:**
-    * Template-based candidate communication and status updates.
+#### Phase 2: Calendar & Automation (Weeks 5-8)
+
+| Feature | Description | Priority |
+|---------|-------------|----------|
+| **Google Calendar Integration** | Two-way sync with Google Calendar | 🔴 High |
+| **Microsoft Calendar Integration** | Two-way sync with Outlook/365 | 🔴 High |
+| **Auto Interview Invitations** | Automatic calendar invites to interviewer (mandatory), hiring manager, recruiter, and admin (optional) | 🔴 High |
+
+#### Phase 3: Interview Experience (Weeks 9-12)
+
+| Feature | Description | Priority |
+|---------|-------------|----------|
+| **Interview Redesign** | Complete visual timeline with enhanced feedback and scorecard system | 🔴 High |
+| **Pipeline-Interview Merge** | Unified Kanban view where interview stages ARE pipeline columns | 🔴 High |
+| **Structured Scorecards** | Competency-based ratings, pros/cons, recommendations | 🟡 Medium |
+
+#### Phase 4: Intelligence (Weeks 13-16)
+
+| Feature | Description | Priority |
+|---------|-------------|----------|
+| **GraphRAG Candidate Map** | Knowledge graph mapping candidates, skills, projects, and roles | 🟡 Medium |
+| **Skills Matrix** | Visual comparison of candidate skills vs. job requirements | 🟡 Medium |
+| **Visual Knowledge Graph** | Interactive D3.js visualization for exploring candidate networks | 🟡 Medium |
+| **Semantic Search** | Natural language queries (e.g., "Find React experts with AWS experience") | 🟡 Medium |
+| **Role-Skill Mapping** | Define skill requirements for Project Manager, Product Manager, etc. | 🟡 Medium |
+
+#### Phase 5: Admin & Analytics (Weeks 17-20)
+
+| Feature | Description | Priority |
+|---------|-------------|----------|
+| **Advanced Admin Dashboard** | Real-time activity feed, platform metrics, company breakdown | 🟡 Medium |
+| **Complete Audit Logs** | Searchable, exportable logs of every action across all companies | 🟡 Medium |
+| **Advanced Analytics** | Time-to-hire, source tracking, custom report builder | 🟢 Low |
 
 ---
 
