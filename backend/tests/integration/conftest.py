@@ -137,3 +137,34 @@ def recruiter_integration_client(integration_client, test_recruiter_user):
     token = create_access_token({"sub": test_recruiter_user.email})
     integration_client.headers = {"Authorization": f"Bearer {token}"}
     return integration_client
+
+@pytest.fixture(scope="function")
+def test_job(db_session, test_company):
+    """Create a test job."""
+    from app.models.models import Job
+    job = Job(
+        title="Integration Test Job",
+        company_id=test_company.id,
+        description="Job for integration testing",
+        location="Remote",
+        employment_type="Full-time",
+        is_active=True
+    )
+    db_session.add(job)
+    db_session.commit()
+    db_session.refresh(job)
+    return job
+
+@pytest.fixture(scope="function")
+def test_cv(db_session, test_company):
+    """Create a test CV."""
+    from app.models.models import CV
+    cv = CV(
+        filename="test_cv.pdf",
+        filepath="/tmp/test_cv.pdf",
+        company_id=test_company.id
+    )
+    db_session.add(cv)
+    db_session.commit()
+    db_session.refresh(cv)
+    return cv

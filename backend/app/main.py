@@ -2,26 +2,33 @@ from contextlib import asynccontextmanager
 import logging
 from fastapi import FastAPI, Depends
 from app.core.database import engine, get_db
-from app.api.v1 import cv, profiles, jobs, applications, auth, company, sso, interviews, companies, logs, sync, stats, users, analytics
+from app.api.v1 import cv, profiles, jobs, applications, auth, company, sso, interviews, companies, logs, sync, stats, users, analytics, departments, activity
 from app.api.endpoints import search
 from app.models import models
 from sqlalchemy.orm import Session
 
 # ... (logging config)
-logging.basicConfig(level=logging.INFO)
+from app.core.logging import setup_logging
+from sqlalchemy import text
+
+setup_logging()
 logger = logging.getLogger(__name__)
+
+from app.core.cache import init_cache
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     logger.info("Starting up Headhunter API...")
     # Ensure database tables are created
     models.Base.metadata.create_all(bind=engine)
+    # Initialize Redis Cache
+    await init_cache()
     yield
 
 app = FastAPI(
     title="Headhunter API",
     description="AI-Powered Recruitment Platform",
-    version="1.8.0-RC2",
+    version="1.8.1",
     lifespan=lifespan
 )
 
@@ -40,6 +47,8 @@ app.include_router(sync.router)
 app.include_router(users.router)
 app.include_router(stats.router) # Register stats router
 app.include_router(analytics.router) # Register analytics router
+app.include_router(departments.router)
+app.include_router(activity.router)
 app.include_router(search.router, prefix="/search", tags=["Search"])
 
 @app.get("/api/debug/db_check")
@@ -97,3 +106,19 @@ def root():
 def get_version():
     """Returns the current backend version."""
     return {"version": app.version}
+
+@app.get("/health")
+async def health_check():
+    """Health check endpoint for load balancers"""
+    return {"status": "healthy", "service": "headhunter-backend"}
+
+@app.get("/metrics")
+async def metrics(db: Session = Depends(get_db)):
+    """Basic metrics for monitoring"""
+    pool_status = db.get_bind().pool.status()
+    
+    return {
+        "db_pool_status": pool_status,
+        "total_jobs": db.execute(text("SELECT COUNT(*) FROM jobs")).scalar(),
+        "total_cvs": db.execute(text("SELECT COUNT(*) FROM cvs")).scalar(),
+    }

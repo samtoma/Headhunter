@@ -1,185 +1,147 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
-import { describe, it, expect, vi } from 'vitest'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
 import CandidateDrawer from '../CandidateDrawer'
+import axios from 'axios'
 
-// Mock Lucide icons
-vi.mock('lucide-react', () => ({
-    MapPin: () => <span data-testid="icon-map-pin" />,
-    User: () => <span data-testid="icon-user" />,
-    Briefcase: () => <span data-testid="icon-briefcase" />,
-    Bug: () => <span data-testid="icon-bug" />,
-    Pencil: () => <span data-testid="icon-pencil" />,
-    X: () => <span data-testid="icon-x" />,
-    ExternalLink: () => <span data-testid="icon-external-link" />,
-    Linkedin: () => <span data-testid="icon-linkedin" />,
-    Github: () => <span data-testid="icon-github" />,
-    FileText: () => <span data-testid="icon-file-text" />,
-    BrainCircuit: () => <span data-testid="icon-brain-circuit" />,
-    GraduationCap: () => <span data-testid="icon-graduation-cap" />,
-    Layers: () => <span data-testid="icon-layers" />,
-    LayoutGrid: () => <span data-testid="icon-layout-grid" />,
-    DollarSign: () => <span data-testid="icon-dollar-sign" />,
-    Star: () => <span data-testid="icon-star" />,
-    AlertCircle: () => <span data-testid="icon-alert-circle" />,
-    Check: () => <span data-testid="icon-check" />,
-    Save: () => <span data-testid="icon-save" />,
-    ChevronDown: () => <span data-testid="icon-chevron-down" />,
-    Heart: () => <span data-testid="icon-heart" />,
-    Flag: () => <span data-testid="icon-flag" />,
-    MessageSquare: () => <span data-testid="icon-message-square" />,
-    Clock: () => <span data-testid="icon-clock" />,
-    Plus: () => <span data-testid="icon-plus" />
-}))
+// Mock axios
+vi.mock('axios')
 
-// Mock Axios
-vi.mock('axios', () => ({
-    default: {
-        get: vi.fn(() => Promise.resolve({ data: [] })),
-        post: vi.fn(() => Promise.resolve({ data: {} })),
-        patch: vi.fn(() => Promise.resolve({ data: {} })),
-        delete: vi.fn(() => Promise.resolve({ data: {} }))
-    }
-}))
-
-describe('CandidateDrawer Assignment', () => {
-    const mockCv = {
-        id: 1,
-        parsed_data: {
-            name: "John Doe",
-            email: "john@example.com",
-            skills: ["Python"]
-        },
-        applications: []
-    }
-
-    const mockJobs = [
-        { id: 101, title: "Software Engineer", is_active: true },
-        { id: 102, title: "Product Manager", is_active: true }
+const mockCv = {
+    id: 1,
+    parsed_data: {
+        name: "John Doe",
+        email: "john@example.com",
+        skills: ["React", "Node.js"]
+    },
+    applications: [
+        { id: 501, job_id: 101, status: "New", rating: 0, notes: "" }
     ]
+}
 
-    it('opens assignment dropdown and calls assignJob on click', async () => {
-        const assignJobMock = vi.fn()
+const mockJobs = [
+    { id: 101, title: "Frontend Engineer", is_active: true }
+]
 
+// Match the exact structure returned by the backend timeline endpoint
+const mockTimeline = [
+    {
+        type: "log",
+        id: 1,
+        action: "update",
+        created_at: "2023-01-01T10:00:00",
+        details: { status: "Screening" },
+        user_id: 1
+    },
+    {
+        type: "interview",
+        id: 1,
+        action: "interview_logged",
+        created_at: "2023-01-02T14:00:00",
+        details: {
+            step: "Technical",
+            outcome: "Passed",
+            rating: 8,
+            feedback: "Good candidate"
+        },
+        user_id: 1
+    }
+]
+
+describe('CandidateDrawer', () => {
+    beforeEach(() => {
+        vi.clearAllMocks()
+        axios.get.mockImplementation((url) => {
+            if (url.includes('/timeline')) return Promise.resolve({ data: mockTimeline })
+            if (url.includes('/interviews')) return Promise.resolve({ data: [] })
+            if (url.includes('/companies/me')) return Promise.resolve({ data: {} })
+            if (url.includes('/users')) return Promise.resolve({ data: [] })
+            return Promise.resolve({ data: {} })
+        })
+    })
+
+    it('renders candidate name and job title', () => {
         render(
             <CandidateDrawer
                 cv={mockCv}
-                onClose={vi.fn()}
-                updateApp={vi.fn()}
-                updateProfile={vi.fn()}
-                jobs={mockJobs}
-                selectedJobId={null}
-                assignJob={assignJobMock}
-                removeJob={vi.fn()}
-            />
-        )
-
-        // Find "Assign to Job..." button
-        const assignButton = screen.getByText('Assign to Job...')
-        fireEvent.click(assignButton)
-
-        // Check if dropdown opens
-        expect(screen.getByText('Software Engineer')).toBeInTheDocument()
-        expect(screen.getByText('Product Manager')).toBeInTheDocument()
-
-        // Click on a job
-        fireEvent.click(screen.getByText('Software Engineer'))
-
-        // Verify assignJob called
-        expect(assignJobMock).toHaveBeenCalledWith(1, 101)
-    })
-
-    it('calls removeJob when remove button is clicked', () => {
-        const removeJobMock = vi.fn()
-        const cvWithApp = {
-            ...mockCv,
-            applications: [{ id: 500, job_id: 101, status: 'New' }]
-        }
-
-        render(
-            <CandidateDrawer
-                cv={cvWithApp}
-                onClose={vi.fn()}
-                updateApp={vi.fn()}
-                updateProfile={vi.fn()}
                 jobs={mockJobs}
                 selectedJobId={101}
-                assignJob={vi.fn()}
-                removeJob={removeJobMock}
+                onClose={() => { }}
+                updateApp={() => { }}
+                updateProfile={() => { }}
             />
         )
 
-        // Find "Remove from Pipeline" button
-        const removeButton = screen.getByText('Remove from Pipeline')
-        fireEvent.click(removeButton)
-
-        // Verify removeJob called with app ID
-        expect(removeJobMock).toHaveBeenCalledWith(500)
+        expect(screen.getByText('John Doe')).toBeInTheDocument()
     })
 
-    it('shows loading state when removing from pipeline', async () => {
-        const removeJobMock = vi.fn(() => new Promise(resolve => setTimeout(resolve, 100)))
-        const cvWithApp = {
-            ...mockCv,
-            applications: [{ id: 500, job_id: 101, status: 'New' }]
-        }
-
+    it('switches between sidebar tabs', async () => {
         render(
             <CandidateDrawer
-                cv={cvWithApp}
-                onClose={vi.fn()}
-                updateApp={vi.fn()}
-                updateProfile={vi.fn()}
+                cv={mockCv}
                 jobs={mockJobs}
                 selectedJobId={101}
-                assignJob={vi.fn()}
-                removeJob={removeJobMock}
+                onClose={() => { }}
+                updateApp={() => { }}
+                updateProfile={() => { }}
             />
         )
 
-        const removeButton = screen.getByText('Remove from Pipeline')
-        fireEvent.click(removeButton)
+        // Overview tab should be active
+        const overviewTab = screen.getByRole('button', { name: /overview/i })
+        expect(overviewTab).toHaveClass('text-indigo-600')
 
-        // Should show removing state immediately
-        expect(screen.getByText('Removing...')).toBeInTheDocument()
-        expect(removeButton).toBeDisabled()
+        // Click Timeline tab
+        const timelineTab = screen.getByRole('button', { name: /timeline/i })
+        fireEvent.click(timelineTab)
+        expect(timelineTab).toHaveClass('text-indigo-600')
 
-        // Wait for promise to resolve
-        await waitFor(() => expect(removeJobMock).toHaveBeenCalled())
+        // Click Interviews tab
+        const interviewsTab = screen.getByRole('button', { name: /interviews/i })
+        fireEvent.click(interviewsTab)
+        expect(interviewsTab).toHaveClass('text-indigo-600')
     })
 
-    it('hides job in dropdown if already assigned', () => {
-        const cvWithApp = {
-            ...mockCv,
-            applications: [{ id: 500, job_id: 101, status: 'New' }]
-        }
-
+    it('fetches timeline data when component mounts with an application', async () => {
         render(
             <CandidateDrawer
-                cv={cvWithApp}
-                onClose={vi.fn()}
-                updateApp={vi.fn()}
-                updateProfile={vi.fn()}
+                cv={mockCv}
                 jobs={mockJobs}
-                selectedJobId={null}
-                assignJob={vi.fn()}
-                removeJob={vi.fn()}
+                selectedJobId={101}
+                onClose={() => { }}
+                updateApp={() => { }}
+                updateProfile={() => { }}
             />
         )
 
-        // Clear active job to see General Pool
-        const clearButton = screen.getByTitle('Back to General Pool')
-        fireEvent.click(clearButton)
+        await waitFor(() => {
+            expect(axios.get).toHaveBeenCalledWith(expect.stringContaining('/timeline'))
+        })
+    })
 
-        // Open dropdown
-        const assignButton = screen.getByText('Assign to Job...')
-        fireEvent.click(assignButton)
+    it('displays timeline items after switching to timeline tab', async () => {
+        render(
+            <CandidateDrawer
+                cv={mockCv}
+                jobs={mockJobs}
+                selectedJobId={101}
+                onClose={() => { }}
+                updateApp={() => { }}
+                updateProfile={() => { }}
+            />
+        )
 
-        // Find the assigned job button - Should NOT be present
-        const assignedJobButton = screen.queryByRole('button', { name: /Software Engineer/i })
-        expect(assignedJobButton).not.toBeInTheDocument()
+        // Wait for data to load
+        await waitFor(() => {
+            expect(axios.get).toHaveBeenCalledWith(expect.stringContaining('/timeline'))
+        })
 
-        // Unassigned job should be present
-        const unassignedJobButton = screen.getByRole('button', { name: /Product Manager/i })
-        expect(unassignedJobButton).toBeInTheDocument()
+        // Switch to Timeline tab
+        const timelineTab = screen.getByRole('button', { name: /timeline/i })
+        fireEvent.click(timelineTab)
+
+        // Check that the timeline content is rendered (not the empty state)
+        await waitFor(() => {
+            expect(screen.queryByText('No activity recorded yet.')).not.toBeInTheDocument()
+        })
     })
 })

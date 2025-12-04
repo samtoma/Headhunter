@@ -2,13 +2,15 @@ import { useState, useMemo, useEffect, useCallback } from 'react'
 import {
     MapPin, User, Briefcase, Bug, Pencil, X, ExternalLink, Linkedin, Github,
     FileText, BrainCircuit, GraduationCap, Layers, LayoutGrid, DollarSign, Star,
-    AlertCircle, Check, Save, ChevronDown, Heart, Flag, MessageSquare, Clock, Plus
+    AlertCircle, Check, Save, ChevronDown, Heart, Flag, MessageSquare, Clock, Plus,
+    History, Mail, Calendar
 } from 'lucide-react'
 import axios from 'axios'
 import { safeList, getStatusColor } from '../../utils/helpers'
 
 const CandidateDrawer = ({ cv, onClose, updateApp, updateProfile, jobs, selectedJobId, assignJob, removeJob }) => {
     const [view, setView] = useState("parsed")
+    const [sidebarTab, setSidebarTab] = useState("overview") // overview, timeline, interviews
     const [isEditing, setIsEditing] = useState(false)
     const d = useMemo(() => cv?.parsed_data || {}, [cv])
 
@@ -49,6 +51,7 @@ const CandidateDrawer = ({ cv, onClose, updateApp, updateProfile, jobs, selected
     const [newInterview, setNewInterview] = useState({ step: "", outcome: "Pending", feedback: "", rating: 5, interviewer_id: "", custom_data: {} })
     const [showAddInterview, setShowAddInterview] = useState(false)
     const [interviews, setInterviews] = useState([])
+    const [timeline, setTimeline] = useState([])
     const [companyStages, setCompanyStages] = useState([])
 
     const fetchInterviews = useCallback(async () => {
@@ -63,9 +66,21 @@ const CandidateDrawer = ({ cv, onClose, updateApp, updateProfile, jobs, selected
         }
     }, [app])
 
+    const fetchTimeline = useCallback(async () => {
+        if (!app || !app.id) return
+        try {
+            const res = await axios.get(`/api/activity/application/${app.id}/timeline`)
+            setTimeline(res.data)
+        } catch (err) {
+            console.error("Failed to fetch timeline", err)
+            setTimeline([])
+        }
+    }, [app])
+
     useEffect(() => {
         if (app && app.id) {
             fetchInterviews()
+            fetchTimeline()
             setStatus(app.status)
             setRating(app.rating || 0)
             setNotes(app.notes || "")
@@ -73,11 +88,12 @@ const CandidateDrawer = ({ cv, onClose, updateApp, updateProfile, jobs, selected
             setExp(app.expected_salary || d.expected_salary || "")
         } else {
             setInterviews([])
+            setTimeline([])
             setStatus("New")
             setRating(0)
             setNotes("")
         }
-    }, [app, fetchInterviews, d])
+    }, [app, fetchInterviews, fetchTimeline, d])
 
     useEffect(() => {
         fetchCompanySettings()
@@ -139,6 +155,7 @@ const CandidateDrawer = ({ cv, onClose, updateApp, updateProfile, jobs, selected
             setNewInterview({ step: companyStages[0]?.name || "Screening", outcome: "Pending", feedback: "", rating: 5, interviewer_id: "", custom_data: {} })
             setShowAddInterview(false)
             fetchInterviews()
+            fetchTimeline() // Refresh timeline too
         } catch (err) {
             console.error("Failed to add interview", err)
         }
@@ -201,6 +218,7 @@ const CandidateDrawer = ({ cv, onClose, updateApp, updateProfile, jobs, selected
 
         if (app) {
             await updateApp(app.id, { notes, rating: parseInt(rating), status })
+            fetchTimeline() // Refresh timeline after update
         }
         setSaved(true)
         setTimeout(() => setSaved(false), 2000)
@@ -373,293 +391,364 @@ const CandidateDrawer = ({ cv, onClose, updateApp, updateProfile, jobs, selected
 
 
 
-                    <div className="w-[22rem] bg-white border-l border-slate-200 flex flex-col shadow-[rgba(0,0,0,0.05)_0px_0px_20px]">
-                        <div className="flex-1 overflow-y-auto p-6">
-                            {/* Action Panel */}
-                            <div className={`p-4 rounded-xl mb-6 ${selectedJobId ? 'bg-indigo-50 border border-indigo-100' : 'bg-slate-50 border border-slate-100'}`}>
-                                <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">Active Pipeline</div>
-                                <div className="font-bold text-slate-900 flex items-center gap-2">
-                                    {activeJobId ? <><Layers size={16} className="text-indigo-600" /> {(jobs || []).find(j => j.id === activeJobId)?.title}</> : <><LayoutGrid size={16} /> General Pool</>}
-                                    {activeJobId && !selectedJobId && (
-                                        <button onClick={() => setActiveJobId(null)} className="ml-auto p-1 text-slate-400 hover:text-slate-600 hover:bg-slate-200 rounded transition" title="Back to General Pool">
-                                            <X size={14} />
-                                        </button>
-                                    )}
-                                </div>
-                                {activeJobId && (
-                                    <div className="mt-3 pt-3 border-t border-indigo-200/50">
-                                        <label className="text-[10px] font-bold uppercase text-indigo-400">Current Stage</label>
-                                        <select value={status} onChange={e => setStatus(e.target.value)} className="w-full mt-1 bg-white border border-indigo-200 text-indigo-900 text-sm rounded-lg p-2 font-medium focus:ring-2 focus:ring-indigo-500 outline-none">
-                                            {["New", "Screening", "Interview", "Offer", "Hired", "Silver Medalist", "Rejected"].map(s => <option key={s} value={s}>{s}</option>)}
-                                        </select>
-                                    </div>
-                                )}
-                            </div>
+                    <div className="w-[26rem] bg-white border-l border-slate-200 flex flex-col shadow-[rgba(0,0,0,0.05)_0px_0px_20px]">
 
-                            {!selectedJobId && Array.isArray(cv.applications) && cv.applications.length > 0 && (
-                                <div className="mb-6">
-                                    <h4 className="text-xs font-bold text-slate-900 uppercase mb-3 flex items-center gap-2"><Layers size={14} /> Track Status</h4>
-                                    <div className="space-y-2">
-                                        {cv.applications.map(app => {
-                                            const job = (jobs || []).find(j => j.id === app.job_id)
-                                            return (
-                                                <div key={app.id} onClick={() => setActiveJobId(app.job_id)} className={`bg-white border p-3 rounded-lg shadow-sm cursor-pointer transition ${activeJobId === app.job_id ? 'border-indigo-500 ring-1 ring-indigo-500' : 'border-slate-200 hover:border-indigo-300'}`}>
-                                                    <div className="text-xs text-slate-500 font-medium mb-1">{job?.title}</div>
-                                                    <div className={`text-xs font-bold px-2 py-1 rounded inline-block border ${getStatusColor(app.status)}`}>{app.status}</div>
-                                                </div>
-                                            )
-                                        })}
-                                    </div>
-                                </div>
-                            )}
+                        {/* Sidebar Header / Tabs */}
+                        <div className="flex border-b border-slate-100">
+                            <button
+                                onClick={() => setSidebarTab("overview")}
+                                className={`flex-1 py-3 text-xs font-bold uppercase tracking-wider transition ${sidebarTab === "overview" ? "text-indigo-600 border-b-2 border-indigo-600" : "text-slate-400 hover:text-slate-600"}`}
+                            >
+                                Overview
+                            </button>
+                            <button
+                                onClick={() => setSidebarTab("timeline")}
+                                className={`flex-1 py-3 text-xs font-bold uppercase tracking-wider transition ${sidebarTab === "timeline" ? "text-indigo-600 border-b-2 border-indigo-600" : "text-slate-400 hover:text-slate-600"}`}
+                            >
+                                Timeline
+                            </button>
+                            <button
+                                onClick={() => setSidebarTab("interviews")}
+                                className={`flex-1 py-3 text-xs font-bold uppercase tracking-wider transition ${sidebarTab === "interviews" ? "text-indigo-600 border-b-2 border-indigo-600" : "text-slate-400 hover:text-slate-600"}`}
+                            >
+                                Interviews
+                            </button>
+                        </div>
 
-                            <div className="space-y-6 flex-1">
-                                <div>
-                                    <h4 className="text-xs font-bold text-slate-900 uppercase mb-3 flex items-center gap-2"><DollarSign size={14} /> Compensation</h4>
-                                    <div className="grid gap-3">
-                                        <div className="relative">
-                                            <span className="absolute left-3 top-2.5 text-slate-400 text-xs font-bold">Curr</span>
-                                            <input value={curr} onChange={e => setCurr(e.target.value)} className="w-full pl-12 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm font-mono focus:border-indigo-500 outline-none" placeholder="-" />
+                        <div className="flex-1 overflow-y-auto p-6 bg-slate-50/50">
+
+                            {/* OVERVIEW TAB */}
+                            {sidebarTab === "overview" && (
+                                <div className="space-y-6">
+                                    {/* Active Pipeline */}
+                                    <div className={`p-4 rounded-xl ${selectedJobId ? 'bg-indigo-50 border border-indigo-100' : 'bg-white border border-slate-200'}`}>
+                                        <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">Active Pipeline</div>
+                                        <div className="font-bold text-slate-900 flex items-center gap-2">
+                                            {activeJobId ? <><Layers size={16} className="text-indigo-600" /> {(jobs || []).find(j => j.id === activeJobId)?.title}</> : <><LayoutGrid size={16} /> General Pool</>}
+                                            {activeJobId && !selectedJobId && (
+                                                <button onClick={() => setActiveJobId(null)} className="ml-auto p-1 text-slate-400 hover:text-slate-600 hover:bg-slate-200 rounded transition" title="Back to General Pool">
+                                                    <X size={14} />
+                                                </button>
+                                            )}
                                         </div>
-                                        <div className="relative">
-                                            <span className="absolute left-3 top-2.5 text-emerald-600 text-xs font-bold">Exp</span>
-                                            <input value={exp} onChange={e => setExp(e.target.value)} className="w-full pl-12 pr-3 py-2 bg-emerald-50 border border-emerald-200 text-emerald-900 rounded-lg text-sm font-mono focus:border-emerald-500 outline-none font-bold" placeholder="-" />
-                                        </div>
-                                    </div>
-                                </div>
-
-                            </div>
-
-                            {/* Show Rating/Notes/Interviews if we have an active application context */}
-                            {activeJobId ? (
-                                <>
-                                    <div>
-                                        <h4 className="text-xs font-bold text-slate-900 uppercase mb-3 flex items-center gap-2"><Star size={14} /> Rating</h4>
-                                        <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-lg p-2">
-                                            <input type="range" min="0" max="10" value={rating || 0} onChange={e => setRating(e.target.value)} className="flex-1 accent-indigo-600 h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer" />
-                                            <span className="font-bold text-indigo-600 w-8 text-center bg-white py-0.5 rounded border border-slate-200 text-xs">{rating || "-"}</span>
-                                        </div>
-                                    </div>
-
-                                    <div className="flex-1 flex flex-col">
-                                        <h4 className="text-xs font-bold text-slate-900 uppercase mb-3 flex items-center gap-2"><FileText size={14} /> Notes</h4>
-                                        <textarea value={notes} onChange={e => setNotes(e.target.value)} className="flex-1 w-full p-3 bg-yellow-50/50 border border-yellow-200/60 rounded-xl text-sm text-slate-700 resize-none focus:bg-yellow-50 focus:border-yellow-300 outline-none transition" placeholder="Interviewer feedback..."></textarea>
-                                    </div>
-                                    <div className="mt-6 pt-6 border-t border-slate-100">
-                                        <div className="flex justify-between items-center mb-3">
-                                            <h4 className="text-xs font-bold text-slate-900 uppercase flex items-center gap-2"><MessageSquare size={14} /> Interview History</h4>
-                                            <button onClick={() => setShowAddInterview(!showAddInterview)} className="p-1 hover:bg-slate-100 rounded text-indigo-600 transition"><Plus size={16} /></button>
-                                        </div>
-
-                                        {showAddInterview && (
-                                            <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 mb-6 animate-in fade-in slide-in-from-top-2 shadow-sm">
-                                                <h5 className="text-xs font-bold text-slate-900 uppercase mb-3">Log Interview</h5>
-                                                <div className="grid grid-cols-2 gap-3 mb-3">
-                                                    <div>
-                                                        <label className="text-[10px] font-bold text-slate-500 uppercase mb-1 block">Stage</label>
-                                                        <select className="w-full text-xs p-2 rounded-lg border border-slate-200 bg-white focus:border-indigo-500 outline-none" value={newInterview.step} onChange={e => setNewInterview({ ...newInterview, step: e.target.value, custom_data: {} })}>
-                                                            {companyStages.map(s => <option key={s.name} value={s.name}>{s.name}</option>)}
-                                                        </select>
-                                                    </div>
-                                                    <div>
-                                                        <label className="text-[10px] font-bold text-slate-500 uppercase mb-1 block">Outcome</label>
-                                                        <select className="w-full text-xs p-2 rounded-lg border border-slate-200 bg-white focus:border-indigo-500 outline-none" value={newInterview.outcome || "Pending"} onChange={e => setNewInterview({ ...newInterview, outcome: e.target.value })}>
-                                                            {["Pending", "Passed", "Failed", "Rescheduled", "Cancelled"].map(s => <option key={s} value={s}>{s}</option>)}
-                                                        </select>
-                                                    </div>
-                                                </div>
-                                                <div className="mb-3">
-                                                    <label className="text-[10px] font-bold text-slate-500 uppercase mb-1 block">Assign Interviewer</label>
-                                                    <select className="w-full text-xs p-2 rounded-lg border border-slate-200 bg-white focus:border-indigo-500 outline-none" value={newInterview.interviewer_id} onChange={e => setNewInterview({ ...newInterview, interviewer_id: e.target.value })}>
-                                                        <option value="">Me (Current User)</option>
-                                                        {users.map(u => <option key={u.id} value={u.id}>{u.email} ({u.role})</option>)}
-                                                    </select>
-                                                </div>
-
-                                                {/* Dynamic Fields */}
-                                                {(() => {
-                                                    const currentStage = companyStages.find(s => s.name === newInterview.step)
-                                                    if (!currentStage || !currentStage.fields || currentStage.fields.length === 0) return null
-                                                    return (
-                                                        <div className="mb-3 grid grid-cols-2 gap-3 bg-slate-100 p-3 rounded-lg border border-slate-200">
-                                                            {currentStage.fields.map((field, idx) => (
-                                                                <div key={idx} className={field.type === 'text' ? 'col-span-2' : ''}>
-                                                                    <label className="text-[10px] font-bold text-slate-500 uppercase mb-1 block">{field.name}</label>
-                                                                    {field.type === 'text' && (
-                                                                        <input
-                                                                            className="w-full text-xs p-2 rounded border border-slate-200"
-                                                                            value={newInterview.custom_data[field.name] || ""}
-                                                                            onChange={e => setNewInterview({ ...newInterview, custom_data: { ...newInterview.custom_data, [field.name]: e.target.value } })}
-                                                                        />
-                                                                    )}
-                                                                    {field.type === 'number' && (
-                                                                        <input
-                                                                            type="number"
-                                                                            className="w-full text-xs p-2 rounded border border-slate-200"
-                                                                            value={newInterview.custom_data[field.name] || ""}
-                                                                            onChange={e => setNewInterview({ ...newInterview, custom_data: { ...newInterview.custom_data, [field.name]: e.target.value } })}
-                                                                        />
-                                                                    )}
-                                                                    {field.type === 'rating' && (
-                                                                        <select
-                                                                            className="w-full text-xs p-2 rounded border border-slate-200"
-                                                                            value={newInterview.custom_data[field.name] || ""}
-                                                                            onChange={e => setNewInterview({ ...newInterview, custom_data: { ...newInterview.custom_data, [field.name]: e.target.value } })}
-                                                                        >
-                                                                            <option value="">-</option>
-                                                                            {[1, 2, 3, 4, 5].map(n => <option key={n} value={n}>{n}</option>)}
-                                                                        </select>
-                                                                    )}
-                                                                    {field.type === 'boolean' && (
-                                                                        <select
-                                                                            className="w-full text-xs p-2 rounded border border-slate-200"
-                                                                            value={newInterview.custom_data[field.name] || ""}
-                                                                            onChange={e => setNewInterview({ ...newInterview, custom_data: { ...newInterview.custom_data, [field.name]: e.target.value } })}
-                                                                        >
-                                                                            <option value="">-</option>
-                                                                            <option value="Yes">Yes</option>
-                                                                            <option value="No">No</option>
-                                                                        </select>
-                                                                    )}
-                                                                </div>
-                                                            ))}
-                                                        </div>
-                                                    )
-                                                })()}
-                                                <div className="mb-3">
-                                                    <label className="text-[10px] font-bold text-slate-500 uppercase mb-1 block">Rating (1-10)</label>
-                                                    <div className="flex items-center gap-3">
-                                                        <input type="range" min="1" max="10" className="flex-1 accent-indigo-600 h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer" value={newInterview.rating} onChange={e => setNewInterview({ ...newInterview, rating: e.target.value })} />
-                                                        <span className="font-bold text-indigo-600 w-8 text-center bg-white py-1 rounded border border-slate-200 text-xs">{newInterview.rating}</span>
-                                                    </div>
-                                                </div>
-                                                <div className="mb-3">
-                                                    <label className="text-[10px] font-bold text-slate-500 uppercase mb-1 block">Feedback / Notes</label>
-                                                    <textarea className="w-full p-3 text-xs border border-slate-200 rounded-lg h-20 resize-none focus:border-indigo-500 outline-none" placeholder="Detailed feedback..." value={newInterview.feedback} onChange={e => setNewInterview({ ...newInterview, feedback: e.target.value })}></textarea>
-                                                </div>
-                                                <div className="flex justify-end gap-2">
-                                                    <button onClick={() => setShowAddInterview(false)} className="px-3 py-1.5 text-slate-500 hover:text-slate-700 text-xs font-bold">Cancel</button>
-                                                    <button onClick={addInterview} className="px-4 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-bold transition shadow-sm">Save Log</button>
-                                                </div>
+                                        {activeJobId && (
+                                            <div className="mt-3 pt-3 border-t border-indigo-200/50">
+                                                <label className="text-[10px] font-bold uppercase text-indigo-400">Current Stage</label>
+                                                <select value={status} onChange={e => setStatus(e.target.value)} className="w-full mt-1 bg-white border border-indigo-200 text-indigo-900 text-sm rounded-lg p-2 font-medium focus:ring-2 focus:ring-indigo-500 outline-none">
+                                                    {["New", "Screening", "Interview", "Offer", "Hired", "Silver Medalist", "Rejected"].map(s => <option key={s} value={s}>{s}</option>)}
+                                                </select>
                                             </div>
                                         )}
+                                    </div>
 
-                                        <div className="relative border-l-2 border-slate-200 ml-3 space-y-8 pb-2">
-                                            {interviews.map((int) => (
-                                                <div key={int.id} className="relative pl-8">
-                                                    <div className={`absolute -left-[9px] top-0 w-4 h-4 rounded-full border-4 ${int.outcome === 'Failed' ? 'bg-white border-red-500' : int.outcome === 'Passed' ? 'bg-white border-emerald-500' : 'bg-white border-indigo-500'}`}></div>
-                                                    <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm relative group">
-                                                        <div className="flex justify-between items-start mb-2">
-                                                            <div>
-                                                                <div className="flex items-center gap-2">
-                                                                    <span className="text-sm font-bold text-slate-900">{int.step}</span>
-                                                                    {int.outcome && (
-                                                                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${int.outcome === 'Passed' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
-                                                                            int.outcome === 'Failed' ? 'bg-red-50 text-red-700 border-red-200' :
-                                                                                'bg-slate-100 text-slate-600 border-slate-200'
-                                                                            }`}>{int.outcome}</span>
-                                                                    )}
-                                                                </div>
-                                                                <span className="text-[10px] text-slate-400 flex items-center gap-1 mt-1"><Clock size={10} /> {new Date(int.created_at).toLocaleString()}</span>
-                                                            </div>
-                                                            <div className="px-2 py-1 bg-indigo-50 text-indigo-700 rounded-lg text-xs font-bold border border-indigo-100 flex items-center gap-1">
-                                                                <Star size={10} className="fill-indigo-700" /> {int.rating}/10
-                                                            </div>
-                                                        </div>
-                                                    </div>
-
-                                                    {int.custom_data && (
-                                                        <div className="mb-3 grid grid-cols-2 gap-2 bg-slate-50 p-2 rounded border border-slate-100">
-                                                            {Object.entries(JSON.parse(int.custom_data)).map(([key, val]) => (
-                                                                <div key={key} className="text-xs">
-                                                                    <span className="font-bold text-slate-500">{key}:</span> <span className="text-slate-700">{val}</span>
-                                                                </div>
-                                                            ))}
-                                                        </div>
-                                                    )}
-
-                                                    <p className="text-xs text-slate-600 leading-relaxed whitespace-pre-wrap">{int.feedback}</p>
-
-                                                    {int.interviewer_name && (
-                                                        <div className="mt-3 pt-3 border-t border-slate-100 flex items-center gap-2">
-                                                            <div className="w-5 h-5 rounded-full bg-indigo-100 flex items-center justify-center text-[10px] font-bold text-indigo-700">
-                                                                {int.interviewer_name.charAt(0).toUpperCase()}
-                                                            </div>
-                                                            <span className="text-[10px] text-slate-500 font-medium">{int.interviewer_name}</span>
-                                                        </div>
-                                                    )}
-                                                </div>
-
-                                            ))}
-                                            {interviews.length === 0 && !showAddInterview && <div className="pl-8 text-slate-400 italic text-sm py-2">No interviews logged yet. Start the process!</div>}
+                                    {/* Compensation */}
+                                    <div>
+                                        <h4 className="text-xs font-bold text-slate-900 uppercase mb-3 flex items-center gap-2"><DollarSign size={14} /> Compensation</h4>
+                                        <div className="grid gap-3">
+                                            <div className="relative">
+                                                <span className="absolute left-3 top-2.5 text-slate-400 text-xs font-bold">Curr</span>
+                                                <input value={curr} onChange={e => setCurr(e.target.value)} className="w-full pl-12 pr-3 py-2 bg-white border border-slate-200 rounded-lg text-sm font-mono focus:border-indigo-500 outline-none" placeholder="-" />
+                                            </div>
+                                            <div className="relative">
+                                                <span className="absolute left-3 top-2.5 text-emerald-600 text-xs font-bold">Exp</span>
+                                                <input value={exp} onChange={e => setExp(e.target.value)} className="w-full pl-12 pr-3 py-2 bg-emerald-50 border border-emerald-200 text-emerald-900 rounded-lg text-sm font-mono focus:border-emerald-500 outline-none font-bold" placeholder="-" />
+                                            </div>
                                         </div>
                                     </div>
-                                </>
-                            ) : (
-                                <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 text-center">
-                                    <AlertCircle className="mx-auto text-slate-300 mb-2" size={24} />
-                                    <p className="text-xs text-slate-500 font-medium">Assign to a Pipeline to add ratings & notes.</p>
-                                </div>
-                            )}
-                        </div>
 
-                    </div>
-                </div>
+                                    {/* Rating & Notes */}
+                                    {activeJobId && (
+                                        <>
+                                            <div>
+                                                <h4 className="text-xs font-bold text-slate-900 uppercase mb-3 flex items-center gap-2"><Star size={14} /> Rating</h4>
+                                                <div className="flex items-center gap-2 bg-white border border-slate-200 rounded-lg p-2">
+                                                    <input type="range" min="0" max="10" value={rating || 0} onChange={e => setRating(e.target.value)} className="flex-1 accent-indigo-600 h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer" />
+                                                    <span className="font-bold text-indigo-600 w-8 text-center bg-slate-50 py-0.5 rounded border border-slate-200 text-xs">{rating || "-"}</span>
+                                                </div>
+                                            </div>
 
-                <div className="p-6 border-t border-slate-100 bg-white z-10 space-y-3">
-                    <button onClick={save} className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-bold text-sm flex items-center justify-center gap-2 shadow-sm transition active:scale-[0.98]">
-                        {saved ? <Check size={18} /> : <Save size={18} />} {saved ? "Saved!" : "Save Changes"}
-                    </button>
-
-                    {/* Allow assigning if not already assigned to THIS job (or if in general pool) */}
-                    {!activeJobId && (
-                        <div className="relative">
-                            <button onClick={() => setAssignOpen(!assignOpen)} className="w-full flex items-center justify-between px-3 py-2 bg-white border border-indigo-200 text-indigo-600 hover:bg-indigo-50 rounded-lg font-bold text-sm transition">
-                                <span>Assign to Job...</span>
-                                <ChevronDown size={14} className={`transition-transform ${assignOpen ? 'rotate-180' : ''}`} />
-                            </button>
-
-                            {assignOpen && (
-                                <div className="absolute bottom-full left-0 right-0 mb-2 bg-white border border-slate-200 shadow-xl rounded-xl p-2 z-50 animate-in fade-in slide-in-from-bottom-2 max-h-60 overflow-y-auto">
-                                    {(jobs || [])
-                                        .filter(j => j.is_active)
-                                        .filter(j => !(Array.isArray(cv.applications) && cv.applications.some(a => a.job_id === j.id)))
-                                        .map(j => (
-                                            <button
-                                                key={j.id}
-                                                onClick={async (e) => {
-                                                    e.stopPropagation();
-                                                    try {
-                                                        await assignJob(cv.id, j.id);
-                                                    } catch (err) {
-                                                        console.error("Assignment failed", err);
-                                                        alert("Failed to assign job");
-                                                    }
-                                                    setAssignOpen(false);
-                                                }}
-                                                className="w-full text-left px-3 py-2 text-xs font-bold hover:bg-slate-50 rounded-lg text-slate-700 truncate"
-                                            >
-                                                {j.title}
-                                            </button>
-                                        ))
-                                    }
-                                    {(jobs || []).filter(j => j.is_active && !(Array.isArray(cv.applications) && cv.applications.some(a => a.job_id === j.id))).length === 0 && (
-                                        <div className="px-3 py-2 text-xs text-slate-400 italic text-center">No active jobs available</div>
+                                            <div className="flex-1 flex flex-col">
+                                                <h4 className="text-xs font-bold text-slate-900 uppercase mb-3 flex items-center gap-2"><FileText size={14} /> Quick Notes</h4>
+                                                <textarea value={notes} onChange={e => setNotes(e.target.value)} className="flex-1 w-full p-3 bg-yellow-50 border border-yellow-200 rounded-xl text-sm text-slate-700 resize-none focus:bg-white focus:border-yellow-400 outline-none transition h-32" placeholder="Add a note..."></textarea>
+                                            </div>
+                                        </>
                                     )}
                                 </div>
                             )}
-                        </div>
-                    )}
 
-                    {activeJobId && app && (
-                        <button
-                            onClick={handleRemove}
-                            disabled={isRemoving}
-                            className="w-full py-2 text-red-500 hover:bg-red-50 rounded-lg text-xs font-bold transition disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                            {isRemoving ? "Removing..." : "Remove from Pipeline"}
-                        </button>
-                    )}
+                            {/* TIMELINE TAB */}
+                            {sidebarTab === "timeline" && (
+                                <div className="space-y-4">
+                                    {timeline.length === 0 ? (
+                                        <div className="text-center py-8 text-slate-400 italic">No activity recorded yet.</div>
+                                    ) : (
+                                        <div className="relative border-l-2 border-slate-200 ml-3 space-y-6 pb-2">
+                                            {timeline.map((item, i) => (
+                                                <div key={i} className="relative pl-6">
+                                                    <div className={`absolute -left-[9px] top-0 w-4 h-4 rounded-full border-4 bg-white ${item.type === 'interview' ? 'border-purple-500' :
+                                                        item.action === 'status_change' ? 'border-indigo-500' :
+                                                            item.action === 'update' ? 'border-blue-400' :
+                                                                'border-slate-300'
+                                                        }`}></div>
+
+                                                    <div className="mb-1">
+                                                        <div className="text-xs text-slate-400 font-medium mb-0.5">{new Date(item.created_at).toLocaleString()}</div>
+
+                                                        {item.type === 'interview' && (
+                                                            <div className="bg-white p-3 rounded-lg border border-slate-200 shadow-sm">
+                                                                <div className="font-bold text-slate-900 flex items-center gap-2">
+                                                                    <Calendar size={14} className="text-purple-600" />
+                                                                    Interview Logged
+                                                                </div>
+                                                                <div className="text-xs text-slate-600 mt-1">
+                                                                    <span className="font-semibold">{item.details.step}</span> - {item.details.outcome}
+                                                                </div>
+                                                                {item.details.rating && (
+                                                                    <div className="mt-1 inline-block px-2 py-0.5 bg-purple-50 text-purple-700 rounded text-[10px] font-bold">
+                                                                        Rating: {item.details.rating}/10
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                        )}
+
+                                                        {item.type === 'log' && item.action === 'update' && (
+                                                            <div className="bg-white p-3 rounded-lg border border-slate-200 shadow-sm">
+                                                                <div className="font-bold text-slate-900 flex items-center gap-2">
+                                                                    <Pencil size={14} className="text-blue-500" />
+                                                                    Profile Updated
+                                                                </div>
+                                                                <div className="text-xs text-slate-500 mt-1 space-y-1">
+                                                                    {Object.entries(item.details).map(([k, v]) => (
+                                                                        <div key={k}><span className="font-semibold capitalize">{k}:</span> {v}</div>
+                                                                    ))}
+                                                                </div>
+                                                            </div>
+                                                        )}
+
+                                                        {item.type === 'log' && !['update', 'interview'].includes(item.action) && (
+                                                            <div className="text-sm text-slate-700">
+                                                                <span className="font-bold capitalize">{item.action.replace('_', ' ')}</span>
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+
+                            {/* INTERVIEWS TAB */}
+                            {sidebarTab === "interviews" && (
+                                <div>
+                                    <div className="flex justify-between items-center mb-4">
+                                        <h4 className="text-xs font-bold text-slate-900 uppercase flex items-center gap-2"><MessageSquare size={14} /> Interview History</h4>
+                                        <button onClick={() => setShowAddInterview(!showAddInterview)} className="p-1 hover:bg-slate-200 rounded text-indigo-600 transition"><Plus size={16} /></button>
+                                    </div>
+
+                                    {showAddInterview && (
+                                        <div className="bg-white p-4 rounded-xl border border-slate-200 mb-6 animate-in fade-in slide-in-from-top-2 shadow-sm">
+                                            <h5 className="text-xs font-bold text-slate-900 uppercase mb-3">Log Interview</h5>
+                                            <div className="grid grid-cols-2 gap-3 mb-3">
+                                                <div>
+                                                    <label className="text-[10px] font-bold text-slate-500 uppercase mb-1 block">Stage</label>
+                                                    <select className="w-full text-xs p-2 rounded-lg border border-slate-200 bg-slate-50 focus:border-indigo-500 outline-none" value={newInterview.step} onChange={e => setNewInterview({ ...newInterview, step: e.target.value, custom_data: {} })}>
+                                                        {companyStages.map(s => <option key={s.name} value={s.name}>{s.name}</option>)}
+                                                    </select>
+                                                </div>
+                                                <div>
+                                                    <label className="text-[10px] font-bold text-slate-500 uppercase mb-1 block">Outcome</label>
+                                                    <select className="w-full text-xs p-2 rounded-lg border border-slate-200 bg-slate-50 focus:border-indigo-500 outline-none" value={newInterview.outcome || "Pending"} onChange={e => setNewInterview({ ...newInterview, outcome: e.target.value })}>
+                                                        {["Pending", "Passed", "Failed", "Rescheduled", "Cancelled"].map(s => <option key={s} value={s}>{s}</option>)}
+                                                    </select>
+                                                </div>
+                                            </div>
+                                            <div className="mb-3">
+                                                <label className="text-[10px] font-bold text-slate-500 uppercase mb-1 block">Assign Interviewer</label>
+                                                <select className="w-full text-xs p-2 rounded-lg border border-slate-200 bg-slate-50 focus:border-indigo-500 outline-none" value={newInterview.interviewer_id} onChange={e => setNewInterview({ ...newInterview, interviewer_id: e.target.value })}>
+                                                    <option value="">Me (Current User)</option>
+                                                    {users.map(u => <option key={u.id} value={u.id}>{u.email} ({u.role})</option>)}
+                                                </select>
+                                            </div>
+
+                                            {/* Dynamic Fields */}
+                                            {(() => {
+                                                const currentStage = companyStages.find(s => s.name === newInterview.step)
+                                                if (!currentStage || !currentStage.fields || currentStage.fields.length === 0) return null
+                                                return (
+                                                    <div className="mb-3 grid grid-cols-2 gap-3 bg-slate-50 p-3 rounded-lg border border-slate-100">
+                                                        {currentStage.fields.map((field, idx) => (
+                                                            <div key={idx} className={field.type === 'text' ? 'col-span-2' : ''}>
+                                                                <label className="text-[10px] font-bold text-slate-500 uppercase mb-1 block">{field.name}</label>
+                                                                {field.type === 'text' && (
+                                                                    <input
+                                                                        className="w-full text-xs p-2 rounded border border-slate-200"
+                                                                        value={newInterview.custom_data[field.name] || ""}
+                                                                        onChange={e => setNewInterview({ ...newInterview, custom_data: { ...newInterview.custom_data, [field.name]: e.target.value } })}
+                                                                    />
+                                                                )}
+                                                                {field.type === 'number' && (
+                                                                    <input
+                                                                        type="number"
+                                                                        className="w-full text-xs p-2 rounded border border-slate-200"
+                                                                        value={newInterview.custom_data[field.name] || ""}
+                                                                        onChange={e => setNewInterview({ ...newInterview, custom_data: { ...newInterview.custom_data, [field.name]: e.target.value } })}
+                                                                    />
+                                                                )}
+                                                                {field.type === 'rating' && (
+                                                                    <select
+                                                                        className="w-full text-xs p-2 rounded border border-slate-200"
+                                                                        value={newInterview.custom_data[field.name] || ""}
+                                                                        onChange={e => setNewInterview({ ...newInterview, custom_data: { ...newInterview.custom_data, [field.name]: e.target.value } })}
+                                                                    >
+                                                                        <option value="">-</option>
+                                                                        {[1, 2, 3, 4, 5].map(n => <option key={n} value={n}>{n}</option>)}
+                                                                    </select>
+                                                                )}
+                                                                {field.type === 'boolean' && (
+                                                                    <select
+                                                                        className="w-full text-xs p-2 rounded border border-slate-200"
+                                                                        value={newInterview.custom_data[field.name] || ""}
+                                                                        onChange={e => setNewInterview({ ...newInterview, custom_data: { ...newInterview.custom_data, [field.name]: e.target.value } })}
+                                                                    >
+                                                                        <option value="">-</option>
+                                                                        <option value="Yes">Yes</option>
+                                                                        <option value="No">No</option>
+                                                                    </select>
+                                                                )}
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                )
+                                            })()}
+                                            <div className="mb-3">
+                                                <label className="text-[10px] font-bold text-slate-500 uppercase mb-1 block">Rating (1-10)</label>
+                                                <div className="flex items-center gap-3">
+                                                    <input type="range" min="1" max="10" className="flex-1 accent-indigo-600 h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer" value={newInterview.rating} onChange={e => setNewInterview({ ...newInterview, rating: e.target.value })} />
+                                                    <span className="font-bold text-indigo-600 w-8 text-center bg-white py-1 rounded border border-slate-200 text-xs">{newInterview.rating}</span>
+                                                </div>
+                                            </div>
+                                            <div className="mb-3">
+                                                <label className="text-[10px] font-bold text-slate-500 uppercase mb-1 block">Feedback / Notes</label>
+                                                <textarea className="w-full p-3 text-xs border border-slate-200 rounded-lg h-20 resize-none focus:border-indigo-500 outline-none" placeholder="Detailed feedback..." value={newInterview.feedback} onChange={e => setNewInterview({ ...newInterview, feedback: e.target.value })}></textarea>
+                                            </div>
+                                            <div className="flex justify-end gap-2">
+                                                <button onClick={() => setShowAddInterview(false)} className="px-3 py-1.5 text-slate-500 hover:text-slate-700 text-xs font-bold">Cancel</button>
+                                                <button onClick={addInterview} className="px-4 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-bold transition shadow-sm">Save Log</button>
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    <div className="relative border-l-2 border-slate-200 ml-3 space-y-8 pb-2">
+                                        {interviews.map((int) => (
+                                            <div key={int.id} className="relative pl-8">
+                                                <div className={`absolute -left-[9px] top-0 w-4 h-4 rounded-full border-4 ${int.outcome === 'Failed' ? 'bg-white border-red-500' : int.outcome === 'Passed' ? 'bg-white border-emerald-500' : 'bg-white border-indigo-500'}`}></div>
+                                                <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm relative group">
+                                                    <div className="flex justify-between items-start mb-2">
+                                                        <div>
+                                                            <div className="flex items-center gap-2">
+                                                                <span className="text-sm font-bold text-slate-900">{int.step}</span>
+                                                                {int.outcome && (
+                                                                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${int.outcome === 'Passed' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
+                                                                        int.outcome === 'Failed' ? 'bg-red-50 text-red-700 border-red-200' :
+                                                                            'bg-slate-100 text-slate-600 border-slate-200'
+                                                                        }`}>{int.outcome}</span>
+                                                                )}
+                                                            </div>
+                                                            <span className="text-[10px] text-slate-400 flex items-center gap-1 mt-1"><Clock size={10} /> {new Date(int.created_at).toLocaleString()}</span>
+                                                        </div>
+                                                        <div className="px-2 py-1 bg-indigo-50 text-indigo-700 rounded-lg text-xs font-bold border border-indigo-100 flex items-center gap-1">
+                                                            <Star size={10} className="fill-indigo-700" /> {int.rating}/10
+                                                        </div>
+                                                    </div>
+                                                </div>
+
+                                                {int.custom_data && (
+                                                    <div className="mb-3 grid grid-cols-2 gap-2 bg-slate-50 p-2 rounded border border-slate-100">
+                                                        {Object.entries(JSON.parse(int.custom_data)).map(([key, val]) => (
+                                                            <div key={key} className="text-xs">
+                                                                <span className="font-bold text-slate-500">{key}:</span> <span className="text-slate-700">{val}</span>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                )}
+
+                                                <p className="text-xs text-slate-600 leading-relaxed whitespace-pre-wrap">{int.feedback}</p>
+
+                                                {int.interviewer_name && (
+                                                    <div className="mt-3 pt-3 border-t border-slate-100 flex items-center gap-2">
+                                                        <div className="w-5 h-5 rounded-full bg-indigo-100 flex items-center justify-center text-[10px] font-bold text-indigo-700">
+                                                            {int.interviewer_name.charAt(0).toUpperCase()}
+                                                        </div>
+                                                        <span className="text-[10px] text-slate-500 font-medium">{int.interviewer_name}</span>
+                                                    </div>
+                                                )}
+                                            </div>
+
+                                        ))}
+                                        {interviews.length === 0 && !showAddInterview && <div className="pl-8 text-slate-400 italic text-sm py-2">No interviews logged yet. Start the process!</div>}
+                                    </div>
+                                </div>
+                            )}
+
+                        </div>
+
+                        <div className="p-6 border-t border-slate-100 bg-white z-10 space-y-3">
+                            <button onClick={save} className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-bold text-sm flex items-center justify-center gap-2 shadow-sm transition active:scale-[0.98]">
+                                {saved ? <Check size={18} /> : <Save size={18} />} {saved ? "Saved!" : "Save Changes"}
+                            </button>
+
+                            {/* Allow assigning if not already assigned to THIS job (or if in general pool) */}
+                            {!activeJobId && (
+                                <div className="relative">
+                                    <button onClick={() => setAssignOpen(!assignOpen)} className="w-full flex items-center justify-between px-3 py-2 bg-white border border-indigo-200 text-indigo-600 hover:bg-indigo-50 rounded-lg font-bold text-sm transition">
+                                        <span>Assign to Job...</span>
+                                        <ChevronDown size={14} className={`transition-transform ${assignOpen ? 'rotate-180' : ''}`} />
+                                    </button>
+
+                                    {assignOpen && (
+                                        <div className="absolute bottom-full left-0 right-0 mb-2 bg-white border border-slate-200 shadow-xl rounded-xl p-2 z-50 animate-in fade-in slide-in-from-bottom-2 max-h-60 overflow-y-auto">
+                                            {(jobs || [])
+                                                .filter(j => j.is_active)
+                                                .filter(j => !(Array.isArray(cv.applications) && cv.applications.some(a => a.job_id === j.id)))
+                                                .map(j => (
+                                                    <button
+                                                        key={j.id}
+                                                        onClick={async (e) => {
+                                                            e.stopPropagation();
+                                                            try {
+                                                                await assignJob(cv.id, j.id);
+                                                            } catch (err) {
+                                                                console.error("Assignment failed", err);
+                                                                alert("Failed to assign job");
+                                                            }
+                                                            setAssignOpen(false);
+                                                        }}
+                                                        className="w-full text-left px-3 py-2 text-xs font-bold hover:bg-slate-50 rounded-lg text-slate-700 truncate"
+                                                    >
+                                                        {j.title}
+                                                    </button>
+                                                ))
+                                            }
+                                            {(jobs || []).filter(j => j.is_active && !(Array.isArray(cv.applications) && cv.applications.some(a => a.job_id === j.id))).length === 0 && (
+                                                <div className="px-3 py-2 text-xs text-slate-400 italic text-center">No active jobs available</div>
+                                            )}
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+
+                            {activeJobId && app && (
+                                <button
+                                    onClick={handleRemove}
+                                    disabled={isRemoving}
+                                    className="w-full py-2 text-red-500 hover:bg-red-50 rounded-lg text-xs font-bold transition disabled:opacity-50 disabled:cursor-not-allowed"
+                                >
+                                    {isRemoving ? "Removing..." : "Remove from Pipeline"}
+                                </button>
+                            )}
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>

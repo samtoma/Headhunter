@@ -216,6 +216,9 @@ const Sidebar = ({ isMobileOpen, setIsMobileOpen }) => {
                             <button onClick={() => handleNavigation("/team")} className={`w-full flex items-center gap-2 p-2.5 text-sm transition rounded-lg ${currentPath === "/team" ? 'bg-indigo-50 text-indigo-700 ring-1 ring-indigo-200 font-medium' : 'text-slate-500 hover:text-slate-700 hover:bg-slate-50'}`}>
                                 <Users size={16} /> Team Management
                             </button>
+                            <button onClick={() => handleNavigation("/departments")} className={`w-full flex items-center gap-2 p-2.5 text-sm transition rounded-lg ${currentPath === "/departments" ? 'bg-indigo-50 text-indigo-700 ring-1 ring-indigo-200 font-medium' : 'text-slate-500 hover:text-slate-700 hover:bg-slate-50'}`}>
+                                <Building2 size={16} /> Departments
+                            </button>
                         </>
                     )}
                     <button onClick={logout} className="w-full flex items-center gap-2 p-2.5 text-sm text-red-500 hover:text-red-700 hover:bg-red-50 rounded-lg transition mt-1"><LogOut size={16} /> Sign Out</button>

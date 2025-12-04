@@ -73,11 +73,11 @@ services:
     networks:
       - e2e_net
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:30001/"]
+      test: ["CMD", "curl", "-f", "http://localhost:30001/api/health"]
       interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 10s
+      timeout: 10s
+      retries: 10
+      start_period: 30s
 
   # Celery Worker - Background task processing
   celery-e2e:

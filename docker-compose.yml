@@ -8,9 +8,20 @@ services:
       dockerfile: Dockerfile
     container_name: headhunter_backend
     restart: unless-stopped
-    privileged: true
-    devices:
-      - /dev/dri:/dev/dri
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:30001/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 2G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
     command: uvicorn app.main:app --host 0.0.0.0 --port 30001 --reload
     volumes:
       - ./backend:/app
@@ -42,6 +53,19 @@ services:
       - /app/node_modules
     ports:
       - "30004:5173"
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:5173"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+        reservations:
+          cpus: '0.25'
+          memory: 256M
     environment:
       - VITE_API_URL=http://backend:30001
     networks:

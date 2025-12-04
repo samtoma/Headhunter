@@ -99,8 +99,8 @@ const PipelineHeader = ({
 
                     {selectedJob && (
                         <div className="bg-slate-100 p-1 rounded-lg flex">
-                            <button onClick={() => setViewMode("list")} className={`p-1.5 rounded transition ${viewMode === "list" ? "bg-white shadow text-indigo-600" : "text-slate-400"}`}><LayoutGrid size={18} /></button>
-                            <button onClick={() => setViewMode("board")} className={`p-1.5 rounded transition ${viewMode === "board" ? "bg-white shadow text-indigo-600" : "text-slate-400"}`}><Kanban size={18} /></button>
+                            <button onClick={() => setViewMode("list")} aria-label="List View" className={`p-1.5 rounded transition ${viewMode === "list" ? "bg-white shadow text-indigo-600" : "text-slate-400"}`}><LayoutGrid size={18} /></button>
+                            <button onClick={() => setViewMode("board")} aria-label="Board View" className={`p-1.5 rounded transition ${viewMode === "board" ? "bg-white shadow text-indigo-600" : "text-slate-400"}`}><Kanban size={18} /></button>
                         </div>
                     )}
 

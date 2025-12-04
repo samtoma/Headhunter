@@ -261,6 +261,102 @@ Return ONLY valid JSON in this exact format:
     return {}
 
 
+async def generate_department_profile(
+    name: str,
+    company_context: Dict[str, str] = None,
+    fine_tuning: str = None
+) -> Dict[str, Any]:
+    """Generate comprehensive department profile with AI.
+    
+    Args:
+        name: Department name (e.g., "Engineering", "Sales")
+        company_context: Optional company info for context
+        fine_tuning: Optional additional instructions
+        
+    Returns:
+        Dictionary with generated profile including description, technologies, and job_templates
+    """
+    
+    context_str = ""
+    if company_context:
+        company_name = company_context.get("name", "Our Company")
+        company_desc = company_context.get("description", "")
+        industry = company_context.get("industry", "technology")
+        
+        context_str = f"""
+COMPANY CONTEXT:
+Company Name: {company_name}
+Description: {company_desc}
+Industry: {industry}
+
+Tailor the department profile to fit this company's industry and culture.
+"""
+    
+    fine_tuning_str = ""
+    if fine_tuning:
+        fine_tuning_str = f"\n\nADDITIONAL INSTRUCTIONS:\n{fine_tuning}"
+    
+    system_prompt = f"""You are an expert HR organizational consultant.
+{context_str}
+
+For the department named "{name}", generate a comprehensive department profile in JSON format.
+
+Generate the following fields:
+
+1. **description**: A 2-3 paragraph description of what this department does, its role in the organization, and its key focus areas (150-200 words).
+
+2. **technologies**: An array of 8-15 technologies, tools, and platforms commonly used in this department. Be specific and industry-relevant.
+
+3. **job_templates**: An array of 3-5 common job role templates for this department. Each template should have:
+   - **title_match**: A keyword that identifies this role type (e.g., "Backend", "Frontend", "Manager", "Senior")
+   - **description**: A 2-3 sentence role-specific context that AI can use when generating job descriptions
+   - **technologies**: Array of 3-6 role-specific technologies
+{fine_tuning_str}
+
+Return ONLY valid JSON in this exact format:
+{{
+    "description": "The Engineering department is responsible for...",
+    "technologies": ["Python", "React", "AWS", "Docker", "Kubernetes"],
+    "job_templates": [
+        {{
+            "title_match": "Backend",
+            "description": "Backend engineers focus on server-side logic, APIs, and database optimization...",
+            "technologies": ["Python", "FastAPI", "PostgreSQL"]
+        }},
+        {{
+            "title_match": "Frontend", 
+            "description": "Frontend engineers create intuitive user interfaces...",
+            "technologies": ["React", "TypeScript", "Tailwind"]
+        }}
+    ]
+}}
+"""
+
+    if OPENAI_API_KEY:
+        try:
+            kwargs = {
+                "model": OPENAI_MODEL,
+                "messages": [{"role": "system", "content": system_prompt}]
+            }
+            if not OPENAI_MODEL.startswith("o1"):
+                kwargs["temperature"] = 1.0
+                kwargs["response_format"] = {"type": "json_object"}
+            
+            logger.debug("Generating department profile for '%s' using %s", name, OPENAI_MODEL)
+            client = get_openai_client()
+            completion = await client.chat.completions.create(**kwargs)
+            result = json.loads(completion.choices[0].message.content)
+            
+            logger.info("Generated department profile for '%s' with %d technologies and %d templates",
+                       name, len(result.get("technologies", [])), len(result.get("job_templates", [])))
+            
+            return result
+        except Exception as e:
+            logger.error("OpenAI Error while generating department profile: %s", e)
+            return {}
+    return {}
+
+
 async def parse_cv_with_llm(text: str, filename: str) -> Dict[str, Any]:
     truncated_text = text[:25000]
     logger.debug(

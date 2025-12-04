@@ -253,7 +253,7 @@ Unit Tests (70%) - Business logic
 | Component | Coverage | Status |
 |-----------|----------|--------|
 | **Backend** | **76%** | ✅ Healthy (>70%) |
-| **Frontend** | **26.5%** | ⚠️ Needs Improvement |
+| **Frontend** | **33%** | ⚠️ Improving (Target: 80%) |
 
 *Backend coverage includes 100% coverage for Models, Schemas, and Auth.*
 ```
