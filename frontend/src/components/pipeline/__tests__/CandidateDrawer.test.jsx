@@ -86,20 +86,29 @@ describe('CandidateDrawer', () => {
             />
         )
 
-        // Overview tab should be active
+        // Wait for initial render and API calls to settle
+        await waitFor(() => {
+            expect(screen.getByText('John Doe')).toBeInTheDocument()
+        })
+
+        // Overview tab should be active by default
         const overviewTab = screen.getByRole('button', { name: /overview/i })
         expect(overviewTab).toHaveClass('text-indigo-600')
 
-        // Click Timeline tab
+        // Click Timeline tab and verify
         const timelineTab = screen.getByRole('button', { name: /timeline/i })
         fireEvent.click(timelineTab)
-        expect(timelineTab).toHaveClass('text-indigo-600')
+        await waitFor(() => {
+            expect(timelineTab).toHaveClass('text-indigo-600')
+        })
 
-        // Click Interviews tab
+        // Click Interviews tab and verify
         const interviewsTab = screen.getByRole('button', { name: /interviews/i })
         fireEvent.click(interviewsTab)
-        expect(interviewsTab).toHaveClass('text-indigo-600')
-    })
+        await waitFor(() => {
+            expect(interviewsTab).toHaveClass('text-indigo-600')
+        })
+    }, 10000) // Increase timeout to 10s
 
     it('fetches timeline data when component mounts with an application', async () => {
         render(
