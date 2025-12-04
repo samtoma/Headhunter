@@ -225,7 +225,7 @@ const Sidebar = ({ isMobileOpen, setIsMobileOpen }) => {
 
                     {/* Version & Attribution */}
                     <div className="mt-4 pt-4 border-t border-slate-100 text-center space-y-1">
-                        <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">v1.8.0-RC1</div>
+                        <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">v1.8.1</div>
                         <div className="text-[9px] text-slate-400">Powered by ChatGPT 5.1</div>
                     </div>
                 </div>
