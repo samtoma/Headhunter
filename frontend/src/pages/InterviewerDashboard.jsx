@@ -4,6 +4,7 @@ import { useHeadhunter } from '../context/HeadhunterContext';
 import { Calendar, CheckCircle, Clock, Briefcase, Star, ChevronRight, MessageSquare } from 'lucide-react';
 import axios from 'axios';
 import CandidateDrawer from '../components/pipeline/CandidateDrawer';
+import PageHeader from '../components/layout/PageHeader';
 
 const InterviewerDashboard = ({ onOpenMobileSidebar }) => {
     // const { user } = useAuth(); // Unused
@@ -44,31 +45,28 @@ const InterviewerDashboard = ({ onOpenMobileSidebar }) => {
 
     return (
         <div className="flex flex-col h-full bg-white">
-            {/* Header */}
-            <div className="h-16 border-b border-slate-200 flex items-center justify-between px-4 md:px-8 shrink-0">
-                <div className="flex items-center gap-4">
-                    <button onClick={onOpenMobileSidebar} className="md:hidden p-2 -ml-2 text-slate-500 hover:bg-slate-100 rounded-lg">
-                        <Calendar size={20} />
-                    </button>
-                    <h1 className="text-xl font-bold text-slate-900 flex items-center gap-2">
-                        <Calendar className="text-indigo-600" /> My Interviews
-                    </h1>
-                </div>
-                <div className="flex bg-slate-100 p-1 rounded-lg">
-                    <button
-                        onClick={() => setActiveTab('upcoming')}
-                        className={`px-4 py-1.5 text-xs font-bold rounded-md transition ${activeTab === 'upcoming' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
-                    >
-                        Upcoming ({upcomingInterviews.length})
-                    </button>
-                    <button
-                        onClick={() => setActiveTab('past')}
-                        className={`px-4 py-1.5 text-xs font-bold rounded-md transition ${activeTab === 'past' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
-                    >
-                        Past ({pastInterviews.length})
-                    </button>
-                </div>
-            </div>
+            <PageHeader
+                title="My Interviews"
+                subtitle="Manage your upcoming and past interviews"
+                icon={Calendar}
+                onOpenMobileSidebar={onOpenMobileSidebar}
+                actions={
+                    <div className="flex bg-slate-100 p-1 rounded-lg">
+                        <button
+                            onClick={() => setActiveTab('upcoming')}
+                            className={`px-4 py-1.5 text-xs font-bold rounded-md transition ${activeTab === 'upcoming' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                        >
+                            Upcoming ({upcomingInterviews.length})
+                        </button>
+                        <button
+                            onClick={() => setActiveTab('past')}
+                            className={`px-4 py-1.5 text-xs font-bold rounded-md transition ${activeTab === 'past' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                        >
+                            Past ({pastInterviews.length})
+                        </button>
+                    </div>
+                }
+            />
 
             {/* Content */}
             <div className="flex-1 overflow-y-auto p-4 md:p-8 bg-slate-50">

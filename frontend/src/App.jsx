@@ -4,10 +4,15 @@
 
 import React from 'react';
 import { BrowserRouter as Router } from 'react-router-dom';
+import {
+    LayoutDashboard, Users, Briefcase, Settings, LogOut,
+    Menu, X, Bell, Search, Calendar, Building2
+} from 'lucide-react';
 import { AuthProvider } from './context/AuthContext';
 import { HeadhunterProvider } from './context/HeadhunterContext';
 import { UploadProvider } from './context/UploadContext';
 import AppRoutes from './AppRoutes';
+import Departments from './pages/Departments';
 import UploadProgressWidget from './components/ui/UploadProgressWidget';
 import { useEffect } from 'react';
 import axios from 'axios';
@@ -26,10 +31,22 @@ function VersionCheck() {
                 console.log(`Version Check: Local=${localVersion}, Server=${serverVersion}`);
 
                 if (localVersion && localVersion !== serverVersion) {
-                    console.log(`Version mismatch! Reloading...`);
+                    console.log(`Version mismatch! Forcing hard reload...`);
+
+                    // Clear all caches
                     localStorage.clear();
+                    sessionStorage.clear();
+
+                    // Clear service worker caches if available
+                    if ('caches' in window) {
+                        caches.keys().then(names => {
+                            names.forEach(name => caches.delete(name));
+                        });
+                    }
+
+                    // Set new version and force hard reload
                     localStorage.setItem('app_version', serverVersion);
-                    window.location.reload();
+                    window.location.reload(true); // Force hard reload from server
                 } else if (!localVersion) {
                     localStorage.setItem('app_version', serverVersion);
                 }

@@ -3,11 +3,13 @@ from sqlalchemy.orm import Session, joinedload
 from typing import List, Optional, Any, Dict
 import json
 from app.core.database import get_db
-from app.models.models import Job, ParsedCV, User, CV, UserRole
+from app.models.models import Job, ParsedCV, User, CV, UserRole, Application, Department
 from app.api.deps import get_current_user
 from app.services.parser import generate_job_metadata
 from app.services.sync import touch_company_state
-from app.schemas.job import JobCreate, JobUpdate, JobOut, CandidateMatch
+from app.schemas.job import JobCreate, JobUpdate, JobOut, CandidateMatch, BulkAssignRequest
+from fastapi_cache.decorator import cache
+from fastapi_cache import FastAPICache
 
 router = APIRouter(prefix="/jobs", tags=["Jobs"])
 
@@ -28,6 +30,8 @@ async def analyze_job_request(
     location: Optional[str] = Body(None),
     employment_type: Optional[str] = Body(None),
     fine_tuning: Optional[str] = Body(None),
+    department_id: Optional[int] = Body(None),
+    department_name: Optional[str] = Body(None),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
@@ -44,6 +48,31 @@ async def analyze_job_request(
             "mission": company.mission,
             "values": company.values
         }
+        
+    # Fetch Department Context
+    dept = None
+    if department_id:
+        dept = db.query(Department).filter(Department.id == department_id, Department.company_id == current_user.company_id).first()
+    elif department_name:
+        dept = db.query(Department).filter(Department.name == department_name, Department.company_id == current_user.company_id).first()
+        
+    if dept:
+        context["department_name"] = dept.name
+        context["department_description"] = dept.description
+        context["department_technologies"] = dept.technologies
+        
+        # Check for job templates
+        if dept.job_templates:
+            try:
+                templates = json.loads(dept.job_templates)
+                # Simple keyword match for now
+                for t in templates:
+                    if t.get("title_match", "").lower() in title.lower():
+                        context["job_template_description"] = t.get("description")
+                        context["job_template_technologies"] = t.get("technologies")
+                        break
+            except Exception:
+                pass
     
     return await generate_job_metadata(
         title=title,
@@ -192,8 +221,47 @@ async def match_candidates_for_new_job(
     matches.sort(key=lambda x: x['score'], reverse=True)
     return matches[:10]
 
+@router.post("/bulk_assign")
+async def bulk_assign_candidates(
+    data: BulkAssignRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    if current_user.role not in [UserRole.ADMIN, UserRole.RECRUITER, UserRole.HIRING_MANAGER]:
+        raise HTTPException(403, "Not authorized to assign candidates")
+
+    # Verify Job exists and belongs to company
+    job = db.query(Job).filter(Job.id == data.job_id, Job.company_id == current_user.company_id).first()
+    if not job:
+        raise HTTPException(404, "Job not found")
+        
+    # Hiring Manager Check
+    if current_user.role == UserRole.HIRING_MANAGER:
+        if job.department != current_user.department:
+             raise HTTPException(403, "Not authorized to assign to jobs outside your department")
+
+    count = 0
+    for cv_id in data.cv_ids:
+        # Verify CV belongs to company
+        cv = db.query(CV).filter(CV.id == cv_id, CV.company_id == current_user.company_id).first()
+        if not cv:
+            continue
+            
+        # Check if already assigned
+        exists = db.query(Application).filter(Application.job_id == data.job_id, Application.cv_id == cv_id).first()
+        if not exists:
+            app = Application(job_id=data.job_id, cv_id=cv_id, status="New")
+            db.add(app)
+            count += 1
+            
+    if count > 0:
+        db.commit()
+        touch_company_state(db, current_user.company_id)
+        
+    return {"status": "assigned", "count": count}
+
 @router.post("/", response_model=JobOut)
-def create_job(job: JobCreate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+async def create_job(job: JobCreate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     if current_user.role not in [UserRole.ADMIN, UserRole.RECRUITER, UserRole.HIRING_MANAGER]:
         raise HTTPException(403, "Not authorized to create jobs")
         
@@ -216,10 +284,19 @@ def create_job(job: JobCreate, db: Session = Depends(get_db), current_user: User
     db.commit()
     db.refresh(new_job)
     touch_company_state(db, current_user.company_id)
+    
+    # Invalidate cache
+    await invalidate_job_cache(current_user.company_id)
+    
     return new_job
 
+async def invalidate_job_cache(company_id: int):
+    """Invalidate job list cache for a company"""
+    await FastAPICache.clear(namespace="headhunter-cache")
+
 @router.get("/", response_model=List[JobOut])
-def list_jobs(
+@cache(expire=60)
+async def list_jobs(
     status: Optional[str] = None,
     department: Optional[str] = None,
     db: Session = Depends(get_db), 
@@ -242,15 +319,20 @@ def list_jobs(
     jobs = query.options(joinedload(Job.applications)).all()
     results = []
     for j in jobs:
-        j_dict = j.__dict__.copy()
         # Count only active candidates (exclude Rejected/Withdrawn)
         active_apps = [app for app in j.applications if app.status not in ["Rejected", "Withdrawn"]]
+        
+        # Create a clean dict from the ORM object, excluding internal state
+        j_dict = {k: v for k, v in j.__dict__.items() if not k.startswith('_')}
         j_dict['candidate_count'] = len(active_apps)
-        results.append(j_dict)
+        
+        # Validate and create Pydantic model
+        results.append(JobOut.model_validate(j_dict))
+        
     return results
 
 @router.patch("/{job_id}", response_model=JobOut)
-def update_job(job_id: int, job_data: JobUpdate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+async def update_job(job_id: int, job_data: JobUpdate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     if current_user.role not in [UserRole.ADMIN, UserRole.RECRUITER, UserRole.HIRING_MANAGER]:
         raise HTTPException(403, "Not authorized to update jobs")
 
@@ -278,10 +360,14 @@ def update_job(job_id: int, job_data: JobUpdate, db: Session = Depends(get_db), 
     db.commit()
     db.refresh(job)
     touch_company_state(db, current_user.company_id)
+    
+    # Invalidate cache
+    await invalidate_job_cache(current_user.company_id)
+    
     return job
 
 @router.delete("/{job_id}")
-def delete_job(job_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+async def delete_job(job_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     if current_user.role not in [UserRole.ADMIN, UserRole.RECRUITER, UserRole.HIRING_MANAGER]:
         raise HTTPException(403, "Not authorized to delete jobs")
 
@@ -296,4 +382,8 @@ def delete_job(job_id: int, db: Session = Depends(get_db), current_user: User = 
     db.delete(job)
     db.commit()
     touch_company_state(db, current_user.company_id)
+    
+    # Invalidate cache
+    await invalidate_job_cache(current_user.company_id)
+    
     return {"status": "deleted"}

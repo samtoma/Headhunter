@@ -17,6 +17,8 @@ const DEPARTMENTS = [
     "Executive"
 ];
 
+import PageHeader from '../components/layout/PageHeader';
+
 const Team = ({ onOpenMobileSidebar }) => {
     const { user } = useAuth();
     const role = user?.role;
@@ -123,26 +125,20 @@ const Team = ({ onOpenMobileSidebar }) => {
 
     return (
         <div className="flex flex-col h-full bg-slate-50/50">
-            {/* Header */}
-            <div className="h-16 border-b border-slate-200 bg-white flex items-center justify-between px-4 md:px-8 shrink-0 sticky top-0 z-20">
-                <div className="flex items-center gap-4">
-                    <button onClick={onOpenMobileSidebar} className="md:hidden p-2 -ml-2 text-slate-500 hover:bg-slate-100 rounded-lg">
-                        <Users size={20} />
+            <PageHeader
+                title="Team Management"
+                subtitle="Manage users, roles, and access permissions"
+                icon={Users}
+                onOpenMobileSidebar={onOpenMobileSidebar}
+                actions={
+                    <button
+                        onClick={() => setShowCreateModal(true)}
+                        className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2 transition shadow-lg shadow-indigo-500/20"
+                    >
+                        <UserPlus size={18} /> <span className="hidden md:inline">Invite Member</span>
                     </button>
-                    <div>
-                        <h1 className="text-xl font-bold text-slate-900 flex items-center gap-2">
-                            Team Management
-                        </h1>
-                        <p className="text-xs text-slate-500 hidden md:block">Manage your organization&apos;s members and permissions</p>
-                    </div>
-                </div>
-                <button
-                    onClick={() => setShowCreateModal(true)}
-                    className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2 transition shadow-lg shadow-indigo-500/20"
-                >
-                    <UserPlus size={18} /> <span className="hidden md:inline">Invite Member</span>
-                </button>
-            </div>
+                }
+            />
 
             {/* Content */}
             <div className="flex-1 overflow-hidden p-4 md:p-8">

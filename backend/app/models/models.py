@@ -48,6 +48,7 @@ class Company(Base):
     
     users = relationship("User", back_populates="company")
     jobs = relationship("Job", back_populates="company")
+    departments_rel = relationship("Department", back_populates="company", cascade="all, delete-orphan")
 
 class User(Base):
     __tablename__ = "users"
@@ -68,26 +69,42 @@ class User(Base):
     company = relationship("Company", back_populates="users")
     login_count = Column(Integer, default=0)
 
+class Department(Base):
+    __tablename__ = "departments"
+    id = Column(Integer, primary_key=True, index=True)
+    company_id = Column(Integer, ForeignKey("companies.id"), nullable=False, index=True)
+    name = Column(String, nullable=False)
+    description = Column(Text, nullable=True)
+    technologies = Column(Text, nullable=True) # JSON list of shared technologies
+    job_templates = Column(Text, nullable=True) # JSON list of specific sections for job titles
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+    company = relationship("Company", back_populates="departments_rel")
+
 class ActivityLog(Base):
     __tablename__ = "activity_logs"
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
     company_id = Column(Integer, ForeignKey("companies.id"), nullable=True)
-    action = Column(String, nullable=False) # e.g. "login", "view_candidate"
+    application_id = Column(Integer, ForeignKey("applications.id"), nullable=True, index=True)
+    action = Column(String, nullable=False) # e.g. "login", "view_candidate", "status_change", "note_added"
     details = Column(Text, nullable=True) # JSON string
     created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    application = relationship("Application", back_populates="activity_logs")
 
 class Job(Base):
     __tablename__ = "jobs"
     id = Column(Integer, primary_key=True, index=True)
     title = Column(String, nullable=False)
-    department = Column(String, nullable=True)
+    department = Column(String, nullable=True, index=True)
     description = Column(Text, nullable=True)
     required_experience = Column(Integer, default=0)
     skills_required = Column(Text, nullable=True)
-    is_active = Column(Boolean, default=True)
+    is_active = Column(Boolean, default=True, index=True)
     status = Column(String, default="Open") # "Open", "Closed", "On Hold"
-    company_id = Column(Integer, ForeignKey("companies.id"), nullable=True)
+    company_id = Column(Integer, ForeignKey("companies.id"), nullable=True, index=True)
     
     # Enhanced job description fields
     location = Column(String, nullable=True)  # e.g. "Remote", "New York, NY"
@@ -113,8 +130,8 @@ class CV(Base):
     filename = Column(String, nullable=False)
     filepath = Column(String, nullable=False)
     uploaded_at = Column(DateTime(timezone=True), server_default=func.now())
-    is_parsed = Column(Boolean, default=False)
-    company_id = Column(Integer, ForeignKey("companies.id"), nullable=True)
+    is_parsed = Column(Boolean, default=False, index=True)
+    company_id = Column(Integer, ForeignKey("companies.id"), nullable=True, index=True)
     
     applications = relationship("Application", back_populates="cv", cascade="all, delete-orphan")
     parsed_data = relationship("ParsedCV", back_populates="cv", uselist=False, cascade="all, delete-orphan")
@@ -122,9 +139,9 @@ class CV(Base):
 class Application(Base):
     __tablename__ = "applications"
     id = Column(Integer, primary_key=True, index=True)
-    cv_id = Column(Integer, ForeignKey("cvs.id", ondelete="CASCADE"))
-    job_id = Column(Integer, ForeignKey("jobs.id", ondelete="CASCADE"))
-    status = Column(String, default="New")
+    cv_id = Column(Integer, ForeignKey("cvs.id", ondelete="CASCADE"), index=True)
+    job_id = Column(Integer, ForeignKey("jobs.id", ondelete="CASCADE"), index=True)
+    status = Column(String, default="New", index=True)
     rating = Column(Integer, nullable=True)
     notes = Column(Text, nullable=True)
     current_salary = Column(String, nullable=True)
@@ -134,12 +151,13 @@ class Application(Base):
     cv = relationship("CV", back_populates="applications")
     job = relationship("Job", back_populates="applications")
     interviews = relationship("Interview", back_populates="application", cascade="all, delete-orphan")
+    activity_logs = relationship("ActivityLog", back_populates="application", cascade="all, delete-orphan")
 
 class Interview(Base):
     __tablename__ = "interviews"
     id = Column(Integer, primary_key=True, index=True)
-    application_id = Column(Integer, ForeignKey("applications.id", ondelete="CASCADE"))
-    interviewer_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    application_id = Column(Integer, ForeignKey("applications.id", ondelete="CASCADE"), index=True)
+    interviewer_id = Column(Integer, ForeignKey("users.id"), nullable=True, index=True)
     step = Column(String, nullable=False) # e.g. "Screening", "Technical"
     outcome = Column(String, nullable=True) # e.g. "Passed", "Failed", "Pending"
     scheduled_at = Column(DateTime(timezone=True), nullable=True)

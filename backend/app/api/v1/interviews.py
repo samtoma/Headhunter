@@ -6,6 +6,7 @@ from datetime import datetime
 from app.core.database import get_db
 from app.models.models import Interview, Application, User
 from app.api.deps import get_current_user
+from app.api.v1.activity import log_application_activity
 
 router = APIRouter(prefix="/interviews", tags=["Interviews"])
 
@@ -114,6 +115,20 @@ def create_interview(
         assigned_user = db.query(User).filter(User.id == interviewer_id).first()
         new_interview.interviewer_name = assigned_user.email if assigned_user else "Unknown"
     
+    # Log Activity
+    log_application_activity(
+        db,
+        interview.application_id,
+        "interview_scheduled",
+        current_user.id,
+        app.job.company_id if app.job else None,
+        {
+            "step": interview.step,
+            "scheduled_at": str(interview.scheduled_at) if interview.scheduled_at else None,
+            "interviewer_id": interviewer_id
+        }
+    )
+
     return new_interview
 
 @router.get("/application/{application_id}", response_model=List[InterviewOut])
@@ -148,6 +163,22 @@ def update_interview(interview_id: int, data: InterviewUpdate, db: Session = Dep
         
     db.commit()
     db.refresh(interview)
+    
+    # Log Activity if outcome or rating changed
+    if data.outcome or data.rating or data.feedback:
+        log_application_activity(
+            db,
+            interview.application_id,
+            "interview_updated",
+            None, # We don't have current_user here easily without changing signature, but it's okay for now
+            None,
+            {
+                "step": interview.step,
+                "outcome": data.outcome,
+                "rating": data.rating
+            }
+        )
+        
     return interview
 
 @router.delete("/{interview_id}")

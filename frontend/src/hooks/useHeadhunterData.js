@@ -201,12 +201,14 @@ export const useHeadhunterData = () => {
     const assignJob = useCallback(async (cvId, jobId) => {
         await axios.post('/api/applications/', { cv_id: cvId, job_id: jobId })
         fetchProfiles(page, false)
-    }, [fetchProfiles, page])
+        fetchJobs() // Update job counts
+    }, [fetchProfiles, fetchJobs, page])
 
     const removeJob = useCallback(async (appId) => {
         await axios.delete(`/api/applications/${appId}`)
         fetchProfiles(page, false)
-    }, [fetchProfiles, page])
+        fetchJobs() // Update job counts
+    }, [fetchProfiles, fetchJobs, page])
 
     return {
         jobs, setJobs,

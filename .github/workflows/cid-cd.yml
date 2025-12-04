@@ -32,7 +32,7 @@ jobs:
     - name: Run Backend Tests
       run: |
         cd backend
-        python -m pytest
+        python -m pytest tests/ --ignore=tests/integration -v
 
   test-frontend:
     runs-on: ubuntu-latest

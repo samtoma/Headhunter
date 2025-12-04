@@ -4,6 +4,7 @@ from sqlalchemy.orm import Session
 from datetime import timedelta
 from app.core.database import get_db
 from app.models.models import User, Company, UserRole, ActivityLog
+from app.api.deps import get_current_user
 from app.core.security import verify_password, get_password_hash, create_access_token, ACCESS_TOKEN_EXPIRE_MINUTES
 from pydantic import BaseModel
 from typing import Optional
@@ -142,3 +143,14 @@ async def verify_email(token: str, db: Session = Depends(get_db)):
     db.commit()
     
     return {"message": "Email verified successfully"}
+
+@router.get("/me")
+def read_users_me(current_user: User = Depends(get_current_user)):
+    return {
+        "id": current_user.id,
+        "email": current_user.email,
+        "role": current_user.role,
+        "company_id": current_user.company_id,
+        "department": current_user.department,
+        "is_active": current_user.is_active
+    }

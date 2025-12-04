@@ -2,7 +2,9 @@ import { defineConfig } from "cypress";
 
 export default defineConfig({
     e2e: {
-        baseUrl: 'http://localhost:5173',
+        // Point to E2E test stack (docker-compose.e2e.yml)
+        baseUrl: process.env.CYPRESS_BASE_URL || 'http://localhost:30014',
+
         setupNodeEvents(on, config) {
             on('task', {
                 log(message) {
@@ -11,15 +13,31 @@ export default defineConfig({
                 },
             })
         },
+
         // Enable support file for custom commands
         supportFile: 'cypress/support/commands.js',
-        // Add retry configuration for flaky tests
+
+        // NO RETRIES - Tests should be reliable with real backend
         retries: {
-            runMode: 2,  // Retry failed tests up to 2 times in CI
+            runMode: 0,  // No retries in CI
             openMode: 0  // No retries in interactive mode
         },
-        // Increase default timeouts
-        defaultCommandTimeout: 8000,
-        pageLoadTimeout: 60000
+
+        // Increase timeouts for real API calls
+        defaultCommandTimeout: 10000,
+        requestTimeout: 10000,
+        responseTimeout: 10000,
+        pageLoadTimeout: 60000,
+
+        // Test isolation
+        testIsolation: true,
+
+        // Video and screenshot settings
+        video: true,
+        screenshotOnRunFailure: true,
+
+        env: {
+            apiUrl: process.env.CYPRESS_API_URL || 'http://localhost:30011'
+        }
     },
 });

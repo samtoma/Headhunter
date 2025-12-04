@@ -14,3 +14,12 @@ class ApplicationOut(BaseModel):
     expected_salary: Optional[str] = None
 
     model_config = ConfigDict(from_attributes=True)
+
+class ApplicationCreate(BaseModel):
+    cv_id: int
+    job_id: int
+
+class ApplicationUpdate(BaseModel):
+    status: Optional[str] = None
+    rating: Optional[int] = None
+    notes: Optional[str] = None

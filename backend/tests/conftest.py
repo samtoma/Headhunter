@@ -8,6 +8,8 @@ from app.main import app
 from app.core.database import get_db, Base
 from app.models.models import User, Company, UserRole
 from app.core.security import get_password_hash, create_access_token
+from fastapi_cache import FastAPICache
+from fastapi_cache.backends.inmemory import InMemoryBackend
 
 # In-memory SQLite for testing
 SQLALCHEMY_DATABASE_URL = "sqlite:///:memory:"
@@ -18,6 +20,11 @@ engine = create_engine(
     poolclass=StaticPool
 )
 TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+
+@pytest.fixture(autouse=True)
+def init_test_cache():
+    FastAPICache.init(InMemoryBackend(), prefix="test-cache")
+    yield
 
 @pytest.fixture(scope="function")
 def db():

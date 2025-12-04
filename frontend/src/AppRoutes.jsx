@@ -12,6 +12,7 @@ import Team from './pages/Team';
 import InterviewerDashboard from './pages/InterviewerDashboard';
 import Search from './pages/Search';
 import Analytics from './pages/Analytics';
+import Departments from './pages/Departments';
 import Sidebar from './components/layout/Sidebar';
 import ErrorBoundary from './components/ErrorBoundary';
 import React, { useState } from 'react';
@@ -124,6 +125,14 @@ const AppRoutes = () => {
                 <ProtectedRoute>
                     <AppLayout>
                         <Analytics />
+                    </AppLayout>
+                </ProtectedRoute>
+            } />
+
+            <Route path="/departments" element={
+                <ProtectedRoute>
+                    <AppLayout>
+                        <Departments />
                     </AppLayout>
                 </ProtectedRoute>
             } />

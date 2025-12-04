@@ -79,3 +79,7 @@ class CandidateMatch(BaseModel):
     score: int
     skills_matched: List[str]
     status: str
+    
+class BulkAssignRequest(BaseModel):
+    job_id: int
+    cv_ids: List[int]

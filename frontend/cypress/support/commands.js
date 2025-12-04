@@ -1,93 +1,185 @@
-// Custom command to mock ALL API endpoints comprehensively
-Cypress.Commands.add('mockAllAPIs', () => {
-    // Standard User Data
-    const mockUser = {
-        id: 1,
-        email: 'admin@test.com',
-        role: 'admin',
-        company_id: 1,
-        company_name: 'Test Corp'
-    };
+/**
+ * Cypress Custom Commands for E2E Testing
+ * 
+ * These commands interact with REAL API endpoints (not mocked).
+ * They help with authentication, data setup, and cleanup in E2E tests.
+ */
 
-    // --- Core Auth & User ---
-    cy.intercept('POST', '/api/auth/login', {
-        statusCode: 200,
+/**
+ * Login with real API call
+ * @param {string} email - User email
+ * @param {string} password - User password
+ */
+Cypress.Commands.add('loginViaAPI', (email, password) => {
+    cy.request({
+        method: 'POST',
+        url: `${Cypress.env('apiUrl')}/api/auth/login`,
+        form: true,
         body: {
-            access_token: 'mock-token-123',
-            role: 'admin',
-            company_name: 'Test Corp'
+            username: email,
+            password: password
         }
-    }).as('loginRequest');
+    }).then((response) => {
+        expect(response.status).to.eq(200);
+        const { access_token, role, company_name } = response.body;
 
-    cy.intercept('GET', '/api/users/me', {
-        statusCode: 200,
-        body: mockUser
-    }).as('getMe');
+        // Store in localStorage
+        window.localStorage.setItem('token', access_token);
+        window.localStorage.setItem('role', role);
+        window.localStorage.setItem('company_name', company_name);
 
-    cy.intercept('GET', '/api/users*', { statusCode: 200, body: [mockUser] }).as('getUsers');
-
-    // --- Dashboard Data ---
-    // Used by useHeadhunterData
-    cy.intercept('GET', '/api/profiles/stats/overview', {
-        statusCode: 200,
-        body: {
-            totalCandidates: 100,
-            activeJobs: 5,
-            hired: 10,
-            silver: 20
-        }
-    }).as('getStats');
-
-    // Used by DashboardView
-    cy.intercept('GET', '/api/stats/departments', {
-        statusCode: 200,
-        body: [
-            { department: 'Engineering', active_jobs: 2, on_hold_jobs: 0, total_candidates: 50, hired_candidates: 5 },
-            { department: 'Sales', active_jobs: 3, on_hold_jobs: 1, total_candidates: 30, hired_candidates: 2 }
-        ]
-    }).as('getDeptStats');
-
-    cy.intercept('GET', '/api/analytics/dashboard*', {
-        statusCode: 200,
-        body: {
-            pipeline: [{ name: 'New', value: 10 }, { name: 'Hired', value: 5 }],
-            activity: [{ date: '2023-01-01', applications: 5 }],
-            kpi: { total_hires: 5, active_jobs: 2, avg_time_to_hire: 10 }
-        }
-    }).as('getAnalytics');
-
-    // --- Resources ---
-    cy.intercept('GET', '/api/jobs*', { statusCode: 200, body: [] }).as('getJobs');
-    cy.intercept('POST', '/api/jobs*', { statusCode: 201, body: {} }).as('createJob');
-    cy.intercept('GET', '/api/applications*', { statusCode: 200, body: [] }).as('getApplications');
-
-    // Used by useHeadhunterData
-    cy.intercept('GET', '/api/profiles*', {
-        statusCode: 200,
-        body: { items: [], total: 0, pages: 0 }
-    }).as('getProfiles');
-
-    cy.intercept('GET', '/api/interviews*', { statusCode: 200, body: [] }).as('getInterviews');
-    cy.intercept('GET', '/api/companies*', { statusCode: 200, body: {} }).as('getCompanies');
-
-    // --- System ---
-    cy.intercept('GET', '/api/version*', { statusCode: 200, body: { version: '1.0.0' } }).as('getVersion');
-
-    // Catch-all to prevent 404s on unmocked GETs
-    cy.intercept('GET', '/api/**', { statusCode: 200, body: {} }).as('genericGet');
+        return response.body;
+    });
 });
 
-// Custom command to login programmatically (for session restoration tests)
-Cypress.Commands.add('loginProgrammatically', (role = 'admin') => {
-    const token = 'mock-token-' + role;
-    const companyName = 'Test Corp';
+/**
+ * Sign up a new user with real API call
+ * @param {object} userData - User data (email, password, full_name)
+ */
+Cypress.Commands.add('signupViaAPI', (userData) => {
+    cy.request({
+        method: 'POST',
+        url: `${Cypress.env('apiUrl')}/api/auth/signup`,
+        body: userData
+    }).then((response) => {
+        expect(response.status).to.eq(201);
+        return response.body;
+    });
+});
 
-    // Mock APIs first
-    cy.mockAllAPIs();
+/**
+ * Get current user via authenticated API call
+ */
+Cypress.Commands.add('getCurrentUser', () => {
+    const token = window.localStorage.getItem('token');
 
-    // Set localStorage via onBeforeLoad in cy.visit, NOT here.
-    // This command just prepares the data or could be used if we weren't using onBeforeLoad.
-    // For this strategy, we'll rely on onBeforeLoad in the test itself, 
-    // but we can provide a helper to get the mock data.
-    return { token, role, companyName };
+    cy.request({
+        method: 'GET',
+        url: `${Cypress.env('apiUrl')}/api/users/me`,
+        headers: {
+            'Authorization': `Bearer ${token}`
+        }
+    }).then((response) => {
+        expect(response.status).to.eq(200);
+        return response.body;
+    });
+});
+
+/**
+ * Seed test database with initial data
+ * This runs the backend seeding script
+ */
+Cypress.Commands.add('seedDatabase', () => {
+    cy.exec('docker compose -f docker-compose.e2e.yml exec backend-e2e python tests/seed_test_data.py', {
+        timeout: 30000
+    });
+});
+
+/**
+ * Clean up test database
+ * Truncates all tables except system tables
+ */
+Cypress.Commands.add('cleanDatabase', () => {
+    const token = window.localStorage.getItem('token');
+
+    cy.request({
+        method: 'POST',
+        url: `${Cypress.env('apiUrl')}/api/test/cleanup`,
+        headers: {
+            'Authorization': `Bearer ${token}`
+        },
+        failOnStatusCode: false
+    });
+});
+
+/**
+ * Create a job via API
+ * @param {object} jobData - Job data
+ */
+Cypress.Commands.add('createJobViaAPI', (jobData) => {
+    const token = window.localStorage.getItem('token');
+
+    cy.request({
+        method: 'POST',
+        url: `${Cypress.env('apiUrl')}/api/jobs`,
+        headers: {
+            'Authorization': `Bearer ${token}`
+        },
+        body: jobData
+    }).then((response) => {
+        expect(response.status).to.be.oneOf([200, 201]);
+        return response.body;
+    });
+});
+
+/**
+ * Upload CV file via API
+ * @param {string} filePath - Path to CV file
+ */
+Cypress.Commands.add('uploadCVViaAPI', (filePath) => {
+    const token = window.localStorage.getItem('token');
+
+    cy.fixture(filePath, 'binary').then((fileContent) => {
+        const blob = Cypress.Blob.binaryStringToBlob(fileContent, 'application/pdf');
+        const formData = new FormData();
+        formData.append('file', blob, 'test_resume.pdf');
+
+        cy.request({
+            method: 'POST',
+            url: `${Cypress.env('apiUrl')}/api/cvs/upload`,
+            headers: {
+                'Authorization': `Bearer ${token}`
+            },
+            body: formData
+        }).then((response) => {
+            expect(response.status).to.be.oneOf([200, 201, 202]);
+            return response.body;
+        });
+    });
+});
+
+/**
+ * Wait for background job to complete (Celery task)
+ * @param {string} taskId - Celery task ID
+ * @param {number} timeout - Max wait time in ms
+ */
+Cypress.Commands.add('waitForBackgroundJob', (taskId, timeout = 30000) => {
+    const token = window.localStorage.getItem('token');
+    const startTime = Date.now();
+
+    function checkStatus() {
+        if (Date.now() - startTime > timeout) {
+            throw new Error('Background job timed out');
+        }
+
+        cy.request({
+            method: 'GET',
+            url: `${Cypress.env('apiUrl')}/api/tasks/${taskId}`,
+            headers: {
+                'Authorization': `Bearer ${token}`
+            }
+        }).then((response) => {
+            if (response.body.status === 'completed') {
+                return response.body;
+            } else if (response.body.status === 'failed') {
+                throw new Error('Background job failed');
+            } else {
+                cy.wait(1000);
+                checkStatus();
+            }
+        });
+    }
+
+    checkStatus();
+});
+
+/**
+ * Login and set session programmatically before visiting page
+ * @param {string} email - User email  
+ * @param {string} password - User password
+ */
+Cypress.Commands.add('loginAndVisit', (email, password, path = '/') => {
+    cy.loginViaAPI(email, password).then(() => {
+        cy.visit(path);
+    });
 });

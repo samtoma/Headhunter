@@ -8,6 +8,7 @@ import PipelineHeader from '../components/pipeline/PipelineHeader';
 import CandidateCard from '../components/pipeline/CandidateCard';
 import BulkActionBar from '../components/pipeline/BulkActionBar';
 import CandidateDrawer from '../components/pipeline/CandidateDrawer';
+import PipelineBoard from '../components/pipeline/PipelineBoard';
 import UploadModal from '../components/modals/UploadModal';
 import BulkAssignModal from '../components/modals/BulkAssignModal';
 import CreateJobModal from '../components/modals/CreateJobModal';
@@ -324,23 +325,17 @@ const Pipeline = ({ onOpenMobileSidebar }) => {
                                 </AutoSizer>
                             </div>
                         ) : (
-                            <div className="flex gap-6 overflow-x-auto pb-4 h-full">
-                                {COLUMNS.map(col => (
-                                    <div key={col} onDragOver={e => e.preventDefault()} onDrop={e => onDrop(e, col)} className="min-w-[320px] bg-slate-100 rounded-xl flex flex-col h-full border border-slate-200/60">
-                                        <div className="p-3 border-b border-slate-200/50 bg-slate-50/50 rounded-t-xl flex justify-between font-bold text-xs text-slate-600 uppercase">
-                                            <span>{col}</span>
-                                            <span className="bg-white px-2 py-0.5 rounded">{filteredProfiles.filter(p => getStatus(p) === col).length}</span>
-                                        </div>
-                                        <div className="flex-1 overflow-y-auto p-3 space-y-2">
-                                            {filteredProfiles.filter(p => getStatus(p) === col).map(cv => (
-                                                <div key={cv.id} draggable onDragStart={e => onDragStart(e, cv.id)}>
-                                                    <CandidateCard cv={cv} onClick={() => setSelectedCv(cv)} onDelete={handleDeleteCV} onReprocess={handleReprocess} compact jobs={jobs} />
-                                                </div>
-                                            ))}
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
+                            <PipelineBoard
+                                columns={COLUMNS}
+                                profiles={filteredProfiles}
+                                getStatus={getStatus}
+                                onDrop={onDrop}
+                                onDragStart={onDragStart}
+                                onSelectCv={setSelectedCv}
+                                onDeleteCv={handleDeleteCV}
+                                onReprocessCv={handleReprocess}
+                                jobs={jobs}
+                            />
                         )
                     )
                 }

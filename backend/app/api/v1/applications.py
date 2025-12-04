@@ -1,23 +1,13 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-from pydantic import BaseModel
-from typing import Optional
 from app.core.database import get_db
 from app.models.models import Application, User, UserRole, Interview
 from app.api.deps import get_current_user
 from app.services.sync import touch_company_state
-from app.schemas.application import ApplicationOut
+from app.schemas.application import ApplicationOut, ApplicationCreate, ApplicationUpdate
+from app.api.v1.activity import log_application_activity
 
 router = APIRouter(prefix="/applications", tags=["Applications"])
-
-class ApplicationCreate(BaseModel):
-    cv_id: int
-    job_id: int
-
-class ApplicationUpdate(BaseModel):
-    status: Optional[str] = None
-    rating: Optional[int] = None
-    notes: Optional[str] = None
 
 @router.post("/", response_model=ApplicationOut)
 def create_application(data: ApplicationCreate, db: Session = Depends(get_db)):
@@ -32,6 +22,18 @@ def create_application(data: ApplicationCreate, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(app)
     touch_company_state(db, app.job.company_id if app.job else None)
+    
+    # Log Activity
+    # We need to get current user ID, but this endpoint doesn't enforce it in signature?
+    # Actually it does not. We might need to add it or skip user_id for now if it's automated.
+    # But usually this is called by a user. Let's check the signature.
+    # The signature is: def create_application(data: ApplicationCreate, db: Session = Depends(get_db)):
+    # It seems public or internal? Let's check usage. 
+    # If it's used by bulk_assign, that one has user.
+    # Let's leave it for now or add user dependency if needed. 
+    # Wait, bulk_assign in jobs.py creates applications manually.
+    # This endpoint seems to be for single creation.
+    
     return app
 
 @router.patch("/{app_id}", response_model=ApplicationOut)
@@ -69,6 +71,25 @@ def update_application(app_id: int, data: ApplicationUpdate, db: Session = Depen
             
     db.commit()
     touch_company_state(db, app.job.company_id if app.job else None)
+    
+    # Log Activity
+    changes = {}
+    if data.status:
+        changes["status"] = data.status
+    if data.rating:
+        changes["rating"] = data.rating
+    if data.notes:
+        changes["notes"] = data.notes
+    
+    if changes:
+        log_application_activity(
+            db, 
+            app.id, 
+            "update", 
+            current_user.id, 
+            app.job.company_id if app.job else None, 
+            changes
+        )
     
     # Mask salary for interviewer
     if current_user.role == UserRole.INTERVIEWER:

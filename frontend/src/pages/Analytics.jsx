@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area } from 'recharts';
 import { Download, TrendingUp, Users, Clock, Briefcase } from 'lucide-react';
 import axios from 'axios';
+import PageHeader from '../components/layout/PageHeader';
 
 const Analytics = ({ onOpenMobileSidebar }) => {
     const [data, setData] = useState(null);
@@ -51,34 +52,31 @@ const Analytics = ({ onOpenMobileSidebar }) => {
 
     return (
         <div className="flex flex-col h-full bg-slate-50/50">
-            {/* Header */}
-            <div className="h-16 border-b border-slate-200 bg-white flex items-center justify-between px-4 md:px-8 shrink-0 sticky top-0 z-20">
-                <div className="flex items-center gap-4">
-                    <button onClick={onOpenMobileSidebar} className="md:hidden p-2 -ml-2 text-slate-500 hover:bg-slate-100 rounded-lg">
-                        <TrendingUp size={20} />
-                    </button>
-                    <h1 className="text-xl font-bold text-slate-900 flex items-center gap-2">
-                        <TrendingUp className="text-indigo-600" size={20} /> Analytics
-                    </h1>
-                </div>
-                <div className="flex items-center gap-3">
-                    <select
-                        value={days}
-                        onChange={(e) => setDays(Number(e.target.value))}
-                        className="bg-slate-50 border border-slate-200 text-slate-600 text-sm rounded-lg focus:ring-indigo-500 focus:border-indigo-500 block p-2"
-                    >
-                        <option value={7}>Last 7 Days</option>
-                        <option value={30}>Last 30 Days</option>
-                        <option value={90}>Last 90 Days</option>
-                    </select>
-                    <button
-                        onClick={handleExport}
-                        className="bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 hover:text-indigo-600 px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2 transition shadow-sm"
-                    >
-                        <Download size={16} /> Export CSV
-                    </button>
-                </div>
-            </div>
+            <PageHeader
+                title="Analytics"
+                subtitle="View recruitment performance and pipeline metrics"
+                icon={TrendingUp}
+                onOpenMobileSidebar={onOpenMobileSidebar}
+                actions={
+                    <div className="flex items-center gap-3">
+                        <select
+                            value={days}
+                            onChange={(e) => setDays(Number(e.target.value))}
+                            className="bg-slate-50 border border-slate-200 text-slate-600 text-sm rounded-lg focus:ring-indigo-500 focus:border-indigo-500 block p-2"
+                        >
+                            <option value={7}>Last 7 Days</option>
+                            <option value={30}>Last 30 Days</option>
+                            <option value={90}>Last 90 Days</option>
+                        </select>
+                        <button
+                            onClick={handleExport}
+                            className="bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 hover:text-indigo-600 px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2 transition shadow-sm"
+                        >
+                            <Download size={16} /> Export CSV
+                        </button>
+                    </div>
+                }
+            />
 
             {/* Content */}
             <div className="flex-1 overflow-y-auto p-4 md:p-8">
