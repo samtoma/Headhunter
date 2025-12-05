@@ -17,11 +17,21 @@ docker volume rm headhunter_e2e_data 2>/dev/null || true
 echo "📦 Starting docker-compose.e2e.yml stack..."
 docker compose -f docker-compose.e2e.yml up -d
 
-# Step 2: Wait for services to be healthy
-echo "⏳ Waiting for services to be ready..."
-sleep 15
+# Step 2: Wait for database to be ready
+echo "⏳ Waiting for database to be ready..."
+for i in {1..30}; do
+    if docker compose -f docker-compose.e2e.yml exec -T db-e2e pg_isready -U testuser -d headhunter_e2e_db > /dev/null 2>&1; then
+        echo "✅ Database is ready"
+        break
+    fi
+    echo "   Waiting for database... ($i/30)"
+    sleep 1
+done
 
-# Check backend health
+# Step 3: Wait for backend to be healthy (this also runs create_all on startup)
+echo "⏳ Waiting for backend to be ready..."
+sleep 10
+
 echo "🏥 Checking backend health..."
 curl --retry 5 --retry-delay 3 --retry-connrefused http://localhost:30011/api/health || {
     echo "❌ Backend health check failed"
@@ -29,13 +39,13 @@ curl --retry 5 --retry-delay 3 --retry-connrefused http://localhost:30011/api/he
     exit 1
 }
 
-# Step 3: Reset database and run migrations
+# Step 4: Reset database schema (after create_all ran, before alembic)
 echo "🗄️  Resetting database schema..."
-# Use psql directly to drop and recreate schema - most reliable approach
 docker compose -f docker-compose.e2e.yml exec -T db-e2e \
     psql -U testuser -d headhunter_e2e_db -c \
     "DROP SCHEMA IF EXISTS public CASCADE; CREATE SCHEMA public; GRANT ALL ON SCHEMA public TO testuser;"
 
+# Step 5: Run database migrations (creates tables fresh via alembic)
 echo "🗄️  Running database migrations..."
 docker compose -f docker-compose.e2e.yml exec -T backend-e2e alembic upgrade head
 
