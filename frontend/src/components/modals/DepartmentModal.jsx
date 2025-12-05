@@ -119,7 +119,28 @@ const DepartmentModal = ({ isOpen, onClose, department, onSave }) => {
                 job_templates: JSON.stringify(formData.job_templates)
             }
 
-            if (department) {
+            // If creating new department, also add to company.departments (source of truth)
+            if (!department?.id) {
+                // First, add to company.departments
+                const companyRes = await axios.get('/api/company/profile')
+                let currentDepts = []
+                if (companyRes.data.departments) {
+                    try {
+                        currentDepts = JSON.parse(companyRes.data.departments)
+                    } catch {
+                        currentDepts = []
+                    }
+                }
+                if (!currentDepts.includes(formData.name.trim())) {
+                    currentDepts.push(formData.name.trim())
+                    await axios.put('/api/company/profile', {
+                        departments: JSON.stringify(currentDepts)
+                    })
+                }
+            }
+
+            // Save rich profile to departments table
+            if (department?.id) {
                 await axios.patch(`/api/departments/${department.id}`, payload)
             } else {
                 await axios.post('/api/departments/', payload)

@@ -4,19 +4,6 @@ import { useAuth } from '../context/AuthContext';
 import { Users, Shield, Search, Filter, Check, X, Trash2, UserPlus } from 'lucide-react';
 import axios from 'axios';
 
-const DEPARTMENTS = [
-    "Engineering",
-    "Product",
-    "Design",
-    "Marketing",
-    "Sales",
-    "HR",
-    "Finance",
-    "Operations",
-    "Legal",
-    "Executive"
-];
-
 import PageHeader from '../components/layout/PageHeader';
 
 const Team = ({ onOpenMobileSidebar }) => {
@@ -31,11 +18,29 @@ const Team = ({ onOpenMobileSidebar }) => {
     const [showCreateModal, setShowCreateModal] = useState(false);
     const [newUser, setNewUser] = useState({ email: "", password: "", role: "interviewer", department: "" });
     const [creating, setCreating] = useState(false);
+    // Departments fetched from company profile (single source of truth)
+    const [departments, setDepartments] = useState([]);
 
     useEffect(() => {
         fetchUsers();
         fetchStats();
+        fetchDepartments();
     }, []);
+
+    // Fetch departments from company profile (single source of truth)
+    const fetchDepartments = async () => {
+        try {
+            const res = await axios.get('/api/company/profile');
+            if (res.data.departments) {
+                const depts = JSON.parse(res.data.departments);
+                setDepartments(Array.isArray(depts) ? depts : []);
+            }
+        } catch (err) {
+            console.error("Failed to fetch departments", err);
+            // Fallback to empty array
+            setDepartments([]);
+        }
+    };
 
     const fetchStats = async () => {
         try {
@@ -247,7 +252,7 @@ const Team = ({ onOpenMobileSidebar }) => {
                                                             className="text-xs p-1.5 rounded border border-indigo-200 bg-white outline-none focus:ring-2 focus:ring-indigo-500 w-full"
                                                         >
                                                             <option value="">Select...</option>
-                                                            {DEPARTMENTS.map(dept => (
+                                                            {departments.map(dept => (
                                                                 <option key={dept} value={dept}>{dept}</option>
                                                             ))}
                                                         </select>
@@ -357,7 +362,7 @@ const Team = ({ onOpenMobileSidebar }) => {
                                             className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 outline-none transition"
                                         >
                                             <option value="">Select Department...</option>
-                                            {DEPARTMENTS.map(dept => (
+                                            {departments.map(dept => (
                                                 <option key={dept} value={dept}>{dept}</option>
                                             ))}
                                         </select>

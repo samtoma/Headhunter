@@ -1,12 +1,21 @@
+/**
+ * Departments Page
+ * 
+ * Displays departments from company profile (single source of truth).
+ * Uses company.departments JSON field for names, with optional rich profiles
+ * from the Department table for enhanced AI context.
+ */
 import { useState, useEffect } from 'react'
 import axios from 'axios'
-import { Plus, Search, Building2, Trash2, Edit2, Code2, FileText } from 'lucide-react'
+import { Plus, Search, Building2, Trash2, Edit2 } from 'lucide-react'
 import DepartmentModal from '../components/modals/DepartmentModal'
-
 import PageHeader from '../components/layout/PageHeader'
 
 const Departments = ({ onOpenMobileSidebar }) => {
-    const [departments, setDepartments] = useState([])
+    // Department names from company profile (source of truth)
+    const [departmentNames, setDepartmentNames] = useState([])
+    // Rich department profiles (optional, for AI context)
+    const [departmentProfiles, setDepartmentProfiles] = useState({})
     const [loading, setLoading] = useState(true)
     const [search, setSearch] = useState("")
     const [isModalOpen, setIsModalOpen] = useState(false)
@@ -17,27 +26,81 @@ const Departments = ({ onOpenMobileSidebar }) => {
     }, [])
 
     const fetchDepartments = async () => {
+        setLoading(true)
         try {
-            const res = await axios.get('/api/departments/')
-            setDepartments(res.data)
+            // Fetch from company profile (single source of truth)
+            const companyRes = await axios.get('/api/company/profile')
+            let names = []
+            if (companyRes.data.departments) {
+                try {
+                    names = JSON.parse(companyRes.data.departments)
+                    if (!Array.isArray(names)) names = []
+                } catch {
+                    names = []
+                }
+            }
+            setDepartmentNames(names)
+
+            // Also fetch rich profiles if they exist (for display)
+            try {
+                const profilesRes = await axios.get('/api/departments/')
+                const profileMap = {}
+                profilesRes.data.forEach(p => {
+                    profileMap[p.name] = p
+                })
+                setDepartmentProfiles(profileMap)
+            } catch {
+                // Rich profiles are optional
+                setDepartmentProfiles({})
+            }
         } catch (err) {
             console.error("Failed to fetch departments", err)
+            setDepartmentNames([])
         } finally {
             setLoading(false)
         }
     }
 
-    const handleDelete = async (id) => {
-        if (!confirm("Are you sure you want to delete this department?")) return
+    const handleDelete = async (deptName) => {
+        if (!confirm(`Are you sure you want to remove "${deptName}" department?`)) return
         try {
-            await axios.delete(`/api/departments/${id}`)
+            // Remove from company profile
+            const companyRes = await axios.get('/api/company/profile')
+            let currentDepts = []
+            if (companyRes.data.departments) {
+                try {
+                    currentDepts = JSON.parse(companyRes.data.departments)
+                } catch {
+                    currentDepts = []
+                }
+            }
+            const updatedDepts = currentDepts.filter(d => d !== deptName)
+            await axios.put('/api/company/profile', {
+                departments: JSON.stringify(updatedDepts)
+            })
+
+            // Also delete rich profile if exists
+            const profile = departmentProfiles[deptName]
+            if (profile?.id) {
+                await axios.delete(`/api/departments/${profile.id}`).catch(() => { })
+            }
+
             fetchDepartments()
         } catch (err) {
             alert("Failed to delete department")
+            console.error(err)
         }
     }
 
-    const filtered = departments.filter(d => d.name.toLowerCase().includes(search.toLowerCase()))
+    const handleModalClose = () => {
+        setIsModalOpen(false)
+        setSelectedDept(null)
+        fetchDepartments()
+    }
+
+    const filtered = departmentNames.filter(d =>
+        d.toLowerCase().includes(search.toLowerCase())
+    )
 
     return (
         <div className="flex flex-col h-full bg-slate-50/50">
@@ -76,7 +139,7 @@ const Departments = ({ onOpenMobileSidebar }) => {
                         <div className="text-center py-12 bg-white rounded-2xl border border-dashed border-slate-300">
                             <Building2 className="mx-auto text-slate-300 mb-3" size={48} />
                             <h3 className="text-lg font-bold text-slate-900">No departments found</h3>
-                            <p className="text-slate-500 mb-4">Create your first department profile to enhance AI job generation.</p>
+                            <p className="text-slate-500 mb-4">Add departments via Company Profile to organize your jobs.</p>
                             <button
                                 onClick={() => { setSelectedDept(null); setIsModalOpen(true) }}
                                 className="text-indigo-600 font-bold hover:underline"
@@ -85,65 +148,49 @@ const Departments = ({ onOpenMobileSidebar }) => {
                             </button>
                         </div>
                     ) : (
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            {filtered.map(dept => (
-                                <div key={dept.id} className="bg-white rounded-xl border border-slate-200 shadow-sm hover:shadow-md transition group">
-                                    <div className="p-6">
-                                        <div className="flex justify-between items-start mb-4">
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                            {filtered.map(deptName => {
+                                const profile = departmentProfiles[deptName]
+                                return (
+                                    <div key={deptName} className="bg-white rounded-xl border border-slate-200 shadow-sm hover:shadow-md transition group p-5">
+                                        <div className="flex justify-between items-start mb-3">
                                             <div className="flex items-center gap-3">
                                                 <div className="w-10 h-10 rounded-lg bg-indigo-50 flex items-center justify-center text-indigo-600">
                                                     <Building2 size={20} />
                                                 </div>
                                                 <div>
-                                                    <h3 className="font-bold text-lg text-slate-900">{dept.name}</h3>
-                                                    <span className="text-xs text-slate-400">Updated {new Date(dept.updated_at || dept.created_at).toLocaleDateString()}</span>
+                                                    <h3 className="font-bold text-slate-900">{deptName}</h3>
+                                                    {profile?.description ? (
+                                                        <span className="text-xs text-emerald-600">Enhanced Profile</span>
+                                                    ) : (
+                                                        <span className="text-xs text-slate-400">Basic</span>
+                                                    )}
                                                 </div>
                                             </div>
-                                            <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition">
+                                            <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition">
                                                 <button
-                                                    onClick={() => { setSelectedDept(dept); setIsModalOpen(true) }}
+                                                    onClick={() => { setSelectedDept(profile || { name: deptName }); setIsModalOpen(true) }}
                                                     className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition"
+                                                    title="Edit"
                                                 >
-                                                    <Edit2 size={16} />
+                                                    <Edit2 size={14} />
                                                 </button>
                                                 <button
-                                                    onClick={() => handleDelete(dept.id)}
+                                                    onClick={() => handleDelete(deptName)}
                                                     className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition"
+                                                    title="Delete"
                                                 >
-                                                    <Trash2 size={16} />
+                                                    <Trash2 size={14} />
                                                 </button>
                                             </div>
                                         </div>
 
-                                        {dept.description && (
-                                            <p className="text-slate-600 text-sm mb-4 line-clamp-2">{dept.description}</p>
+                                        {profile?.description && (
+                                            <p className="text-sm text-slate-600 line-clamp-2">{profile.description}</p>
                                         )}
-
-                                        <div className="space-y-3">
-                                            {dept.technologies && (
-                                                <div className="flex items-start gap-2">
-                                                    <Code2 size={14} className="text-slate-400 mt-1" />
-                                                    <div className="flex flex-wrap gap-1">
-                                                        {JSON.parse(dept.technologies).slice(0, 5).map((tech, i) => (
-                                                            <span key={i} className="px-2 py-0.5 bg-slate-100 text-slate-600 rounded text-xs font-medium">{tech}</span>
-                                                        ))}
-                                                        {JSON.parse(dept.technologies).length > 5 && (
-                                                            <span className="px-2 py-0.5 text-slate-400 text-xs font-medium">+{JSON.parse(dept.technologies).length - 5} more</span>
-                                                        )}
-                                                    </div>
-                                                </div>
-                                            )}
-
-                                            {dept.job_templates && (
-                                                <div className="flex items-center gap-2 text-xs text-slate-500">
-                                                    <FileText size={14} className="text-slate-400" />
-                                                    <span>{JSON.parse(dept.job_templates).length} Job Templates</span>
-                                                </div>
-                                            )}
-                                        </div>
                                     </div>
-                                </div>
-                            ))}
+                                )
+                            })}
                         </div>
                     )}
                 </div>
@@ -152,7 +199,7 @@ const Departments = ({ onOpenMobileSidebar }) => {
             {isModalOpen && (
                 <DepartmentModal
                     isOpen={isModalOpen}
-                    onClose={() => setIsModalOpen(false)}
+                    onClose={handleModalClose}
                     department={selectedDept}
                     onSave={fetchDepartments}
                 />
