@@ -139,6 +139,33 @@ def recruiter_integration_client(integration_client, test_recruiter_user):
     return integration_client
 
 @pytest.fixture(scope="function")
+def test_interviewer_user(db_session, test_company):
+    """Create a test interviewer user."""
+    user = User(
+        email="interviewer@integration-test.com",
+        hashed_password=get_password_hash("TestPassword123!"),
+        role=UserRole.INTERVIEWER,
+        company_id=test_company.id,
+        is_verified=True
+    )
+    db_session.add(user)
+    db_session.commit()
+    db_session.refresh(user)
+    return user
+
+@pytest.fixture(scope="function")
+def admin_auth_headers(test_admin_user):
+    """Return auth headers for admin user."""
+    token = create_access_token({"sub": test_admin_user.email})
+    return {"Authorization": f"Bearer {token}"}
+
+@pytest.fixture(scope="function")
+def interviewer_auth_headers(test_interviewer_user):
+    """Return auth headers for interviewer user."""
+    token = create_access_token({"sub": test_interviewer_user.email})
+    return {"Authorization": f"Bearer {token}"}
+
+@pytest.fixture(scope="function")
 def test_job(db_session, test_company):
     """Create a test job."""
     from app.models.models import Job
