@@ -169,6 +169,16 @@ Standardized header for all main pages.
 </div>
 ```
 
+### Responsive Dashboard Grids
+
+For KPI card layouts, use the following responsive grid pattern to preventing squeezing on tablet screens:
+
+```jsx
+<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+  {/* Cards... */}
+</div>
+```
+
 ### Form Field with Label
 
 ```jsx

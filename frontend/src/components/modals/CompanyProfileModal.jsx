@@ -127,8 +127,9 @@ const CompanyProfileModal = ({ onClose }) => {
                 </div>
 
                 {/* Tab Navigation */}
-                <div className="border-b border-slate-200 px-6">
-                    <div className="flex gap-8">
+                {/* Tab Navigation */}
+                <div className="border-b border-slate-200 px-6 overflow-x-auto no-scrollbar">
+                    <div className="flex gap-8 min-w-max">
                         <button onClick={() => setActiveTab("basic")} className={`pb-4 text-sm font-medium border-b-2 transition flex items-center gap-2 ${activeTab === "basic" ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-slate-500 hover:text-slate-700'}`}>
                             <Building2 size={16} /> Basic Info
                         </button>
@@ -318,21 +319,23 @@ const CompanyProfileModal = ({ onClose }) => {
                 </div>
 
                 {/* Footer */}
-                <div className="p-6 border-t border-slate-200 flex justify-between items-center">
-                    <button
-                        onClick={handleRegenerate}
-                        disabled={regenerating || !data.website}
-                        className="px-4 py-2 bg-purple-600 text-white font-bold rounded-lg hover:bg-purple-700 transition flex items-center gap-2 disabled:opacity-50"
-                    >
-                        {regenerating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
-                        {regenerating ? "Regenerating..." : "Regenerate with AI"}
-                    </button>
-                    <div className="flex gap-3">
-                        <button onClick={onClose} className="px-4 py-2 text-slate-500 font-bold hover:text-slate-700">Cancel</button>
+                <div className="p-6 border-t border-slate-200 flex flex-col md:flex-row justify-between items-center gap-4">
+                    <div className="w-full md:w-auto">
+                        <button
+                            onClick={handleRegenerate}
+                            disabled={regenerating || !data.website}
+                            className="w-full md:w-auto justify-center text-sm flex items-center gap-1.5 text-indigo-600 font-bold hover:bg-indigo-50 px-3 py-2 rounded-lg transition disabled:opacity-50"
+                        >
+                            <Sparkles className={`w-4 h-4 ${regenerating ? 'animate-spin' : ''}`} />
+                            <span>Regenerate with AI</span>
+                        </button>
+                    </div>
+                    <div className="flex gap-3 w-full md:w-auto">
+                        <button onClick={onClose} className="flex-1 md:flex-none px-4 py-2 text-slate-500 font-bold hover:text-slate-700 text-center">Cancel</button>
                         <button
                             onClick={save}
                             disabled={loading}
-                            className="px-6 py-2 bg-indigo-600 text-white font-bold rounded-lg hover:bg-indigo-700 transition disabled:opacity-50"
+                            className="flex-1 md:flex-none px-6 py-2 bg-indigo-600 text-white font-bold rounded-lg hover:bg-indigo-700 transition disabled:opacity-50 text-center"
                         >
                             {loading ? "Saving..." : "Save Profile"}
                         </button>

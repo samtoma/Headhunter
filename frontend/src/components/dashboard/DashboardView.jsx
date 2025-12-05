@@ -91,7 +91,7 @@ const DashboardView = ({ onOpenMobileSidebar }) => {
                 onOpenMobileSidebar={onOpenMobileSidebar}
             />
             <div className="flex-1 overflow-y-auto p-4 md:p-8 space-y-8 relative">
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                     <KPICard title="Active Jobs" value={stats?.activeJobs || 0} icon={<BriefcaseIcon className="text-white" size={24} />} color="bg-indigo-500" />
                     <KPICard title="Total Candidates" value={stats?.totalCandidates || 0} icon={<Users className="text-white" size={24} />} color="bg-slate-500" />
                     <KPICard title="Hired" value={stats?.hired || 0} icon={<Check className="text-white" size={24} />} color="bg-emerald-500" />
