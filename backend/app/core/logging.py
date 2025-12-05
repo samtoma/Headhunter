@@ -55,8 +55,18 @@ def setup_logging(log_dir: str = "/app/logs", log_level: str = "INFO"):
         log_dir: Directory for log files (default: /app/logs)
         log_level: Logging level (default: INFO)
     """
-    # Ensure log directory exists
-    os.makedirs(log_dir, exist_ok=True)
+    # Try to create log directory, fall back to ./logs if /app/logs fails
+    file_logging_enabled = True
+    try:
+        os.makedirs(log_dir, exist_ok=True)
+    except PermissionError:
+        # Fallback for non-Docker environments (CI, local dev)
+        log_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "logs")
+        try:
+            os.makedirs(log_dir, exist_ok=True)
+        except PermissionError:
+            # If even local logs dir fails, disable file logging
+            file_logging_enabled = False
     
     log_file = os.path.join(log_dir, "headhunter.log")
     
@@ -68,16 +78,18 @@ def setup_logging(log_dir: str = "/app/logs", log_level: str = "INFO"):
     root_logger.handlers = []
     
     # File handler with daily rotation (keeps 1 day of logs)
-    file_handler = TimedRotatingFileHandler(
-        log_file,
-        when="midnight",        # Rotate at midnight
-        interval=1,             # Every 1 day
-        backupCount=1,          # Keep only 1 backup (yesterday's log)
-        encoding="utf-8"
-    )
-    file_handler.setFormatter(StructuredJSONFormatter())
-    file_handler.suffix = "%Y-%m-%d"  # Add date suffix to rotated files
-    root_logger.addHandler(file_handler)
+    # Only add file handler if we have permission to write logs
+    if file_logging_enabled:
+        file_handler = TimedRotatingFileHandler(
+            log_file,
+            when="midnight",        # Rotate at midnight
+            interval=1,             # Every 1 day
+            backupCount=1,          # Keep only 1 backup (yesterday's log)
+            encoding="utf-8"
+        )
+        file_handler.setFormatter(StructuredJSONFormatter())
+        file_handler.suffix = "%Y-%m-%d"  # Add date suffix to rotated files
+        root_logger.addHandler(file_handler)
     
     # Console handler for development/docker logs
     console_handler = logging.StreamHandler()
