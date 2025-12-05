@@ -9,6 +9,17 @@
 import '@4tw/cypress-drag-drop';
 
 /**
+ * Global afterEach hook to take screenshots after every test
+ * Screenshots are saved to cypress/screenshots/{spec}/{testName}.png
+ */
+afterEach(function () {
+    // Take screenshot with test title as filename
+    const testTitle = this.currentTest.title.replace(/[^a-zA-Z0-9]/g, '_');
+    const testState = this.currentTest.state; // 'passed' or 'failed'
+    cy.screenshot(`${testState}_${testTitle}`, { capture: 'viewport' });
+});
+
+/**
  * Login with real API call
  * @param {string} email - User email
  * @param {string} password - User password
