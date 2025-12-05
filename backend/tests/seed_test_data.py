@@ -5,26 +5,27 @@ Populates the test database with realistic data for E2E testing:
 - Companies
 - Users with different roles
 - Jobs in various states
-- Candidate profiles
+- CVs with parsed data
 - Applications and interviews
 
 Usage:
-    python backend/tests/seed_test_data.py
+    PYTHONPATH=/app python tests/seed_test_data.py
 """
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from app.core.database import Base
 from app.models.models import (
-    Company, User, Job, Profile, Application, Interview,
-    UserRole, InterviewStage, InterviewOutcome
+    Company, User, Job, CV, ParsedCV, Application, Interview,
+    UserRole
 )
 from app.core.security import get_password_hash
 import os
+import json
 
-# E2E test database URL
+# E2E test database URL - use DATABASE_URL from environment (set by docker-compose)
 DATABASE_URL = os.getenv(
-    "TEST_DATABASE_URL",
-    "postgresql://testuser:testpass@localhost:30012/headhunter_e2e_db"
+    "DATABASE_URL",
+    "postgresql://testuser:testpass@db-e2e:5432/headhunter_e2e_db"
 )
 
 def seed_database():
@@ -50,7 +51,8 @@ def seed_database():
             mission="Empower businesses with AI",
             headquarters="San Francisco, CA",
             company_size="100-500",
-            founded_year=2010
+            founded_year=2010,
+            departments="Engineering, Sales, HR"
         )
         
         company2 = Company(
@@ -74,8 +76,7 @@ def seed_database():
             hashed_password=get_password_hash("Admin123!"),
             role=UserRole.ADMIN,
             company_id=company1.id,
-            is_verified=True,
-            full_name="Admin User"
+            is_verified=True
         )
         
         recruiter = User(
@@ -84,7 +85,6 @@ def seed_database():
             role=UserRole.RECRUITER,
             company_id=company1.id,
             is_verified=True,
-            full_name="Sarah Recruiter",
             department="HR"
         )
         
@@ -94,7 +94,6 @@ def seed_database():
             role=UserRole.HIRING_MANAGER,
             company_id=company1.id,
             is_verified=True,
-            full_name="Mike Manager",
             department="Engineering"
         )
         
@@ -104,7 +103,6 @@ def seed_database():
             role=UserRole.INTERVIEWER,
             company_id=company1.id,
             is_verified=True,
-            full_name="Emma Interviewer",
             department="Engineering"
         )
         
@@ -119,8 +117,8 @@ def seed_database():
             company_id=company1.id,
             status="active",
             description="We are looking for an experienced full-stack developer",
-            responsibilities=["Build scalable applications", "Lead technical projects"],
-            qualifications=["5+ years experience", "React & Python expertise"],
+            responsibilities=json.dumps(["Build scalable applications", "Lead technical projects"]),
+            qualifications=json.dumps(["5+ years experience", "React & Python expertise"]),
             location="Remote",
             employment_type="Full-time",
             salary_range="$120k-$180k"
@@ -132,8 +130,8 @@ def seed_database():
             company_id=company1.id,
             status="active",
             description="Join our DevOps team",
-            responsibilities=["Manage CI/CD pipelines", "Infrastructure as code"],
-            qualifications=["Docker & Kubernetes", "AWS experience"],
+            responsibilities=json.dumps(["Manage CI/CD pipelines", "Infrastructure as code"]),
+            qualifications=json.dumps(["Docker & Kubernetes", "AWS experience"]),
             location="San Francisco, CA",
             employment_type="Full-time"
         )
@@ -151,91 +149,121 @@ def seed_database():
         session.commit()
         print(f"✅ Created jobs: {job1.title}, {job2.title}, {job3.title}")
         
-        # Create Candidate Profiles
-        profiles = [
-            Profile(
-                name="Alice Johnson",
-                email="alice@example.com",
-                phone="+1-555-0101",
-                company_id=company1.id,
-                summary="Full-stack developer with 7 years of experience",
-                years_of_experience=7,
-                skills=["React", "Python", "PostgreSQL", "AWS"],
-                current_salary=110000,
-                expected_salary=140000
-            ),
-            Profile(
-                name="Bob Smith",
-                email="bob@example.com",
-                phone="+1-555-0102",
-                company_id=company1.id,
-                summary="DevOps specialist focused on Kubernetes",
-                years_of_experience=5,
-                skills=["Kubernetes", "Docker", "Terraform", "AWS"],
-                current_salary=100000,
-                expected_salary=130000
-            ),
-            Profile(
-                name="Carol Williams",
-                email="carol@example.com",
-                phone="+1-555-0103",
-                company_id=company1.id,
-                summary="Senior software engineer with backend focus",
-                years_of_experience=8,
-                skills=["Python", "Django", "PostgreSQL", "Redis"],
-                current_salary=120000,
-                expected_salary=150000
-            ),
-            Profile(
-                name="David Brown",
-                email="david@example.com",
-                company_id=company1.id,
-                summary="Junior developer eager to learn",
-                years_of_experience=2,
-                skills=["JavaScript", "React", "Node.js"],
-                expected_salary=80000
-            ),
+        # Create CVs with ParsedCV data (candidates)
+        cvs = []
+        parsed_cvs_data = [
+            {
+                "name": "Alice Johnson",
+                "email": "alice@example.com",
+                "phone": "+1-555-0101",
+                "summary": "Full-stack developer with 7 years of experience",
+                "experience_years": 7,
+                "skills": json.dumps(["React", "Python", "PostgreSQL", "AWS"]),
+                "current_salary": "110000",
+                "expected_salary": "140000",
+                "last_job_title": "Senior Developer",
+                "last_company": "TechStartup Inc"
+            },
+            {
+                "name": "Bob Smith",
+                "email": "bob@example.com",
+                "phone": "+1-555-0102",
+                "summary": "DevOps specialist focused on Kubernetes",
+                "experience_years": 5,
+                "skills": json.dumps(["Kubernetes", "Docker", "Terraform", "AWS"]),
+                "current_salary": "100000",
+                "expected_salary": "130000",
+                "last_job_title": "DevOps Engineer",
+                "last_company": "CloudCo"
+            },
+            {
+                "name": "Carol Williams",
+                "email": "carol@example.com",
+                "phone": "+1-555-0103",
+                "summary": "Senior software engineer with backend focus",
+                "experience_years": 8,
+                "skills": json.dumps(["Python", "Django", "PostgreSQL", "Redis"]),
+                "current_salary": "120000",
+                "expected_salary": "150000",
+                "last_job_title": "Staff Engineer",
+                "last_company": "BigTech Corp"
+            },
+            {
+                "name": "David Brown",
+                "email": "david@example.com",
+                "summary": "Junior developer eager to learn",
+                "experience_years": 2,
+                "skills": json.dumps(["JavaScript", "React", "Node.js"]),
+                "expected_salary": "80000",
+                "last_job_title": "Junior Developer",
+                "last_company": "Startup XYZ"
+            },
         ]
         
-        session.add_all(profiles)
+        for i, data in enumerate(parsed_cvs_data):
+            cv = CV(
+                filename=f"resume_{i+1}.pdf",
+                filepath=f"/app/data/raw/resume_{i+1}.pdf",
+                is_parsed=True,
+                company_id=company1.id
+            )
+            session.add(cv)
+            session.flush()  # Get the cv.id
+            
+            parsed_cv = ParsedCV(
+                cv_id=cv.id,
+                name=data["name"],
+                email=data["email"],
+                phone=data.get("phone"),
+                summary=data["summary"],
+                experience_years=data["experience_years"],
+                skills=data["skills"],
+                current_salary=data.get("current_salary"),
+                expected_salary=data.get("expected_salary"),
+                last_job_title=data.get("last_job_title"),
+                last_company=data.get("last_company")
+            )
+            session.add(parsed_cv)
+            cvs.append(cv)
+        
         session.commit()
-        print(f"✅ Created {len(profiles)} candidate profiles")
+        print(f"✅ Created {len(cvs)} CVs with parsed data")
         
         # Create Applications
         app1 = Application(
             job_id=job1.id,
-            profile_id=profiles[0].id,  # Alice -> Senior Full-Stack
-            status="interview"
+            cv_id=cvs[0].id,  # Alice -> Senior Full-Stack
+            status="Interview"
         )
         
         app2 = Application(
             job_id=job2.id,
-            profile_id=profiles[1].id,  # Bob -> DevOps
-            status="screening"
+            cv_id=cvs[1].id,  # Bob -> DevOps
+            status="Screening"
         )
         
         app3 = Application(
             job_id=job1.id,
-            profile_id=profiles[2].id,  # Carol -> Senior Full-Stack
-            status="new"
+            cv_id=cvs[2].id,  # Carol -> Senior Full-Stack
+            status="New"
         )
         
         app4 = Application(
             job_id=job1.id,
-            profile_id=profiles[3].id,  # David -> Senior Full-Stack
-            status="new"
+            cv_id=cvs[3].id,  # David -> Senior Full-Stack
+            status="New"
         )
         
         session.add_all([app1, app2, app3, app4])
         session.commit()
-        print(f"✅ Created {4} applications")
+        print("✅ Created 4 applications")
         
         # Create Interview for Alice
         interview1 = Interview(
             application_id=app1.id,
             interviewer_id=interviewer.id,
-            stage=InterviewStage.TECHNICAL,
-            outcome=InterviewOutcome.PASSED,
+            step="Technical",
+            outcome="Passed",
             feedback="Strong technical skills, excellent problem solving",
             rating=9
         )
@@ -249,7 +277,7 @@ def seed_database():
         print("   - Companies: 2")
         print("   - Users: 4 (Admin, Recruiter, Hiring Manager, Interviewer)")
         print("   - Jobs: 3")
-        print(f"   - Candidate Profiles: {len(profiles)}")
+        print(f"   - CVs: {len(cvs)}")
         print("   - Applications: 4")
         print("   - Interviews: 1")
         

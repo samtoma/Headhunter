@@ -458,8 +458,21 @@ async def parse_cv_with_llm(text: str, filename: str) -> Dict[str, Any]:
                 Education: {data.get('education', '')}
                 """
                 
-                # Let's return the rich text so the caller can index it once they have the ID.
+                # Return the rich text so the caller can index it once they have the ID.
                 data["_rich_text"] = rich_text
+                
+                # Generate embedding for vector search
+                try:
+                    from app.services.embeddings import generate_embedding
+                    logger.info(f"Generating embedding for CV '{filename}'...")
+                    embedding = await generate_embedding(rich_text)
+                    if embedding:
+                        data["_embedding"] = embedding
+                        logger.info(f"Successfully generated embedding for CV '{filename}' ({len(embedding)} dimensions)")
+                    else:
+                        logger.warning(f"Failed to generate embedding for CV '{filename}' - embedding service returned None")
+                except Exception as embed_error:
+                    logger.error(f"Error generating embedding for CV '{filename}': {embed_error}")
                 
             except Exception as e:
                 logger.error(f"Failed to prepare search indexing for '{filename}': {e}")

@@ -8,6 +8,7 @@ from app.api.deps import get_current_user
 from app.services.parser import generate_job_metadata
 from app.services.sync import touch_company_state
 from app.schemas.job import JobCreate, JobUpdate, JobOut, CandidateMatch, BulkAssignRequest
+from app.core.logging import jobs_logger
 from fastapi_cache.decorator import cache
 from fastapi_cache import FastAPICache
 
@@ -360,6 +361,19 @@ async def update_job(job_id: int, job_data: JobUpdate, db: Session = Depends(get
     db.commit()
     db.refresh(job)
     touch_company_state(db, current_user.company_id)
+    
+    # Audit log for job update
+    jobs_logger.log_action(
+        action="update_job",
+        message=f"Job updated: {job.title} (status: {job.status})",
+        user_id=current_user.id,
+        user_email=current_user.email,
+        company_id=current_user.company_id,
+        company_name=current_user.company.name if current_user.company else None,
+        job_id=job.id,
+        new_status=job.status,
+        is_active=job.is_active
+    )
     
     # Invalidate cache
     await invalidate_job_cache(current_user.company_id)

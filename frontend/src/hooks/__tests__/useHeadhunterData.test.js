@@ -53,6 +53,9 @@ describe('useHeadhunterData', () => {
             expect(result.current.jobs).toEqual(mockJobs);
         });
 
-        expect(axios.get).toHaveBeenCalledWith('/api/jobs/');
+        // fetchJobs now includes cache-busting _t parameter
+        expect(axios.get).toHaveBeenCalledWith('/api/jobs/', expect.objectContaining({
+            params: expect.objectContaining({ _t: expect.any(Number) })
+        }));
     });
 });

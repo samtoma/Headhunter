@@ -35,6 +35,7 @@ export default defineConfig({
         // Video and screenshot settings
         video: true,
         screenshotOnRunFailure: true,
+        // Screenshots are also taken via afterEach hook in support file
 
         env: {
             apiUrl: process.env.CYPRESS_API_URL || 'http://localhost:30011'
