@@ -48,7 +48,9 @@ jobs:
 
       - name: Run Cypress E2E tests
         run: |
-          docker compose -f docker-compose.e2e.yml run --rm cypress \
+          # Install dependencies first so cypress.config.js can import from 'cypress'
+          docker compose -f docker-compose.e2e.yml exec -T cypress npm install
+          docker compose -f docker-compose.e2e.yml exec -T cypress \
             npx cypress run \
             --spec "cypress/e2e/e2e_*.cy.js" \
             --browser electron
