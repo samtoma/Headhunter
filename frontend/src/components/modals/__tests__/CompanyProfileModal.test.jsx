@@ -8,13 +8,13 @@ vi.mock('axios')
 
 // Mock Lucide icons
 vi.mock('lucide-react', () => ({
-    Building2: () => <span data-testid="icon-building" />,
-    X: () => <span data-testid="icon-x" />,
-    Sparkles: () => <span data-testid="icon-sparkles" />,
-    Loader2: () => <span data-testid="icon-loader" />,
-    Users: () => <span data-testid="icon-users" />,
-    Target: () => <span data-testid="icon-target" />,
-    Share2: () => <span data-testid="icon-share" />
+    Building2: (props) => <span data-testid="icon-building" {...props} />,
+    X: (props) => <span data-testid="icon-x" {...props} />,
+    Sparkles: (props) => <span data-testid="icon-sparkles" {...props} />,
+    Loader2: (props) => <span data-testid="icon-loader" {...props} />,
+    Users: (props) => <span data-testid="icon-users" {...props} />,
+    Target: (props) => <span data-testid="icon-target" {...props} />,
+    Share2: (props) => <span data-testid="icon-share" {...props} />
 }))
 
 describe('CompanyProfileModal', () => {
@@ -317,9 +317,14 @@ describe('CompanyProfileModal', () => {
             expect(screen.getByDisplayValue('TechCorp')).toBeInTheDocument()
         })
 
-        fireEvent.click(screen.getByText('Regenerate with AI'))
+        fireEvent.click(screen.getByText(/Regenerate with AI/))
 
-        expect(screen.getByText('Regenerating...')).toBeInTheDocument()
+        // Text should NOT change
+        expect(screen.getByText(/Regenerate with AI/)).toBeInTheDocument()
+
+        // Icon should spin
+        const icon = screen.getByTestId('icon-sparkles')
+        expect(icon).toHaveClass('animate-spin')
     })
 
     // ============================================
@@ -338,25 +343,25 @@ describe('CompanyProfileModal', () => {
 
         expect(screen.getByDisplayValue('NewCorp')).toBeInTheDocument()
     })
-})
 
-// ============================================
-// Test: Helper functions (parseJsonArray, toJsonArray)
-// ============================================
-describe('Helper Functions', () => {
-    // Test parseJsonArray by checking how values are displayed
-    it('parses JSON array strings correctly', async () => {
-        render(<CompanyProfileModal onClose={vi.fn()} />)
+    // ============================================
+    // Test: Helper functions (parseJsonArray, toJsonArray)
+    // ============================================
+    describe('Helper Functions', () => {
+        // Test parseJsonArray by checking how values are displayed
+        it('parses JSON array strings correctly', async () => {
+            render(<CompanyProfileModal onClose={vi.fn()} />)
 
-        await waitFor(() => {
-            // Values field should show "Innovation, Teamwork" (parsed from JSON array)
-            fireEvent.click(screen.getByText('About'))
-        })
+            await waitFor(() => {
+                // Values field should show "Innovation, Teamwork" (parsed from JSON array)
+                fireEvent.click(screen.getByText('About'))
+            })
 
-        // The values input should have comma-separated values after parsing
-        await waitFor(() => {
-            const valuesInput = screen.getByPlaceholderText('Innovation, Integrity, Teamwork')
-            expect(valuesInput.value).toContain('Innovation')
+            // The values input should have comma-separated values after parsing
+            await waitFor(() => {
+                const valuesInput = screen.getByPlaceholderText('Innovation, Integrity, Teamwork')
+                expect(valuesInput.value).toContain('Innovation')
+            })
         })
     })
 })
