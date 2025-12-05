@@ -67,20 +67,9 @@ docker compose -f docker-compose.e2e.yml exec -T cypress \
 # Capture exit code
 CYPRESS_EXIT=$?
 
-# Step 6: Fix video encoding for better player compatibility
-echo "🎬 Post-processing videos for compatibility..."
-if command -v ffmpeg &> /dev/null; then
-    for video in frontend/cypress/videos/*.mp4; do
-        if [ -f "$video" ]; then
-            temp_video="${video%.mp4}_temp.mp4"
-            ffmpeg -i "$video" -c:v libx264 -preset fast -crf 23 -movflags +faststart "$temp_video" -y -loglevel error && \
-            mv "$temp_video" "$video"
-            echo "   ✓ Fixed: $(basename "$video")"
-        fi
-    done
-else
-    echo "   ⚠️  ffmpeg not found, skipping video post-processing"
-fi
+# Step 6: Fix video/screenshot permissions (owned by root from container)
+echo "📁 Fixing artifact permissions..."
+chmod -R a+rw frontend/cypress/videos/ frontend/cypress/screenshots/ 2>/dev/null || true
 
 # Step 7: Cleanup
 echo "🧹 Cleaning up..."
