@@ -9,11 +9,14 @@ export default defineConfig({
     allowedHosts: [
       'headhunter.samueltoma.io',
       'localhost',
-      '127.0.0.1'
+      '127.0.0.1',
+      'frontend-e2e',
+      '.localhost'  // Allow all subdomains
     ],
     proxy: {
       '/api': {
-        target: 'http://backend:30001',
+        // Use VITE_API_URL for E2E environment, otherwise default to 'backend'
+        target: process.env.VITE_API_URL || 'http://backend:30001',
         changeOrigin: true,
         rewrite: (path) => path.replace(/^\/api/, '')
       }

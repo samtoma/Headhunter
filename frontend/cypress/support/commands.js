@@ -5,6 +5,9 @@
  * They help with authentication, data setup, and cleanup in E2E tests.
  */
 
+// Import drag-drop plugin for pipeline drag functionality
+import '@4tw/cypress-drag-drop';
+
 /**
  * Login with real API call
  * @param {string} email - User email
@@ -13,7 +16,7 @@
 Cypress.Commands.add('loginViaAPI', (email, password) => {
     cy.request({
         method: 'POST',
-        url: `${Cypress.env('apiUrl')}/api/auth/login`,
+        url: `${Cypress.env('apiUrl')}/auth/login`,
         form: true,
         body: {
             username: email,
@@ -39,7 +42,7 @@ Cypress.Commands.add('loginViaAPI', (email, password) => {
 Cypress.Commands.add('signupViaAPI', (userData) => {
     cy.request({
         method: 'POST',
-        url: `${Cypress.env('apiUrl')}/api/auth/signup`,
+        url: `${Cypress.env('apiUrl')}/auth/signup`,
         body: userData
     }).then((response) => {
         expect(response.status).to.eq(201);
@@ -55,7 +58,7 @@ Cypress.Commands.add('getCurrentUser', () => {
 
     cy.request({
         method: 'GET',
-        url: `${Cypress.env('apiUrl')}/api/users/me`,
+        url: `${Cypress.env('apiUrl')}/users/me`,
         headers: {
             'Authorization': `Bearer ${token}`
         }
@@ -67,12 +70,11 @@ Cypress.Commands.add('getCurrentUser', () => {
 
 /**
  * Seed test database with initial data
- * This runs the backend seeding script
+ * NOTE: Database seeding is now handled by run_e2e_tests.sh before Cypress runs.
+ * This command is kept as a no-op for backwards compatibility with existing tests.
  */
 Cypress.Commands.add('seedDatabase', () => {
-    cy.exec('docker compose -f docker-compose.e2e.yml exec backend-e2e python tests/seed_test_data.py', {
-        timeout: 30000
-    });
+    cy.log('Database already seeded by run_e2e_tests.sh');
 });
 
 /**
@@ -84,7 +86,7 @@ Cypress.Commands.add('cleanDatabase', () => {
 
     cy.request({
         method: 'POST',
-        url: `${Cypress.env('apiUrl')}/api/test/cleanup`,
+        url: `${Cypress.env('apiUrl')}/test/cleanup`,
         headers: {
             'Authorization': `Bearer ${token}`
         },
@@ -101,7 +103,7 @@ Cypress.Commands.add('createJobViaAPI', (jobData) => {
 
     cy.request({
         method: 'POST',
-        url: `${Cypress.env('apiUrl')}/api/jobs`,
+        url: `${Cypress.env('apiUrl')}/jobs`,
         headers: {
             'Authorization': `Bearer ${token}`
         },
@@ -126,7 +128,7 @@ Cypress.Commands.add('uploadCVViaAPI', (filePath) => {
 
         cy.request({
             method: 'POST',
-            url: `${Cypress.env('apiUrl')}/api/cvs/upload`,
+            url: `${Cypress.env('apiUrl')}/cvs/upload`,
             headers: {
                 'Authorization': `Bearer ${token}`
             },
@@ -154,7 +156,7 @@ Cypress.Commands.add('waitForBackgroundJob', (taskId, timeout = 30000) => {
 
         cy.request({
             method: 'GET',
-            url: `${Cypress.env('apiUrl')}/api/tasks/${taskId}`,
+            url: `${Cypress.env('apiUrl')}/tasks/${taskId}`,
             headers: {
                 'Authorization': `Bearer ${token}`
             }

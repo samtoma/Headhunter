@@ -52,7 +52,10 @@ export const useHeadhunterData = () => {
             return
         }
         try {
-            const res = await axios.get('/api/jobs/')
+            // Add cache-busting timestamp to ensure fresh data after status updates
+            const res = await axios.get('/api/jobs/', {
+                params: { _t: Date.now() }
+            })
             setJobs(res.data)
         } catch (err) {
             console.error(err)

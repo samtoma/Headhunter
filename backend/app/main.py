@@ -9,11 +9,12 @@ from sqlalchemy.orm import Session
 from app.core.cache import init_cache
 
 # ... (logging config)
-from app.core.logging import setup_logging
+from app.core.logging import setup_logging, get_logger
 from sqlalchemy import text
 
-setup_logging()
-logger = logging.getLogger(__name__)
+# Initialize logging with daily rotation
+setup_logging(log_dir="/app/logs", log_level="INFO")
+logger = get_logger(__name__)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -27,7 +28,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="Headhunter API",
     description="AI-Powered Recruitment Platform",
-    version="1.8.1",
+    version="1.9.0",
     lifespan=lifespan
 )
 

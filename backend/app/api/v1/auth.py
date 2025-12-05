@@ -6,6 +6,7 @@ from app.core.database import get_db
 from app.models.models import User, Company, UserRole, ActivityLog
 from app.api.deps import get_current_user
 from app.core.security import verify_password, get_password_hash, create_access_token, ACCESS_TOKEN_EXPIRE_MINUTES
+from app.core.logging import auth_logger
 from pydantic import BaseModel
 from typing import Optional
 
@@ -62,6 +63,18 @@ def signup(user: UserCreate, db: Session = Depends(get_db)):
     access_token = create_access_token(
         data={"sub": new_user.email}, expires_delta=access_token_expires
     )
+    
+    # Audit log for signup
+    auth_logger.log_action(
+        action="signup",
+        message=f"New user registered: {new_user.email}",
+        user_id=new_user.id,
+        user_email=new_user.email,
+        company_id=company.id,
+        company_name=company.name,
+        is_new_company=is_new_company
+    )
+    
     return {
         "access_token": access_token, 
         "token_type": "bearer",
@@ -96,6 +109,16 @@ def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(), db:
     )
     db.add(log)
     db.commit()
+    
+    # Audit log for login
+    auth_logger.log_action(
+        action="login",
+        message=f"User logged in: {user.email}",
+        user_id=user.id,
+        user_email=user.email,
+        company_id=user.company_id,
+        company_name=user.company.name if user.company else None
+    )
     
     return {
         "access_token": access_token, 

@@ -21,11 +21,13 @@
 
 ## 🔄 In Progress
 
-- [/] Frontend: Increase Unit Test Coverage <!-- gh: 29 -->
-  - [ ] Modals (Add Candidate, Bulk Assign) <!-- gh: 31 -->
-  - [ ] Shared Components (UI Kit) <!-- gh: 32 -->
-- [ ] End-to-End Tests <!-- gh: 33 -->
-  - [ ] Critical User Flows (Login -> Upload -> Assign -> Move) <!-- gh: 34 -->
+- [x] Frontend: Increase Unit Test Coverage <!-- gh: 29 -->
+  - [x] Modals (CompanyProfileModal - 16 tests) <!-- gh: 31 -->
+  - [x] Shared Components (UploadProgressWidget - 12 tests) <!-- gh: 32 -->
+- [x] End-to-End Tests <!-- gh: 33 -->
+  - [x] CompanyProfileModal E2E with screenshots (5 tests) <!-- gh: 76 -->
+  - [x] UploadProgressWidget E2E with screenshots (5 tests) <!-- gh: 77 -->
+  - [x] Critical User Flows (e2e_recruitment_flow.cy.js - 202 lines) <!-- gh: 34 -->
 
 ---
 

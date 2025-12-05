@@ -1,5 +1,3 @@
-version: '3.8'
-
 # E2E Testing Stack - Complete isolated environment for end-to-end tests
 # This runs the full application stack with test database for Cypress E2E tests
 
@@ -17,7 +15,7 @@ services:
     networks:
       - e2e_net
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U testuser -d headhunter_e2e_db"]
+      test: [ "CMD-SHELL", "pg_isready -U testuser -d headhunter_e2e_db" ]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -31,7 +29,7 @@ services:
     networks:
       - e2e_net
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: [ "CMD", "redis-cli", "ping" ]
       interval: 5s
       timeout: 3s
       retries: 5
@@ -74,7 +72,7 @@ services:
       - e2e_net
     # Removed healthcheck block
 
-  # Celery Worker - Background task processing
+    # Celery Worker - Background task processing
   celery-e2e:
     build:
       context: ./backend
