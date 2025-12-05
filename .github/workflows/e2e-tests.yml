@@ -31,6 +31,13 @@ jobs:
           timeout 60 bash -c 'until curl -f http://localhost:30011/ > /dev/null 2>&1; do sleep 2; done'
           echo "Backend is ready!"
 
+      - name: Reset database schema
+        run: |
+          # Reset schema AFTER backend starts (create_all runs on startup)
+          docker compose -f docker-compose.e2e.yml exec -T db-e2e \
+            psql -U testuser -d headhunter_e2e_db -c \
+            "DROP SCHEMA IF EXISTS public CASCADE; CREATE SCHEMA public; GRANT ALL ON SCHEMA public TO testuser;"
+
       - name: Run database migrations
         run: |
           docker compose -f docker-compose.e2e.yml exec -T backend-e2e alembic upgrade head
@@ -46,15 +53,16 @@ jobs:
             --spec "cypress/e2e/e2e_*.cy.js" \
             --browser electron
 
-      - name: Upload Cypress artifacts on failure
-        if: failure()
+      - name: Upload Cypress videos and screenshots
+        if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: cypress-artifacts
+          name: cypress-test-artifacts
           path: |
             frontend/cypress/screenshots/**
             frontend/cypress/videos/**
           retention-days: 7
+          if-no-files-found: ignore
 
       - name: Cleanup
         if: always()
