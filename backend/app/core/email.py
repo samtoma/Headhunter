@@ -19,15 +19,20 @@ async def send_verification_email(email: EmailStr, token: str):
     """
     Sends a verification email with the given token.
     """
-    # In a real app, this would link to the frontend verification page
-    # For now, we'll just send the token
+    frontend_url = os.getenv("FRONTEND_URL", "http://localhost:30004")
+    verification_url = f"{frontend_url}/verify?token={token}"
     
     html = f"""
-    <p>Welcome to Headhunter!</p>
-    <p>Please verify your account by using the following code:</p>
-    <h3>{token}</h3>
-    <p>Or click the link below (if frontend is configured):</p>
-    <p><a href="http://localhost:3000/verify?token={token}">Verify Email</a></p>
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 10px;">
+        <h2 style="color: #4F46E5;">Welcome to Headhunter!</h2>
+        <p>Please verify your email address to access your account.</p>
+        <div style="margin: 30px 0;">
+            <a href="{verification_url}" style="background-color: #4F46E5; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; font-weight: bold;">Verify Email Address</a>
+        </div>
+        <p style="color: #666; font-size: 12px;">Or copy and paste this link into your browser:</p>
+        <p style="color: #666; font-size: 12px; word-break: break-all;">{verification_url}</p>
+        <p style="margin-top: 30px; font-size: 12px; color: #999;">If you didn't create an account, you can ignore this email.</p>
+    </div>
     """
 
     message = MessageSchema(

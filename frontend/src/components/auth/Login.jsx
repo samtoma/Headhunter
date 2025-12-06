@@ -46,7 +46,11 @@ const Login = () => {
             // Navigation handled by useEffect
         } catch (err) {
             console.error(err)
-            setError("Invalid email or password")
+            if (err.response?.status === 403 && err.response?.data?.detail === "Email not verified") {
+                navigate('/pending-verification', { state: { email: email } });
+            } else {
+                setError("Invalid email or password")
+            }
         } finally {
             setLoading(false)
         }

@@ -1,4 +1,30 @@
-# Release Notes - v1.8.1 (Stable Release)
+# Release Notes - v1.10.0 (Email Verification & Stability)
+
+**Release Date:** 2025-12-06
+
+### 🚀 New Features
+
+* **Full Email Verification Flow**:
+  * **Secure Signup**: New users receive a verification email upon registration.
+  * **Login Enforcement**: Access is strictly limited to verified accounts. Unverified attempts are blocked with a clear prompt.
+  * **Resend Capability**: Users can easily request a new verification link if needed.
+  * **Frontend UI**: Dedicated `VerifyEmail` and `PendingVerification` pages for a seamless user experience.
+
+### 🛡️ Security & Infrastructure
+
+* **SMTP Configuration**: Added comprehensive documentation and configuration support for SMTP (Google App Passwords, etc.).
+* **Production Readiness**: Frontend URL configuration now supports production domains (e.g., `headhunter.samueltoma.io`).
+
+### 🧹 Quality & Maintenance
+
+* **Linting Overhaul**: Achieved **Zero Lint Errors** across both Frontend (ESLint) and Backend (Ruff).
+  * Removed unused code, imports, and variables.
+  * Fixed code style issues (e.g., import ordering in `users.py`).
+* **Test Stability**: Fixed backend authentication tests to align with new verification requirements.
+
+---
+
+# Release Notes - v1.9.2 (Previous)
 
 **Release Date:** 2025-12-04
 
