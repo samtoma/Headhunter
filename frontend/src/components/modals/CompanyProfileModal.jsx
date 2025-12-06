@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import axios from 'axios'
-import { Building2, X, Sparkles, Loader2, Users, Target, Share2 } from 'lucide-react'
+import { Building2, X, Sparkles, Users, Target, Share2 } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
 
 // Helper functions to handle JSON arrays

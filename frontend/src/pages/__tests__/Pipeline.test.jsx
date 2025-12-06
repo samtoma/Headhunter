@@ -1,10 +1,9 @@
-import { render, screen, fireEvent, waitFor, within } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import Pipeline from '../Pipeline'
 import { AuthProvider } from '../../context/AuthContext'
 import { UploadProvider } from '../../context/UploadContext'
 import axios from 'axios'
-import * as HeadhunterContextModule from '../../context/HeadhunterContext'
 
 // Mock dependencies
 vi.mock('axios')

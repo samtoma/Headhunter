@@ -1,5 +1,3 @@
-import React from 'react'
-
 const GoogleSignInButton = () => {
     const handleClick = () => {
         // Redirect to backend OAuth endpoint which handles the redirect to Google

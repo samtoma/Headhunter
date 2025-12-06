@@ -1,13 +1,14 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 from sqlalchemy.orm import Session
-from typing import List
+from typing import List, Optional
 from pydantic import BaseModel, ConfigDict
+from PIL import Image
+import io
+import base64
 from app.core.database import get_db
 from app.models.models import User, UserRole
 from app.api.deps import get_current_user
 from app.core.security import get_password_hash
-
-from typing import Optional
 
 router = APIRouter(prefix="/users", tags=["Users"])
 
@@ -186,10 +187,6 @@ def update_user_role_dedicated(
     return user
 
 # Avatar Upload Implementation
-from fastapi import UploadFile, File
-from PIL import Image
-import io
-import base64
 
 # Register HEIC/HEIF support
 try:

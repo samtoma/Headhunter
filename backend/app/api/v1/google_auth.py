@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, Request
 from fastapi.responses import RedirectResponse
 from fastapi_sso.sso.google import GoogleSSO
 from sqlalchemy.orm import Session
@@ -52,7 +52,6 @@ async def google_callback(request: Request, db: Session = Depends(get_db)):
 
     email = user_info.email
     user = db.query(User).filter(User.email == email).first()
-    is_new_company = False
     
     if not user:
         # Create new user logic
@@ -65,7 +64,6 @@ async def google_callback(request: Request, db: Session = Depends(get_db)):
              db.add(company)
              db.commit()
              db.refresh(company)
-             is_new_company = True
              user_role = UserRole.ADMIN
         
         # Random secure password
