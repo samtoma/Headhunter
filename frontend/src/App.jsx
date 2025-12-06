@@ -17,7 +17,7 @@ import UploadProgressWidget from './components/ui/UploadProgressWidget';
 import { useEffect } from 'react';
 import axios from 'axios';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:30001';
+const API_URL = '/api'; // Use relative path to leverage Vite proxy
 
 function VersionCheck() {
     useEffect(() => {

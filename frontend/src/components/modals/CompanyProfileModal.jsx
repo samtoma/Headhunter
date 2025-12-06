@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import axios from 'axios'
 import { Building2, X, Sparkles, Loader2, Users, Target, Share2 } from 'lucide-react'
+import { useAuth } from '../../context/AuthContext'
 
 // Helper functions to handle JSON arrays
 const parseJsonArray = (jsonString) => {
@@ -59,6 +60,8 @@ const CompanyProfileModal = ({ onClose }) => {
         })
     }, [])
 
+    const { updateUser } = useAuth()
+
     const save = async () => {
         setLoading(true)
         try {
@@ -69,6 +72,10 @@ const CompanyProfileModal = ({ onClose }) => {
                 departments: data.departments ? toJsonArray(data.departments) : ""
             }
             await axios.put('/api/company/profile', saveData)
+
+            // Immediate update for UI
+            updateUser({ company_name: data.name })
+
             onClose()
         } catch (err) {
             console.error(err)

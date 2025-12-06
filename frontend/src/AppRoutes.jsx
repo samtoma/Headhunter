@@ -4,6 +4,7 @@ import Login from './components/auth/Login';
 import Signup from './components/auth/Signup';
 import CompanySetupWizard from './components/auth/CompanySetupWizard';
 import DashboardView from './components/dashboard/DashboardView';
+import AuthCallback from './components/auth/AuthCallback';
 
 import Pipeline from './pages/Pipeline';
 import Settings from './pages/Settings';
@@ -59,6 +60,7 @@ const AppRoutes = () => {
         <Routes>
             <Route path="/login" element={<Login />} />
             <Route path="/signup" element={<Signup />} />
+            <Route path="/auth/callback" element={<AuthCallback />} />
             <Route path="/setup" element={<CompanySetupWizard />} />
 
             <Route path="/" element={

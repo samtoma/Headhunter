@@ -18,10 +18,15 @@ class Token(BaseModel):
     role: str
     company_name: Optional[str] = None
     is_new_company: bool = False
+    email: Optional[str] = None
+    full_name: Optional[str] = None
+    profile_picture: Optional[str] = None
+    sso_provider: Optional[str] = None  # 'google', 'microsoft', or null for password
 
 class UserCreate(BaseModel):
     email: str
     password: str
+    full_name: Optional[str] = None  # Optional display name
 
 @router.post("/signup", response_model=Token)
 def signup(user: UserCreate, db: Session = Depends(get_db)):
@@ -53,7 +58,8 @@ def signup(user: UserCreate, db: Session = Depends(get_db)):
         email=user.email, 
         hashed_password=hashed_password,
         company_id=company.id,
-        role=user_role
+        role=user_role,
+        full_name=user.full_name  # Store provided name
     )
     db.add(new_user)
     db.commit()
@@ -80,7 +86,10 @@ def signup(user: UserCreate, db: Session = Depends(get_db)):
         "token_type": "bearer",
         "role": new_user.role,
         "company_name": company.name,
-        "is_new_company": is_new_company
+        "is_new_company": is_new_company,
+        "email": new_user.email,
+        "full_name": new_user.full_name,
+        "profile_picture": new_user.profile_picture
     }
 
 @router.post("/login", response_model=Token)
@@ -125,7 +134,11 @@ def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(), db:
         "token_type": "bearer",
         "role": user.role,
         "company_name": user.company.name if user.company else None,
-        "is_new_company": False
+        "is_new_company": False,
+        "email": user.email,
+        "full_name": user.full_name,
+        "profile_picture": user.profile_picture,
+        "sso_provider": user.sso_provider
     }
 
 @router.post("/send-verification")

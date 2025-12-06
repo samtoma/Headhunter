@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect } from 'react';
+import { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 
 const AuthContext = createContext(null);
@@ -7,7 +7,11 @@ export const AuthProvider = ({ children }) => {
     const [token, setToken] = useState(localStorage.getItem('token'));
     const [user, setUser] = useState({
         role: localStorage.getItem('role'),
-        company_name: localStorage.getItem('company_name')
+        company_name: localStorage.getItem('company_name'),
+        email: localStorage.getItem('email'),
+        full_name: localStorage.getItem('full_name'),
+        picture: localStorage.getItem('picture'),
+        sso_provider: localStorage.getItem('sso_provider')
     });
     const [loading, setLoading] = useState(true);
 
@@ -23,23 +27,45 @@ export const AuthProvider = ({ children }) => {
         setLoading(false);
     }, [token]);
 
-    const login = (newToken, userData) => {
+    const login = useCallback((newToken, userData) => {
         console.log("AuthContext login called", userData);
         setToken(newToken);
         setUser(userData);
         localStorage.setItem('role', userData.role);
         if (userData.company_name) localStorage.setItem('company_name', userData.company_name);
-    };
+        if (userData.email) localStorage.setItem('email', userData.email);
+        if (userData.full_name) localStorage.setItem('full_name', userData.full_name);
+        if (userData.picture) localStorage.setItem('picture', userData.picture);
+        if (userData.sso_provider) localStorage.setItem('sso_provider', userData.sso_provider);
+    }, []);
+
+    const updateUser = useCallback((updates) => {
+        setUser(prev => {
+            const newUser = { ...prev, ...updates };
+            // Persist specific fields we care about
+            if (updates.company_name) localStorage.setItem('company_name', updates.company_name);
+            if (updates.role) localStorage.setItem('role', updates.role);
+            if (updates.picture) localStorage.setItem('picture', updates.picture);
+            if (updates.full_name) localStorage.setItem('full_name', updates.full_name);
+            // Email usually doesn't change this way, but if it did:
+            if (updates.email) localStorage.setItem('email', updates.email);
+            return newUser;
+        });
+    }, []);
 
     const logout = () => {
         setToken(null);
         setUser(null);
         localStorage.removeItem('role');
         localStorage.removeItem('company_name');
+        localStorage.removeItem('email');
+        localStorage.removeItem('full_name');
+        localStorage.removeItem('picture');
+        localStorage.removeItem('sso_provider');
     };
 
     return (
-        <AuthContext.Provider value={{ token, user, login, logout, loading }}>
+        <AuthContext.Provider value={{ token, user, login, logout, updateUser, loading }}>
             {children}
         </AuthContext.Provider>
     );

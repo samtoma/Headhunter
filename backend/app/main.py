@@ -1,7 +1,7 @@
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Depends
 from app.core.database import engine, get_db
-from app.api.v1 import cv, profiles, jobs, applications, auth, company, sso, interviews, companies, logs, sync, stats, users, analytics, departments, activity
+from app.api.v1 import cv, profiles, jobs, applications, auth, company, sso, interviews, companies, logs, sync, stats, users, analytics, departments, activity, google_auth
 from app.api.endpoints import search
 from app.models import models
 from sqlalchemy.orm import Session
@@ -24,10 +24,25 @@ async def lifespan(app: FastAPI):
     await init_cache()
     yield
 
+# Read version from centralized VERSION file
+def get_app_version():
+    """Read version from VERSION file"""
+    import os
+    # Try multiple locations
+    for path in ["/app/VERSION", os.path.join(os.path.dirname(__file__), "..", "VERSION"), "../VERSION"]:
+        try:
+            with open(path, "r") as f:
+                return f.read().strip()
+        except FileNotFoundError:
+            continue
+    return "0.0.0"
+
+APP_VERSION = get_app_version()
+
 app = FastAPI(
     title="Headhunter API",
     description="AI-Powered Recruitment Platform",
-    version="1.9.1",
+    version=APP_VERSION,
     lifespan=lifespan
 )
 
@@ -39,6 +54,7 @@ app.include_router(applications.router)
 app.include_router(interviews.router)
 app.include_router(companies.router)
 app.include_router(auth.router, prefix="/auth")
+app.include_router(google_auth.router, prefix="/auth") # /auth/google/login
 app.include_router(company.router, prefix="/company")
 app.include_router(sso.router, prefix="/auth") # SSO endpoints under /auth/microsoft/...
 app.include_router(logs.router)
@@ -103,8 +119,10 @@ def root():
 
 @app.get("/version")
 def get_version():
-    """Returns the current backend version."""
-    return {"version": app.version}
+    """Returns the current backend version and AI model."""
+    import os
+    model = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
+    return {"version": app.version, "model": model}
 
 @app.get("/health")
 async def health_check():
