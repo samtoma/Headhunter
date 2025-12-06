@@ -1,13 +1,15 @@
 import { useState, useEffect } from 'react'
 import axios from 'axios'
 import { useNavigate } from 'react-router-dom'
-import { Users, Briefcase as BriefcaseIcon, Check, Award, TrendingUp, LayoutDashboard } from 'lucide-react'
+import { Users, Briefcase as BriefcaseIcon, Check, Award, TrendingUp, LayoutDashboard, RefreshCw } from 'lucide-react'
 import { useHeadhunter } from '../../context/HeadhunterContext'
+import { useAuth } from '../../context/AuthContext'
 import KPICard from './KPICard'
 import JobInsightCard from './JobInsightCard'
 import CandidateList from './CandidateList'
 import CandidateDrawer from '../pipeline/CandidateDrawer'
 import PageHeader from '../layout/PageHeader'
+import MyInterviewsWidget from '../widgets/MyInterviewsWidget'
 
 const DepartmentOverview = () => {
     const [deptStats, setDeptStats] = useState([])
@@ -56,8 +58,40 @@ const DepartmentOverview = () => {
 
 const DashboardView = ({ onOpenMobileSidebar }) => {
     const { jobs, profiles, setSelectedJobId, updateApp, updateProfile, assignJob, removeJob, stats, jobsLoading } = useHeadhunter()
+    const { user } = useAuth()
     const navigate = useNavigate()
     const [selectedCv, setSelectedCv] = useState(null)
+    const [pendingCount, setPendingCount] = useState(0)
+    const [resuming, setResuming] = useState(false)
+
+    // Fetch pending CV count
+    useEffect(() => {
+        const fetchPending = async () => {
+            try {
+                const res = await axios.get('/api/cv/status')
+                setPendingCount(res.data.processing_ids?.length || 0)
+            } catch (e) {
+                console.error("Failed to fetch pending CVs", e)
+            }
+        }
+        fetchPending()
+        const interval = setInterval(fetchPending, 5000) // Poll every 5s
+        return () => clearInterval(interval)
+    }, [])
+
+    // Handle resume all processing
+    const handleResumeProcessing = async () => {
+        setResuming(true)
+        try {
+            const res = await axios.post('/api/cv/resume-all')
+            alert(`Resumed processing for ${res.data.queued_count} CVs`)
+        } catch (e) {
+            console.error("Failed to resume processing", e)
+            alert("Failed to resume processing")
+        } finally {
+            setResuming(false)
+        }
+    }
 
     const handleNavigate = (job) => {
         setSelectedJobId(job.id)
@@ -89,6 +123,18 @@ const DashboardView = ({ onOpenMobileSidebar }) => {
                 subtitle="Overview of your recruitment KPIs and active pipelines"
                 icon={LayoutDashboard}
                 onOpenMobileSidebar={onOpenMobileSidebar}
+                actions={
+                    pendingCount > 0 && (user?.role === 'admin' || user?.role === 'recruiter' || user?.role === 'hiring_manager') && (
+                        <button
+                            onClick={handleResumeProcessing}
+                            disabled={resuming}
+                            className="flex items-center gap-2 px-4 py-2 bg-amber-500 text-white rounded-lg hover:bg-amber-600 transition text-sm font-medium disabled:opacity-50"
+                        >
+                            <RefreshCw size={16} className={resuming ? 'animate-spin' : ''} />
+                            Resume Processing ({pendingCount})
+                        </button>
+                    )
+                }
             />
             <div className="flex-1 overflow-y-auto p-4 md:p-8 space-y-8 relative">
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -97,6 +143,12 @@ const DashboardView = ({ onOpenMobileSidebar }) => {
                     <KPICard title="Hired" value={stats?.hired || 0} icon={<Check className="text-white" size={24} />} color="bg-emerald-500" />
                     <KPICard title="Silver Medalists" value={stats?.silver || 0} icon={<Award className="text-white" size={24} />} color="bg-purple-500" />
                 </div>
+
+                {/* My Upcoming Interviews - visible to all users */}
+                <MyInterviewsWidget limit={3} onViewCandidate={(interview) => {
+                    // Navigate to dedicated Interview Mode page
+                    navigate(`/interview/${interview.id}`);
+                }} />
 
                 <DepartmentOverview />
                 <div>

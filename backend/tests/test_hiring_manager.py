@@ -20,7 +20,8 @@ def test_hiring_manager_lifecycle(authenticated_client, client):
         "email": hm_email,
         "password": hm_password,
         "role": "hiring_manager",
-        "department": hm_dept
+        "department": hm_dept,
+        "is_verified": True
     }
     
     res = authenticated_client.post("/users/", json=hm_data)

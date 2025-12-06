@@ -196,6 +196,16 @@ const Sidebar = ({ isMobileOpen, setIsMobileOpen }) => {
                                 <Sparkles size={18} /> AI Search
                             </button>
 
+                            <button onClick={() => handleNavigation("/analytics")}
+                                className={`w-full flex items-center gap-3 p-2.5 rounded-lg text-sm font-medium transition ${currentPath === "/analytics" ? 'bg-indigo-50 text-indigo-700 ring-1 ring-indigo-200' : 'text-slate-600 hover:bg-slate-50'}`}>
+                                <TrendingUp size={18} /> Analytics
+                            </button>
+
+                            <button onClick={() => handleNavigation("/interviews")}
+                                className={`w-full flex items-center gap-3 p-2.5 rounded-lg text-sm font-medium transition ${currentPath === "/interviews" ? 'bg-indigo-50 text-indigo-700 ring-1 ring-indigo-200' : 'text-slate-600 hover:bg-slate-50'}`}>
+                                <Calendar size={18} /> Interviews
+                            </button>
+
                             <div className="mt-6 px-3 flex justify-between items-center mb-2">
                                 <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">{showArchived ? "Archived" : "Pipelines"}</span>
                                 <button onClick={() => setShowArchived(!showArchived)} className="text-[10px] font-bold text-indigo-600 hover:text-indigo-800 flex items-center gap-1 bg-indigo-50 px-2 py-0.5 rounded-full transition">
@@ -274,12 +284,7 @@ const Sidebar = ({ isMobileOpen, setIsMobileOpen }) => {
                         </button>
                     )}
 
-                    {(role === 'admin' || role === 'super_admin') && (
-                        <button onClick={() => handleNavigation("/analytics")}
-                            className={`w-full flex items-center gap-3 p-2.5 rounded-lg text-sm font-medium transition ${currentPath === "/analytics" ? 'bg-indigo-50 text-indigo-700 ring-1 ring-indigo-200' : 'text-slate-600 hover:bg-slate-50'}`}>
-                            <TrendingUp size={18} /> Analytics
-                        </button>
-                    )}
+
                 </div>
                 <div className="p-4 border-t border-slate-100">
                     {(role === 'admin' || role === 'hiring_manager') && (

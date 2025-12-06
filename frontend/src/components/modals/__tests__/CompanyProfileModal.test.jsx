@@ -17,6 +17,14 @@ vi.mock('lucide-react', () => ({
     Share2: (props) => <span data-testid="icon-share" {...props} />
 }))
 
+// Mock AuthContext
+vi.mock('../../../context/AuthContext', () => ({
+    useAuth: () => ({
+        user: { company_id: 1, role: 'admin' },
+        updateUser: vi.fn()
+    })
+}))
+
 describe('CompanyProfileModal', () => {
     const mockOnClose = vi.fn()
 

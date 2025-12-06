@@ -5,7 +5,7 @@ from app.core.security import get_password_hash
 
 def test_create_user_domain_mismatch(client: TestClient, db: Session):
     # Setup Admin
-    admin = User(email="admin@domain1.com", hashed_password=get_password_hash("pass"), role=UserRole.ADMIN, company_id=1)
+    admin = User(email="admin@domain1.com", hashed_password=get_password_hash("pass"), role=UserRole.ADMIN, company_id=1, is_verified=True)
     db.add(admin)
     db.commit()
     
@@ -20,7 +20,7 @@ def test_create_user_domain_mismatch(client: TestClient, db: Session):
 
 def test_delete_user_self(client: TestClient, db: Session):
     # Setup Admin
-    admin = User(email="admin@self.com", hashed_password=get_password_hash("pass"), role=UserRole.ADMIN, company_id=1)
+    admin = User(email="admin@self.com", hashed_password=get_password_hash("pass"), role=UserRole.ADMIN, company_id=1, is_verified=True)
     db.add(admin)
     db.commit()
     
@@ -38,7 +38,7 @@ def test_cross_company_access(client: TestClient, db: Session):
     c1 = Company(name="C1", domain="c1.com")
     db.add(c1)
     db.commit()
-    admin1 = User(email="admin@c1.com", hashed_password=get_password_hash("pass"), role=UserRole.ADMIN, company_id=c1.id)
+    admin1 = User(email="admin@c1.com", hashed_password=get_password_hash("pass"), role=UserRole.ADMIN, company_id=c1.id, is_verified=True)
     db.add(admin1)
     
     # Setup Company 2 User

@@ -2,14 +2,15 @@ import { useState, useMemo, useEffect, useCallback } from 'react'
 import {
     MapPin, User, Briefcase, Bug, Pencil, X, ExternalLink, Linkedin, Github,
     FileText, BrainCircuit, GraduationCap, Layers, LayoutGrid, DollarSign, Star,
-    Check, Save, ChevronDown, Heart, Flag, MessageSquare, Clock, Plus, Calendar
+    Check, Save, ChevronDown, Heart, Flag, MessageSquare, Clock, Plus
 } from 'lucide-react'
 import axios from 'axios'
 import { safeList } from '../../utils/helpers'
+import UnifiedActivityFeed from './UnifiedActivityFeed'
 
 const CandidateDrawer = ({ cv, onClose, updateApp, updateProfile, jobs, selectedJobId, assignJob, removeJob }) => {
     const [view, setView] = useState("parsed")
-    const [sidebarTab, setSidebarTab] = useState("overview") // overview, timeline, interviews
+    const [sidebarTab, setSidebarTab] = useState("overview") // overview, activity
     const [isEditing, setIsEditing] = useState(false)
     const d = useMemo(() => cv?.parsed_data || {}, [cv])
 
@@ -401,16 +402,10 @@ const CandidateDrawer = ({ cv, onClose, updateApp, updateProfile, jobs, selected
                                 Overview
                             </button>
                             <button
-                                onClick={() => setSidebarTab("timeline")}
-                                className={`flex-1 py-3 text-xs font-bold uppercase tracking-wider transition ${sidebarTab === "timeline" ? "text-indigo-600 border-b-2 border-indigo-600" : "text-slate-400 hover:text-slate-600"}`}
+                                onClick={() => setSidebarTab("activity")}
+                                className={`flex-1 py-3 text-xs font-bold uppercase tracking-wider transition ${sidebarTab === "activity" ? "text-indigo-600 border-b-2 border-indigo-600" : "text-slate-400 hover:text-slate-600"}`}
                             >
-                                Timeline
-                            </button>
-                            <button
-                                onClick={() => setSidebarTab("interviews")}
-                                className={`flex-1 py-3 text-xs font-bold uppercase tracking-wider transition ${sidebarTab === "interviews" ? "text-indigo-600 border-b-2 border-indigo-600" : "text-slate-400 hover:text-slate-600"}`}
-                            >
-                                Interviews
+                                Activity
                             </button>
                         </div>
 
@@ -475,66 +470,42 @@ const CandidateDrawer = ({ cv, onClose, updateApp, updateProfile, jobs, selected
                                 </div>
                             )}
 
-                            {/* TIMELINE TAB */}
-                            {sidebarTab === "timeline" && (
-                                <div className="space-y-4">
-                                    {timeline.length === 0 ? (
-                                        <div className="text-center py-8 text-slate-400 italic">No activity recorded yet.</div>
-                                    ) : (
-                                        <div className="relative border-l-2 border-slate-200 ml-3 space-y-6 pb-2">
-                                            {timeline.map((item, i) => (
-                                                <div key={i} className="relative pl-6">
-                                                    <div className={`absolute -left-[9px] top-0 w-4 h-4 rounded-full border-4 bg-white ${item.type === 'interview' ? 'border-purple-500' :
-                                                        item.action === 'status_change' ? 'border-indigo-500' :
-                                                            item.action === 'update' ? 'border-blue-400' :
-                                                                'border-slate-300'
-                                                        }`}></div>
 
-                                                    <div className="mb-1">
-                                                        <div className="text-xs text-slate-400 font-medium mb-0.5">{new Date(item.created_at).toLocaleString()}</div>
-
-                                                        {item.type === 'interview' && (
-                                                            <div className="bg-white p-3 rounded-lg border border-slate-200 shadow-sm">
-                                                                <div className="font-bold text-slate-900 flex items-center gap-2">
-                                                                    <Calendar size={14} className="text-purple-600" />
-                                                                    Interview Logged
-                                                                </div>
-                                                                <div className="text-xs text-slate-600 mt-1">
-                                                                    <span className="font-semibold">{item.details.step}</span> - {item.details.outcome}
-                                                                </div>
-                                                                {item.details.rating && (
-                                                                    <div className="mt-1 inline-block px-2 py-0.5 bg-purple-50 text-purple-700 rounded text-[10px] font-bold">
-                                                                        Rating: {item.details.rating}/10
-                                                                    </div>
-                                                                )}
-                                                            </div>
-                                                        )}
-
-                                                        {item.type === 'log' && item.action === 'update' && (
-                                                            <div className="bg-white p-3 rounded-lg border border-slate-200 shadow-sm">
-                                                                <div className="font-bold text-slate-900 flex items-center gap-2">
-                                                                    <Pencil size={14} className="text-blue-500" />
-                                                                    Profile Updated
-                                                                </div>
-                                                                <div className="text-xs text-slate-500 mt-1 space-y-1">
-                                                                    {Object.entries(item.details).map(([k, v]) => (
-                                                                        <div key={k}><span className="font-semibold capitalize">{k}:</span> {v}</div>
-                                                                    ))}
-                                                                </div>
-                                                            </div>
-                                                        )}
-
-                                                        {item.type === 'log' && !['update', 'interview'].includes(item.action) && (
-                                                            <div className="text-sm text-slate-700">
-                                                                <span className="font-bold capitalize">{item.action.replace('_', ' ')}</span>
-                                                            </div>
-                                                        )}
-                                                    </div>
+                            {/* ACTIVITY TAB - Unified Timeline & Interviews */}
+                            {sidebarTab === "activity" && (
+                                <UnifiedActivityFeed
+                                    interviews={interviews}
+                                    timeline={timeline}
+                                    companyStages={companyStages}
+                                    users={users}
+                                    app={app}
+                                    onAddInterview={(closeForm) => (
+                                        <div className="space-y-3">
+                                            <div className="grid grid-cols-2 gap-3">
+                                                <div>
+                                                    <label className="text-[10px] font-bold text-slate-500 uppercase mb-1 block">Stage</label>
+                                                    <select className="w-full text-xs p-2 rounded-lg border border-slate-200 bg-slate-50" value={newInterview.step} onChange={e => setNewInterview({ ...newInterview, step: e.target.value })}>
+                                                        {companyStages.map(s => <option key={s.name} value={s.name}>{s.name}</option>)}
+                                                    </select>
                                                 </div>
-                                            ))}
+                                                <div>
+                                                    <label className="text-[10px] font-bold text-slate-500 uppercase mb-1 block">Outcome</label>
+                                                    <select className="w-full text-xs p-2 rounded-lg border border-slate-200 bg-slate-50" value={newInterview.outcome} onChange={e => setNewInterview({ ...newInterview, outcome: e.target.value })}>
+                                                        {["Pending", "Passed", "Failed", "Rescheduled", "Cancelled"].map(s => <option key={s} value={s}>{s}</option>)}
+                                                    </select>
+                                                </div>
+                                            </div>
+                                            <div>
+                                                <label className="text-[10px] font-bold text-slate-500 uppercase mb-1 block">Feedback</label>
+                                                <textarea className="w-full text-xs p-2 rounded-lg border border-slate-200 h-20 resize-none" value={newInterview.feedback} onChange={e => setNewInterview({ ...newInterview, feedback: e.target.value })} placeholder="Add interview feedback..."></textarea>
+                                            </div>
+                                            <div className="flex gap-2">
+                                                <button onClick={() => { addInterview(); closeForm(false); }} className="flex-1 py-2 bg-indigo-600 text-white rounded-lg text-xs font-bold">Log Interview</button>
+                                                <button onClick={() => closeForm(false)} className="px-4 py-2 text-slate-500 hover:bg-slate-100 rounded-lg text-xs">Cancel</button>
+                                            </div>
                                         </div>
                                     )}
-                                </div>
+                                />
                             )}
 
                             {/* INTERVIEWS TAB */}

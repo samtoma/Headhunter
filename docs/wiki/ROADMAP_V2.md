@@ -23,6 +23,7 @@ This document outlines the next major evolution of Headhunter AI, transforming i
 | 5 | [Auto Interview Invitations](#5-auto-interview-invitations) | 🔴 High | Medium | Calendar, Interview |
 | 6 | [Advanced Admin Dashboard](#6-advanced-admin-dashboard) | 🟡 Medium | High | Analytics |
 | 7 | [Pipeline-Interview Merge](#7-pipeline-interview-merge) | 🔴 High | High | Interview Redesign |
+| **8** | **[Role-Based Permissions](#8-role-based-permissions)** | **🔴 Critical** | **Medium** | **User Model** |
 
 ---
 
@@ -579,6 +580,74 @@ CREATE TABLE unified_stages (
 
 ---
 
+## 8. Role-Based Permissions
+
+> 📋 **Full documentation:** [ROLE_PERMISSIONS.md](./ROLE_PERMISSIONS.md)
+
+### 8.1 Overview
+
+Implement comprehensive role-based access control (RBAC) with department-scoping for Hiring Managers and Interviewers.
+
+### 8.2 User Roles
+
+| Role | Scope | Default Department |
+|------|-------|-------------------|
+| **Admin** | Full company access | HR |
+| **Recruiter** | Full recruitment access | HR |
+| **Hiring Manager** | Own department only | Assigned |
+| **Interviewer** | Assigned interviews only | Assigned |
+| **Super Admin** | Cross-company global | N/A |
+
+### 8.3 Key Requirements
+
+#### 8.3.1 Team Member Management
+
+| Who is Adding | Can Add | Default Dept Assignment |
+|---------------|---------|------------------------|
+| Admin | Any role | Must select |
+| Recruiter | Any role | Must select |
+| Hiring Manager | Interviewer only | **Auto: own department** |
+
+#### 8.3.2 Department Scoping (Hiring Manager)
+
+- Can ONLY see pipelines/jobs in their department
+- Can ONLY see candidates applied to their department jobs
+- Can ONLY see interviews for their department
+- Can update their department (not create new)
+- Can NOT access company settings
+
+#### 8.3.3 Interview-Only Access (Interviewer)
+
+- Can ONLY see their assigned interviews
+- Can ONLY access candidate profiles for assigned interviews
+- Can NOT see salary information (masked)
+- Can NOT access pipelines, search, or analytics
+
+### 8.4 Technical Implementation
+
+**Backend Changes:**
+
+- Add department-scoped query filters
+- Add role-based endpoint guards
+- Auto-assign department on user invite
+
+**Frontend Changes:**
+
+- Conditional UI rendering by role
+- Department filter for Hiring Managers
+- Salary masking for Interviewers
+
+### 8.5 User Stories
+
+- [ ] As an Admin, I can add any team member with any role
+- [ ] As a Recruiter, I can add team members (must assign dept)
+- [ ] As a Hiring Manager, I can add interviewers (auto-assigned to my dept)
+- [ ] As a Hiring Manager, I only see my department's data
+- [ ] As an Interviewer, I only see my assigned interviews
+- [ ] As an Interviewer, salary information is hidden from me
+
+---
+
 ## 📅 Implementation Phases
 
 ### Phase 1: Foundation (Weeks 1-4)
@@ -586,6 +655,11 @@ CREATE TABLE unified_stages (
 - [ ] Google Sign-In
 - [ ] Database schema updates for all features
 - [ ] Audit logging infrastructure
+- [ ] **Role-Based Permissions (Feature #8)**
+  - [ ] Team member invite with auto-department assignment
+  - [ ] Hiring Manager department-scoped data filtering
+  - [ ] Recruiter view-only restrictions for settings
+  - [ ] Interviewer salary masking
 
 ### Phase 2: Calendar & Invitations (Weeks 5-8)
 

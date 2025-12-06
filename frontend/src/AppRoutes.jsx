@@ -13,8 +13,10 @@ import Settings from './pages/Settings';
 import SuperAdminDashboard from './components/dashboard/SuperAdminDashboard';
 import Team from './pages/Team';
 import InterviewerDashboard from './pages/InterviewerDashboard';
+import InterviewMode from './pages/InterviewMode';
 import Search from './pages/Search';
 import Analytics from './pages/Analytics';
+import InterviewsAdmin from './pages/InterviewsAdmin';
 import Departments from './pages/Departments';
 import Sidebar from './components/layout/Sidebar';
 import ErrorBoundary from './components/ErrorBoundary';
@@ -82,6 +84,20 @@ const AppRoutes = () => {
                         <ErrorBoundary>
                             <Pipeline />
                         </ErrorBoundary>
+                    </AppLayout>
+                </ProtectedRoute>
+            } />
+
+            <Route path="/interview/:interviewId" element={
+                <ProtectedRoute>
+                    <InterviewMode />
+                </ProtectedRoute>
+            } />
+
+            <Route path="/interviews" element={
+                <ProtectedRoute>
+                    <AppLayout>
+                        <InterviewsAdmin />
                     </AppLayout>
                 </ProtectedRoute>
             } />

@@ -22,6 +22,36 @@ async def lifespan(app: FastAPI):
     models.Base.metadata.create_all(bind=engine)
     # Initialize Redis Cache
     await init_cache()
+    
+    # Auto-resume interrupted CV processing
+    try:
+        from app.core.database import SessionLocal
+        from app.tasks.cv_tasks import process_cv_task
+        
+        db = SessionLocal()
+        unparsed_cvs = db.query(models.CV).filter(models.CV.is_parsed.is_(False)).all()
+        
+        if unparsed_cvs:
+            logger.info(f"Found {len(unparsed_cvs)} unparsed CVs - resuming processing...")
+            for cv in unparsed_cvs:
+                process_cv_task.delay(cv.id)
+            logger.info(f"Queued {len(unparsed_cvs)} CVs for processing")
+        else:
+            logger.info("No interrupted CV processing to resume")
+            
+        db.close()
+    except Exception as e:
+        logger.error(f"Failed to resume CV processing: {e}")
+        
+    # Auto-Sync Embeddings (Background Task)
+    try:
+        from app.services.sync_service import sync_embeddings
+        logger.info("Starting background embedding sync...")
+        # Run in background to not block startup
+        asyncio.create_task(sync_embeddings(limit=500))
+    except Exception as e:
+        logger.error(f"Failed to start embedding sync: {e}")
+    
     yield
 
 # Read version from centralized VERSION file

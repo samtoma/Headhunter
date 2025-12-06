@@ -12,6 +12,7 @@ import PipelineBoard from '../components/pipeline/PipelineBoard';
 import UploadModal from '../components/modals/UploadModal';
 import BulkAssignModal from '../components/modals/BulkAssignModal';
 import CreateJobModal from '../components/modals/CreateJobModal';
+import ScheduleInterviewModal from '../components/modals/ScheduleInterviewModal';
 import axios from 'axios';
 
 const Pipeline = ({ onOpenMobileSidebar }) => {
@@ -38,6 +39,8 @@ const Pipeline = ({ onOpenMobileSidebar }) => {
     // Modals
     const [showUploadModal, setShowUploadModal] = useState(false);
     const [showBulkAssignModal, setShowBulkAssignModal] = useState(false);
+    const [showScheduleModal, setShowScheduleModal] = useState(false);
+    const [pendingSchedule, setPendingSchedule] = useState(null);
 
     // Local file selection state (before upload starts)
     const [uploadFiles, setUploadFiles] = useState(null);
@@ -145,6 +148,13 @@ const Pipeline = ({ onOpenMobileSidebar }) => {
         const cv = profiles.find(p => p.id === id);
         if (!cv) return;
 
+        // Intercept drop to "Interview" stage -> open scheduling modal
+        if (newStatus === "Interview") {
+            setPendingSchedule({ cv, newStatus });
+            setShowScheduleModal(true);
+            return;
+        }
+
         if (newStatus === "Hired") {
             if (!confirm(`Confirm Hiring ${cv.name || 'Candidate'}? This will record the official hire date.`)) return;
         }
@@ -158,6 +168,25 @@ const Pipeline = ({ onOpenMobileSidebar }) => {
             }));
             await updateApp(app.id, { status: newStatus });
         }
+    };
+
+    /**
+     * Called after the ScheduleInterviewModal confirms scheduling.
+     * Updates the application status to "Interview".
+     */
+    const handleScheduleConfirm = async () => {
+        if (!pendingSchedule) return;
+        const { cv, newStatus } = pendingSchedule;
+        const app = cv.applications?.find(a => a.job_id === selectedJob.id);
+        if (app) {
+            setProfiles(prev => prev.map(p => {
+                if (p.id !== cv.id) return p;
+                const newApps = p.applications.map(a => a.id === app.id ? { ...a, status: newStatus } : a);
+                return { ...p, applications: newApps };
+            }));
+            await updateApp(app.id, { status: newStatus });
+        }
+        setPendingSchedule(null);
     };
 
     const handleBulkReprocess = async () => {
@@ -367,6 +396,19 @@ const Pipeline = ({ onOpenMobileSidebar }) => {
             {showUploadModal && <UploadModal jobs={jobs} uploadFiles={uploadFiles} performUpload={performUpload} onClose={() => setShowUploadModal(false)} />}
             {showBulkAssignModal && <BulkAssignModal jobs={jobs} selectedCount={selectedIds.length} performBulkAssign={handleBulkAssign} onClose={() => setShowBulkAssignModal(false)} />}
             {showEditJobModal && <CreateJobModal onClose={() => setShowEditJobModal(false)} onCreate={handleUpdateJob} initialData={selectedJob} />}
+
+            {showScheduleModal && pendingSchedule && (
+                <ScheduleInterviewModal
+                    show={showScheduleModal}
+                    onClose={() => {
+                        setShowScheduleModal(false);
+                        setPendingSchedule(null);
+                    }}
+                    onSchedule={handleScheduleConfirm}
+                    candidate={pendingSchedule.cv}
+                    job={selectedJob}
+                />
+            )}
         </>
     );
 };

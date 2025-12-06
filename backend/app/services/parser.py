@@ -371,12 +371,14 @@ async def parse_cv_with_llm(text: str, filename: str) -> Dict[str, Any]:
     1. **summary**: A short 2-3 sentence professional summary.
     2. **job_history**: List of jobs (Title, Company, Duration, Description).
     3. **bachelor_year**: Year of Bachelor's graduation (Int).
-    4. **experience_years**: Total years of experience, based on actual working years (most propably will be after graduation, you have to count the years spent in each job) (Int).
+    4. **experience_years**: Total years of experience, count years from gradutaion (Bsc.) (Int).
     5. **personal**: Address, Age, Marital Status, Military Status.
     6. **contact**: Emails, Phones, Social Links.
-    7. **skills**: Technical & Soft Skills, the key word should not exceed 2 words.
+    7. **skills**: Technical & Soft Skills, the key word should not exceed 2 words, extract all of them from CV up to 30 fields.
     8. **social_link**: linkedin link extraction, Github, any url refered to in the cv
-    
+    9. **Time projection**: Project the years of experience and age to match today's date.
+    10. **education**: List of educations sorted by year (newest first).
+
     JSON Structure:
     {
       "name": "Name",
@@ -393,8 +395,14 @@ async def parse_cv_with_llm(text: str, filename: str) -> Dict[str, Any]:
       "last_company": "Company",
       "social_links": ["http://linkedin.com/samuel-toma..."],
       "skills": ["Python", "Java"],
-      "education": [{ "school": "MIT", "degree": "BSc", "year": "2015" }],
-      "job_history": [{ "title": "Dev", "company": "Google", "duration": "2020-Present", "description": "..." }]
+      "education": [{ 
+          "institution": "University Name", 
+          "degree": "Degree (BSc/MSc/PhD) - full description", 
+          "field_of_study": "Computer Science - full description", 
+          "year": "2015", 
+          "grade": "GPA or Honors"
+      }],
+      "job_history": [{ "title": "Dev", "company": "Google", "duration": "2020-Present", "description": "..." }] 
     }
     """
 

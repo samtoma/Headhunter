@@ -162,6 +162,7 @@ class Interview(Base):
     application_id = Column(Integer, ForeignKey("applications.id", ondelete="CASCADE"), index=True)
     interviewer_id = Column(Integer, ForeignKey("users.id"), nullable=True, index=True)
     step = Column(String, nullable=False) # e.g. "Screening", "Technical"
+    status = Column(String, default="Scheduled", index=True) # "Scheduled", "Completed", "Cancelled", "No Show"
     outcome = Column(String, nullable=True) # e.g. "Passed", "Failed", "Pending"
     scheduled_at = Column(DateTime(timezone=True), nullable=True)
     feedback = Column(Text, nullable=True)

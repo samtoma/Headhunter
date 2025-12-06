@@ -6,7 +6,7 @@ from app.core.security import get_password_hash
 
 def test_hiring_manager_rbac(client: TestClient, db: Session):
     # Setup: Hiring Manager in "Engineering"
-    hm = User(email="hm@jobs.com", hashed_password=get_password_hash("pass"), role=UserRole.HIRING_MANAGER, company_id=1, department="Engineering")
+    hm = User(email="hm@jobs.com", hashed_password=get_password_hash("pass"), role=UserRole.HIRING_MANAGER, company_id=1, department="Engineering", is_verified=True)
     db.add(hm)
     db.commit()
     

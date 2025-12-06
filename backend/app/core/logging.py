@@ -10,7 +10,7 @@ Features:
 import logging
 import json
 import os
-from datetime import datetime
+from datetime import datetime, timezone
 from logging.handlers import TimedRotatingFileHandler
 from typing import Optional
 
@@ -24,7 +24,7 @@ class StructuredJSONFormatter(logging.Formatter):
     def format(self, record):
         # Base log structure with timestamp and level
         log_data = {
-            "timestamp": datetime.utcnow().isoformat() + "Z",
+            "timestamp": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
             "level": record.levelname,
             "component": record.name,
             "module": record.module,

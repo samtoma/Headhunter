@@ -99,6 +99,13 @@ Headhunter AI is built with a "Security First" mindset, ensuring data privacy an
 * **Multi-Page Analysis:** Scrapes main page, about page, careers page, and more for complete data.
 * **16 LinkedIn-Style Fields:**
 
+### 3. 🔍 Semantic AI Search & Auto-Sync
+
+* **Vector Embeddings**: CVs are automatically embedded using OpenAI and stored in ChromaDB for semantic search.
+* **Auto-Sync Service**: A background service automatically ensures that all parsed CVs in Postgres are indexed in ChromaDB on application startup.
+* **Self-Healing**: Automatic detection and recovery of missing embeddings.
+* **Manual Re-indexing**: `backend/scripts/reindex_chroma.py` is available for manual bulk updates.
+
   * **Basic Info:** Name, Tagline, Industry, Founded Year, Company Size, Headquarters, Company Type
   * **About:** Description, Mission, Vision, Culture, Core Values
   * **Business:** Products/Services, Target Market, Competitive Advantage, Specialties
