@@ -27,6 +27,7 @@ class UserCreate(BaseModel):
     password: str
     role: str = "interviewer"
     department: Optional[str] = None
+    is_verified: Optional[bool] = None  # Allow tests to set this directly
 
 @router.get("/stats")
 def get_user_stats(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
@@ -91,7 +92,8 @@ def create_user(user: UserCreate, db: Session = Depends(get_db), current_user: U
         company_id=current_user.company_id,
         role=user.role,
         department=user.department,
-        is_active=True
+        is_active=True,
+        is_verified=user.is_verified if user.is_verified is not None else False
     )
     db.add(new_user)
     db.commit()

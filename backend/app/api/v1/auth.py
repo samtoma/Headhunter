@@ -217,12 +217,25 @@ async def verify_email(token: str, db: Session = Depends(get_db)):
     return {"message": "Email verified successfully"}
 
 @router.get("/me")
-def read_users_me(current_user: User = Depends(get_current_user)):
+def read_users_me(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    from datetime import datetime, timezone
+    
+    # Get version from company's last data update
+    version = None
+    if current_user.company_id:
+        company = db.query(Company).filter(Company.id == current_user.company_id).first()
+        if company and company.last_data_update:
+            version = company.last_data_update.isoformat()
+        else:
+            # Fallback to current time
+            version = datetime.now(timezone.utc).isoformat()
+    
     return {
         "id": current_user.id,
         "email": current_user.email,
         "role": current_user.role,
         "company_id": current_user.company_id,
         "department": current_user.department,
-        "is_active": current_user.is_active
+        "is_active": current_user.is_active,
+        "version": version
     }
