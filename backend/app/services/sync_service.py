@@ -1,7 +1,7 @@
 
 import logging
 import json
-import asyncio
+
 from app.core.database import SessionLocal
 from app.models.models import ParsedCV, CV
 from app.services.vector_db import vector_db
@@ -13,13 +13,16 @@ def construct_rich_text(parsed: ParsedCV) -> str:
     """Reconstruct rich text for embedding from ParsedCV fields."""
     
     def get_list(text_val):
-        if not text_val: return []
+        if not text_val: 
+            return []
         try:
             val = json.loads(text_val)
-            if isinstance(val, list): return val
-            if isinstance(val, dict): return [str(val)]
+            if isinstance(val, list): 
+                return val
+            if isinstance(val, dict): 
+                return [str(val)]
             return [str(val)]
-        except:
+        except Exception:
             return [str(text_val)]
 
     job_history_list = get_list(parsed.job_history)

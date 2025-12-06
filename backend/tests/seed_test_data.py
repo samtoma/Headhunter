@@ -33,6 +33,7 @@ def seed_database():
     engine = create_engine(DATABASE_URL)
     
     # Create all tables
+    Base.metadata.drop_all(bind=engine)
     Base.metadata.create_all(bind=engine)
     
     Session = sessionmaker(bind=engine)

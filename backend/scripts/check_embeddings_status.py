@@ -2,7 +2,7 @@
 import os
 import sys
 import logging
-import chromadb
+
 
 # Add backend directory to sys.path
 sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
@@ -57,7 +57,7 @@ def check_status():
         print("🎉 SUCCESS: All parsed CVs are indexed!")
     else:
         diff = parsed_count - chroma_count
-        print(f"⚠️  WARNING: Mismatch detected.")
+        print("⚠️  WARNING: Mismatch detected.")
         print(f"   Missing from Search: {diff} CVs")
         
         missing_ids = parsed_ids - chroma_ids
