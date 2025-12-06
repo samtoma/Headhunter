@@ -25,6 +25,7 @@ venv/
 .venv/
 backend/venv/
 *.log
+logs/
 
 # --- Node Frontend ---
 frontend/node_modules/

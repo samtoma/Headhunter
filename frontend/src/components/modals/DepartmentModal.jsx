@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import axios from 'axios'
-import { X, Plus, Trash2, Code2, FileText, Sparkles, Loader2 } from 'lucide-react'
+import { X, Plus, Trash2, FileText, Sparkles } from 'lucide-react'
 
 const DepartmentModal = ({ isOpen, onClose, department, onSave }) => {
     const [formData, setFormData] = useState({

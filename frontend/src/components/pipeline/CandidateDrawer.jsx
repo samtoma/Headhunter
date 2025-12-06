@@ -2,11 +2,10 @@ import { useState, useMemo, useEffect, useCallback } from 'react'
 import {
     MapPin, User, Briefcase, Bug, Pencil, X, ExternalLink, Linkedin, Github,
     FileText, BrainCircuit, GraduationCap, Layers, LayoutGrid, DollarSign, Star,
-    AlertCircle, Check, Save, ChevronDown, Heart, Flag, MessageSquare, Clock, Plus,
-    History, Mail, Calendar
+    Check, Save, ChevronDown, Heart, Flag, MessageSquare, Clock, Plus, Calendar
 } from 'lucide-react'
 import axios from 'axios'
-import { safeList, getStatusColor } from '../../utils/helpers'
+import { safeList } from '../../utils/helpers'
 
 const CandidateDrawer = ({ cv, onClose, updateApp, updateProfile, jobs, selectedJobId, assignJob, removeJob }) => {
     const [view, setView] = useState("parsed")
@@ -22,7 +21,7 @@ const CandidateDrawer = ({ cv, onClose, updateApp, updateProfile, jobs, selected
         if (!selectedJobId && !activeJobId && Array.isArray(cv?.applications) && cv.applications.length > 0) {
             setActiveJobId(cv.applications[0].job_id)
         }
-    }, [selectedJobId, cv])
+    }, [selectedJobId, activeJobId, cv])
 
     const app = activeJobId && Array.isArray(cv?.applications) ? cv.applications.find(a => a.job_id === activeJobId) : null
 

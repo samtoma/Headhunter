@@ -4,6 +4,9 @@ import Login from './components/auth/Login';
 import Signup from './components/auth/Signup';
 import CompanySetupWizard from './components/auth/CompanySetupWizard';
 import DashboardView from './components/dashboard/DashboardView';
+import AuthCallback from './components/auth/AuthCallback';
+import VerifyEmail from './components/auth/VerifyEmail';
+import PendingVerification from './components/auth/PendingVerification';
 
 import Pipeline from './pages/Pipeline';
 import Settings from './pages/Settings';
@@ -59,7 +62,11 @@ const AppRoutes = () => {
         <Routes>
             <Route path="/login" element={<Login />} />
             <Route path="/signup" element={<Signup />} />
+            <Route path="/auth/callback" element={<AuthCallback />} />
             <Route path="/setup" element={<CompanySetupWizard />} />
+
+            <Route path="/verify" element={<VerifyEmail />} />
+            <Route path="/pending-verification" element={<PendingVerification />} />
 
             <Route path="/" element={
                 <ProtectedRoute>

@@ -3,6 +3,7 @@ import axios from 'axios'
 import { Lock, Mail } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
 import { useNavigate } from 'react-router-dom'
+import GoogleSignInButton from './GoogleSignInButton'
 
 const Login = () => {
     const [email, setEmail] = useState("")
@@ -36,12 +37,20 @@ const Login = () => {
 
             login(res.data.access_token, {
                 role: res.data.role,
-                company_name: res.data.company_name
+                company_name: res.data.company_name,
+                email: res.data.email,
+                full_name: res.data.full_name,
+                picture: res.data.profile_picture,
+                sso_provider: res.data.sso_provider
             })
             // Navigation handled by useEffect
         } catch (err) {
             console.error(err)
-            setError("Invalid email or password")
+            if (err.response?.status === 403 && err.response?.data?.detail === "Email not verified") {
+                navigate('/pending-verification', { state: { email: email } });
+            } else {
+                setError("Invalid email or password")
+            }
         } finally {
             setLoading(false)
         }
@@ -108,6 +117,8 @@ const Login = () => {
                             <span className="px-2 bg-white text-slate-500">Or continue with</span>
                         </div>
                     </div>
+
+                    <GoogleSignInButton />
 
                     <button
                         type="button"

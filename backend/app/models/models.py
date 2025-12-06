@@ -54,6 +54,7 @@ class User(Base):
     __tablename__ = "users"
     id = Column(Integer, primary_key=True, index=True)
     email = Column(String, unique=True, index=True, nullable=False)
+    full_name = Column(String, nullable=True)  # Display name from SSO or user input
     hashed_password = Column(String, nullable=False)
     is_active = Column(Boolean, default=True)
     role = Column(String, default=UserRole.RECRUITER) # "admin", "recruiter", "interviewer"
@@ -64,7 +65,9 @@ class User(Base):
     # SSO and Verification
     sso_provider = Column(String, nullable=True)
     sso_id = Column(String, nullable=True)
+    sso_id = Column(String, nullable=True)
     is_verified = Column(Boolean, default=False)
+    profile_picture = Column(Text, nullable=True) # Base64 encoded or URL
     
     company = relationship("Company", back_populates="users")
     login_count = Column(Integer, default=0)

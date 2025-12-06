@@ -2,13 +2,13 @@ import { BrainCircuit, LayoutDashboard, Briefcase as BriefcaseIcon, Archive, Lay
 import { useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import { useHeadhunter } from '../../context/HeadhunterContext'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import CompanyProfileModal from '../modals/CompanyProfileModal'
 import CreateJobModal from '../modals/CreateJobModal'
 import axios from 'axios'
 
 const Sidebar = ({ isMobileOpen, setIsMobileOpen }) => {
-    const { logout } = useAuth()
+    const { logout, user, updateUser } = useAuth()
     const { jobs, selectedJobId, setSelectedJobId, fetchJobs, jobsLoading } = useHeadhunter()
     const location = useLocation()
     const navigate = useNavigate()
@@ -16,6 +16,14 @@ const Sidebar = ({ isMobileOpen, setIsMobileOpen }) => {
     const [showArchived, setShowArchived] = useState(false)
     const [showCompanyProfile, setShowCompanyProfile] = useState(false)
     const [showCreateJobModal, setShowCreateJobModal] = useState(false)
+    const [appInfo, setAppInfo] = useState({ version: '', model: '' })
+
+    // Fetch version and model from backend
+    useEffect(() => {
+        axios.get('/api/version').then(res => {
+            setAppInfo({ version: res.data.version, model: res.data.model })
+        }).catch(() => { })
+    }, [])
 
     const role = localStorage.getItem('role')
     const companyName = localStorage.getItem('company_name')
@@ -88,11 +96,86 @@ const Sidebar = ({ isMobileOpen, setIsMobileOpen }) => {
                     <X size={20} className="text-slate-600" />
                 </button>
 
-                <div className="p-6 border-b border-slate-100">
-                    <h1 className="text-xl font-extrabold text-indigo-600 flex items-center gap-2"><BrainCircuit className="w-7 h-7" /> Headhunter</h1>
-                    {companyName && <div className="text-xs font-bold text-slate-400 mt-1 uppercase tracking-wider">{companyName}</div>}
-                    {role && <div className="text-[10px] bg-slate-100 text-slate-500 px-2 py-0.5 rounded-full w-fit mt-2 capitalize">{role}</div>}
+                <div className="p-4 border-b border-slate-100">
+                    {/* Logo + Company Name */}
+                    <div className="mb-4 inline-block">
+                        <h1 className="text-lg font-extrabold text-indigo-600 flex items-center gap-2"><BrainCircuit className="w-6 h-6" /> Headhunter</h1>
+                        <div className="text-right -mt-3">
+                            <span className="text-[9px] text-slate-400 font-medium uppercase tracking-wider">{companyName}</span>
+                        </div>
+                    </div>
+
+                    {/* Minimalistic User Profile */}
+                    <div className="flex items-center gap-2 group">
+                        <div
+                            className={`w-8 h-8 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center font-bold text-xs overflow-hidden relative shrink-0 ${!user?.sso_provider ? 'cursor-pointer' : ''}`}
+                            onClick={() => !user?.sso_provider && document.getElementById('avatar-upload').click()}
+                        >
+                            {user?.picture ? (
+                                <img src={user.picture} alt="Avatar" className="w-full h-full object-cover" />
+                            ) : (
+                                (user?.full_name || user?.email || "U").charAt(0).toUpperCase()
+                            )}
+                            {!user?.sso_provider && (
+                                <div className="absolute inset-0 bg-black/50 hidden group-hover:flex items-center justify-center text-white text-[6px] font-bold">
+                                    EDIT
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Hidden Input */}
+                        <input
+                            type="file"
+                            id="avatar-upload"
+                            className="hidden"
+                            accept="image/*"
+                            onChange={async (e) => {
+                                const file = e.target.files[0];
+                                if (!file) return;
+
+                                try {
+                                    const formData = new FormData();
+                                    formData.append('file', file);
+
+                                    const res = await axios.post('/api/users/me/avatar', formData, {
+                                        headers: { 'Content-Type': 'multipart/form-data' }
+                                    });
+
+                                    if (res.data.profile_picture) {
+                                        updateUser({ picture: res.data.profile_picture });
+                                    }
+                                } catch (err) {
+                                    console.error("Avatar upload failed", err);
+                                    alert("Failed to upload avatar.");
+                                }
+                            }}
+                        />
+
+                        <div className="flex-1 min-w-0">
+                            <div
+                                className={`text-xs font-semibold text-slate-800 truncate ${!user?.sso_provider ? 'cursor-pointer hover:text-indigo-600' : ''}`}
+                                onClick={async () => {
+                                    if (user?.sso_provider) return;
+                                    const newName = prompt("Enter your display name:", user?.full_name || "");
+                                    if (newName !== null && newName.trim() !== (user?.full_name || "")) {
+                                        try {
+                                            const res = await axios.patch('/api/users/me/profile', { full_name: newName.trim() || null });
+                                            updateUser({ full_name: res.data.full_name });
+                                        } catch (err) {
+                                            console.error("Name update failed", err);
+                                            alert("Failed to update name.");
+                                        }
+                                    }
+                                }}
+                                title={!user?.sso_provider ? "Click to edit name" : (user?.full_name || user?.email)}
+                            >
+                                {user?.full_name || user?.email || "User"}
+                            </div>
+                            <div className="text-[10px] text-indigo-500 font-medium capitalize">{role?.replace('_', ' ') || "Member"}</div>
+                        </div>
+                    </div>
                 </div>
+
                 <div className="flex-1 overflow-y-auto p-3 space-y-1">
                     {role === 'interviewer' && (
                         <button onClick={() => handleNavigation("/interviewer")}
@@ -119,8 +202,6 @@ const Sidebar = ({ isMobileOpen, setIsMobileOpen }) => {
                                     {showArchived ? <><BriefcaseIcon size={10} /> Show Active</> : <><Archive size={10} /> Archived</>}
                                 </button>
                             </div>
-
-
 
                             <button onClick={() => handleNavigation("/pipeline", null)}
                                 className={`w-full flex items-center gap-3 p-2.5 rounded-lg text-sm font-medium transition ${currentPath === "/pipeline" && !selectedJobId ? 'bg-indigo-50 text-indigo-700 ring-1 ring-indigo-200' : 'text-slate-600 hover:bg-slate-50'}`}>
@@ -199,7 +280,7 @@ const Sidebar = ({ isMobileOpen, setIsMobileOpen }) => {
                             <TrendingUp size={18} /> Analytics
                         </button>
                     )}
-                </div >
+                </div>
                 <div className="p-4 border-t border-slate-100">
                     {(role === 'admin' || role === 'hiring_manager') && (
                         <>
@@ -225,11 +306,11 @@ const Sidebar = ({ isMobileOpen, setIsMobileOpen }) => {
 
                     {/* Version & Attribution */}
                     <div className="mt-4 pt-4 border-t border-slate-100 text-center space-y-1">
-                        <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">v1.8.1</div>
-                        <div className="text-[9px] text-slate-400">Powered by ChatGPT 5.1</div>
+                        <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">v{appInfo.version || '...'}</div>
+                        <div className="text-[9px] text-slate-400">Powered by {appInfo.model || '...'}</div>
                     </div>
                 </div>
-            </div >
+            </div>
 
             {/* Modals */}
             {showCompanyProfile && <CompanyProfileModal onClose={() => setShowCompanyProfile(false)} />}

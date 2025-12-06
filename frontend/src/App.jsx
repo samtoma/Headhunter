@@ -2,22 +2,16 @@
  * Copyright (c) 2025 Headhunter AI Engineering Team
  */
 
-import React from 'react';
+import React, { useEffect } from 'react';
 import { BrowserRouter as Router } from 'react-router-dom';
-import {
-    LayoutDashboard, Users, Briefcase, Settings, LogOut,
-    Menu, X, Bell, Search, Calendar, Building2
-} from 'lucide-react';
 import { AuthProvider } from './context/AuthContext';
 import { HeadhunterProvider } from './context/HeadhunterContext';
 import { UploadProvider } from './context/UploadContext';
 import AppRoutes from './AppRoutes';
-import Departments from './pages/Departments';
 import UploadProgressWidget from './components/ui/UploadProgressWidget';
-import { useEffect } from 'react';
 import axios from 'axios';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:30001';
+const API_URL = '/api'; // Use relative path to leverage Vite proxy
 
 function VersionCheck() {
     useEffect(() => {

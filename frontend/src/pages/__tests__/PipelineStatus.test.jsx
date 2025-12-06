@@ -3,7 +3,6 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import Pipeline from '../../pages/Pipeline'
 import { AuthProvider } from '../../context/AuthContext'
 import { UploadProvider } from '../../context/UploadContext'
-import axios from 'axios'
 
 // Mock dependencies
 vi.mock('axios')
@@ -104,7 +103,7 @@ describe('Pipeline Status Change', () => {
         expect(screen.getByText('Screening')).toBeInTheDocument()
 
         // Find the candidate card in "New" column
-        const card = screen.getByText('John Doe')
+        expect(screen.getByText('John Doe')).toBeInTheDocument()
 
         // Simulate Drag and Drop
         // This is tricky in JSDOM. We can try to call the onDrop handler of the target column directly if we can access it,
