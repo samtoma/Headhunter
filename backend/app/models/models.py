@@ -170,6 +170,7 @@ class Interview(Base):
     rating = Column(Integer, nullable=True)
     custom_data = Column(Text, nullable=True) # JSON string of custom field values
     stage_feedback = Column(Text, nullable=True)  # JSON storing feedback per stage
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
     
     application = relationship("Application", back_populates="interviews")
     interviewer = relationship("User", foreign_keys=[interviewer_id])
