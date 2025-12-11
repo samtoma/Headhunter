@@ -20,9 +20,21 @@ depends_on: Union[str, Sequence[str], None] = None
 
 def upgrade() -> None:
     """Upgrade schema - Add created_at column to interviews table."""
-    op.add_column('interviews', sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('(CURRENT_TIMESTAMP)'), nullable=False))
+    # Check if column already exists before adding (for idempotency)
+    conn = op.get_bind()
+    inspector = sa.inspect(conn)
+    columns = [col['name'] for col in inspector.get_columns('interviews')]
+    
+    if 'created_at' not in columns:
+        op.add_column('interviews', sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('(CURRENT_TIMESTAMP)'), nullable=False))
 
 
 def downgrade() -> None:
     """Downgrade schema - Remove created_at column from interviews table."""
-    op.drop_column('interviews', 'created_at')
+    # Check if column exists before dropping (for idempotency)
+    conn = op.get_bind()
+    inspector = sa.inspect(conn)
+    columns = [col['name'] for col in inspector.get_columns('interviews')]
+    
+    if 'created_at' in columns:
+        op.drop_column('interviews', 'created_at')
