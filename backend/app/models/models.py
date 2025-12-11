@@ -70,6 +70,7 @@ class User(Base):
     profile_picture = Column(Text, nullable=True) # Base64 encoded or URL
     
     company = relationship("Company", back_populates="users")
+    password_reset_tokens = relationship("PasswordResetToken", back_populates="user", cascade="all, delete-orphan")
     login_count = Column(Integer, default=0)
 
 class Department(Base):
@@ -168,10 +169,24 @@ class Interview(Base):
     feedback = Column(Text, nullable=True)
     rating = Column(Integer, nullable=True)
     custom_data = Column(Text, nullable=True) # JSON string of custom field values
+    stage_feedback = Column(Text, nullable=True)  # JSON storing feedback per stage
     created_at = Column(DateTime(timezone=True), server_default=func.now())
-
+    
     application = relationship("Application", back_populates="interviews")
-    interviewer = relationship("User")
+    interviewer = relationship("User", foreign_keys=[interviewer_id])
+
+class PasswordResetToken(Base):
+    """Model for password reset tokens with expiration and single-use functionality."""
+    __tablename__ = "password_reset_tokens"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    token = Column(String, unique=True, index=True, nullable=False)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    expires_at = Column(DateTime(timezone=True), nullable=False)
+    used = Column(Boolean, default=False, nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    
+    user = relationship("User", back_populates="password_reset_tokens")
 
 class ParsedCV(Base):
     __tablename__ = "parsed_cvs"

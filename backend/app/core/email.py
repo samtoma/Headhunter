@@ -159,3 +159,35 @@ END:VCALENDAR"""
     fm = FastMail(conf)
     await fm.send_message(message)
 
+
+async def send_password_reset_email(email: EmailStr, token: str, user_name: str = "User"):
+    """Sends a password reset email with a secure reset link."""
+    frontend_url = os.getenv("FRONTEND_URL", "http://localhost:30004")
+    reset_url = f"{frontend_url}/reset-password?token={token}"
+    
+    html = f"""
+    <div style="font-family: 'Inter', sans-serif; max-width: 600px; margin: 0 auto; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 40px 20px; border-radius: 16px;">
+        <div style="background: white; border-radius: 12px; padding: 40px;">
+            <h1 style="color: #667eea; text-align: center; font-size: 28px;">🔐 Password Reset</h1>
+            <p style="color: #333; font-size: 16px;">Hi {user_name},</p>
+            <p style="color: #666; font-size: 15px;">We received a request to reset your password. Click the button below:</p>
+            <div style="text-align: center; margin: 35px 0;">
+                <a href="{reset_url}" style="display: inline-block; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 16px 40px; text-decoration: none; border-radius: 8px; font-weight: 600;">Reset Password</a>
+            </div>
+            <div style="background: #f8f9fa; border-left: 4px solid #667eea; padding: 15px; margin: 25px 0;">
+                <p style="margin: 0; color: #666; font-size: 13px;"><strong>⏱️ This link expires in 1 hour</strong></p>
+            </div>
+            <p style="color: #999; font-size: 13px; margin-top: 25px;">Didn't request this? You can safely ignore this email.</p>
+        </div>
+    </div>
+    """
+
+    message = MessageSchema(
+        subject="Reset Your Password - Headhunter",
+        recipients=[email],
+        body=html,
+        subtype=MessageType.html
+    )
+
+    fm = FastMail(conf)
+    await fm.send_message(message)

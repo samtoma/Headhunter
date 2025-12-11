@@ -1,0 +1,1656 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="generator" content="pandoc">
+  <title>HEADHUNTER_PRESENTATION</title>
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, minimal-ui">
+  <link rel="stylesheet" href="https://unpkg.com/reveal.js@4.3.1//dist/reset.css">
+  <link rel="stylesheet" href="https://unpkg.com/reveal.js@4.3.1//dist/reveal.css">
+  <style>
+    .reveal .sourceCode {  /* see #7635 */
+      overflow: visible;
+    }
+    code{white-space: pre-wrap;}
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: min(4vw, 1.5em);}
+    div.column{flex: auto; overflow-x: auto;}
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+    .display.math{display: block; text-align: center; margin: 0.5rem auto;}
+    /* CSS for syntax highlighting */
+    pre > code.sourceCode { white-space: pre; position: relative; }
+    pre > code.sourceCode > span { line-height: 1.25; }
+    pre > code.sourceCode > span:empty { height: 1.2em; }
+    .sourceCode { overflow: visible; }
+    code.sourceCode > span { color: inherit; text-decoration: inherit; }
+    div.sourceCode { margin: 1em 0; }
+    pre.sourceCode { margin: 0; }
+    @media screen {
+    div.sourceCode { overflow: auto; }
+    }
+    @media print {
+    pre > code.sourceCode { white-space: pre-wrap; }
+    pre > code.sourceCode > span { display: inline-block; text-indent: -5em; padding-left: 5em; }
+    }
+    pre.numberSource code
+      { counter-reset: source-line 0; }
+    pre.numberSource code > span
+      { position: relative; left: -4em; counter-increment: source-line; }
+    pre.numberSource code > span > a:first-child::before
+      { content: counter(source-line);
+        position: relative; left: -1em; text-align: right; vertical-align: baseline;
+        border: none; display: inline-block;
+        -webkit-touch-callout: none; -webkit-user-select: none;
+        -khtml-user-select: none; -moz-user-select: none;
+        -ms-user-select: none; user-select: none;
+        padding: 0 4px; width: 4em;
+        color: #aaaaaa;
+      }
+    pre.numberSource { margin-left: 3em; border-left: 1px solid #aaaaaa;  padding-left: 4px; }
+    div.sourceCode
+      {   }
+    @media screen {
+    pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+    }
+    code span.al { color: #ff0000; font-weight: bold; } /* Alert */
+    code span.an { color: #60a0b0; font-weight: bold; font-style: italic; } /* Annotation */
+    code span.at { color: #7d9029; } /* Attribute */
+    code span.bn { color: #40a070; } /* BaseN */
+    code span.bu { color: #008000; } /* BuiltIn */
+    code span.cf { color: #007020; font-weight: bold; } /* ControlFlow */
+    code span.ch { color: #4070a0; } /* Char */
+    code span.cn { color: #880000; } /* Constant */
+    code span.co { color: #60a0b0; font-style: italic; } /* Comment */
+    code span.cv { color: #60a0b0; font-weight: bold; font-style: italic; } /* CommentVar */
+    code span.do { color: #ba2121; font-style: italic; } /* Documentation */
+    code span.dt { color: #902000; } /* DataType */
+    code span.dv { color: #40a070; } /* DecVal */
+    code span.er { color: #ff0000; font-weight: bold; } /* Error */
+    code span.ex { } /* Extension */
+    code span.fl { color: #40a070; } /* Float */
+    code span.fu { color: #06287e; } /* Function */
+    code span.im { color: #008000; font-weight: bold; } /* Import */
+    code span.in { color: #60a0b0; font-weight: bold; font-style: italic; } /* Information */
+    code span.kw { color: #007020; font-weight: bold; } /* Keyword */
+    code span.op { color: #666666; } /* Operator */
+    code span.ot { color: #007020; } /* Other */
+    code span.pp { color: #bc7a00; } /* Preprocessor */
+    code span.sc { color: #4070a0; } /* SpecialChar */
+    code span.ss { color: #bb6688; } /* SpecialString */
+    code span.st { color: #4070a0; } /* String */
+    code span.va { color: #19177c; } /* Variable */
+    code span.vs { color: #4070a0; } /* VerbatimString */
+    code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warning */
+  </style>
+  <link rel="stylesheet" href="https://unpkg.com/reveal.js@4.3.1//dist/theme/black.css" id="theme">
+</head>
+<body>
+  <div class="reveal">
+    <div class="slides">
+
+
+<section>
+<section id="headhunter-ai---comprehensive-project-presentation"
+class="title-slide slide level1">
+<h1>🧠 Headhunter AI - Comprehensive Project Presentation</h1>
+
+</section>
+<section id="enterprise-applicant-tracking-system-with-ai-intelligence"
+class="slide level2">
+<h2>Enterprise Applicant Tracking System with AI Intelligence</h2>
+<p><strong>Version:</strong> 1.11.0<br />
+<strong>Date:</strong> December 2025<br />
+<strong>Prepared By:</strong> Engineering Team</p>
+</section>
+<section id="table-of-contents" class="slide level2">
+<h2>Table of Contents</h2>
+<ol type="1">
+<li><a href="#/executive-summary">Executive Summary</a></li>
+<li><a href="#/system-architecture">System Architecture</a></li>
+<li><a href="#/features">Feature Deep Dive</a></li>
+<li><a href="#/security">Security &amp; Authentication</a></li>
+<li><a href="#/cicd">CI/CD &amp; Testing Strategy</a></li>
+<li><a href="#/roadmap">Roadmap &amp; Future</a></li>
+<li><a href="#/onboarding">Technical Onboarding</a></li>
+<li><a href="#/business">Business Value</a></li>
+</ol>
+</section>
+<section id="executive-summary" class="slide level2">
+<h2>📋 Executive Summary</h2>
+<h3 id="what-is-headhunter-ai">What is Headhunter AI?</h3>
+<p><strong>Headhunter AI</strong> is a production-grade, self-hosted
+Applicant Tracking System engineered for high-performance recruitment
+teams.</p>
+<h3 id="key-differentiators">Key Differentiators</h3>
+<table>
+<thead>
+<tr class="header">
+<th>Traditional ATS</th>
+<th>Headhunter AI</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Manual data entry</td>
+<td>🤖 AI-powered parsing</td>
+</tr>
+<tr class="even">
+<td>Basic file storage</td>
+<td>🧠 Semantic search &amp; matching</td>
+</tr>
+<tr class="odd">
+<td>Generic job posts</td>
+<td>🎯 Context-aware descriptions</td>
+</tr>
+<tr class="even">
+<td>Single-company</td>
+<td>🏢 Multi-tenant architecture</td>
+</tr>
+<tr class="odd">
+<td>Cloud subscription</td>
+<td>💾 Self-hosted, full control</td>
+</tr>
+</tbody>
+</table>
+<h3 id="business-value">Business Value</h3>
+<ul>
+<li><strong>80% reduction</strong> in manual data entry</li>
+<li><strong>60% faster</strong> candidate screening</li>
+<li><strong>Complete data ownership</strong> - no vendor lock-in</li>
+<li><strong>Unlimited users</strong> - no per-seat pricing</li>
+<li><strong>Enterprise security</strong> - self-hosted on your
+infrastructure</li>
+</ul>
+</section>
+<section id="system-architecture" class="slide level2">
+<h2>🏗️ System Architecture</h2>
+<h3 id="high-level-overview">High-Level Overview</h3>
+<pre class="mermaid"><code>graph TB
+    A[React Frontend] --&gt; B[FastAPI Backend]
+    B --&gt; C[PostgreSQL]
+    B --&gt; D[Redis Cache]
+    B --&gt; E[ChromaDB Vectors]
+    B --&gt; F[OpenAI GPT-4o]
+    G[Celery Worker] --&gt; B
+    G --&gt; D
+    H[User] --&gt; A</code></pre>
+<h3 id="technology-stack">Technology Stack</h3>
+<table>
+<thead>
+<tr class="header">
+<th>Layer</th>
+<th>Technology</th>
+<th>Version</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><strong>Frontend</strong></td>
+<td>React</td>
+<td>18</td>
+<td>UI/UX</td>
+</tr>
+<tr class="even">
+<td><strong>Styling</strong></td>
+<td>Tailwind CSS</td>
+<td>3.x</td>
+<td>Design System</td>
+</tr>
+<tr class="odd">
+<td><strong>Build Tool</strong></td>
+<td>Vite</td>
+<td>5.x</td>
+<td>Fast development</td>
+</tr>
+<tr class="even">
+<td><strong>Backend</strong></td>
+<td>FastAPI</td>
+<td>0.111+</td>
+<td>REST API</td>
+</tr>
+<tr class="odd">
+<td><strong>Runtime</strong></td>
+<td>Python</td>
+<td>3.13</td>
+<td>Application logic</td>
+</tr>
+<tr class="even">
+<td><strong>Database</strong></td>
+<td>PostgreSQL</td>
+<td>15</td>
+<td>Relational data</td>
+</tr>
+<tr class="odd">
+<td><strong>Cache</strong></td>
+<td>Redis</td>
+<td>7</td>
+<td>Caching &amp; queues</td>
+</tr>
+<tr class="even">
+<td><strong>Vector DB</strong></td>
+<td>ChromaDB</td>
+<td>0.4+</td>
+<td>Semantic search</td>
+</tr>
+<tr class="odd">
+<td><strong>AI Engine</strong></td>
+<td>OpenAI</td>
+<td>GPT-4o-mini</td>
+<td>Parsing &amp; matching</td>
+</tr>
+<tr class="even">
+<td><strong>Worker</strong></td>
+<td>Celery</td>
+<td>5.3+</td>
+<td>Background jobs</td>
+</tr>
+<tr class="odd">
+<td><strong>Deployment</strong></td>
+<td>Docker</td>
+<td>Latest</td>
+<td>Containerization</td>
+</tr>
+</tbody>
+</table>
+<h3 id="project-structure">Project Structure</h3>
+<pre><code>Headhunter/
+├── backend/                 # FastAPI Application
+│   ├── app/
+│   │   ├── api/v1/          # REST Endpoints
+│   │   │   ├── auth.py      # Authentication &amp; SSO
+│   │   │   ├── cv.py        # CV upload &amp; parsing
+│   │   │   ├── jobs.py      # Job management
+│   │   │   ├── profiles.py  # Candidate profiles
+│   │   │   ├── interviews.py # Interview scheduling
+│   │   │   ├── analytics.py # Dashboard metrics
+│   │   │   └── sso.py       # SSO providers
+│   │   ├── core/            # Config &amp; utilities
+│   │   │   ├── database.py  # DB connection
+│   │   │   ├── security.py  # JWT &amp; hashing
+│   │   │   ├── email.py     # Email service
+│   │   │   └── cache.py     # Redis caching
+│   │   ├── models/          # SQLAlchemy models
+│   │   └── services/        # Business logic
+│   │       ├── ai_parser.py # CV parsing
+│   │       ├── chroma.py    # Vector search
+│   │       └── matcher.py   # Candidate matching
+│   ├── alembic/             # Database migrations
+│   ├── tests/               # Unit &amp; E2E tests
+│   └── scripts/             # Utility scripts
+├── frontend/                # React Application
+│   ├── src/
+│   │   ├── components/      # Reusable UI components
+│   │   ├── pages/           # Page-level components
+│   │   ├── hooks/           # Custom React hooks
+│   │   └── services/        # API client
+│   └── cypress/             # E2E tests
+├── data/                    # Persistent volumes
+│   ├── db/                  # PostgreSQL data
+│   └── raw/                 # Uploaded CVs
+├── docs/                    # Documentation
+└── .github/workflows/       # CI/CD pipelines</code></pre>
+<h3 id="deployment-architecture">Deployment Architecture</h3>
+<pre><code>┌─────────────────────────────────────────────────────────┐
+│                    Docker Host                          │
+│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐ │
+│  │   Frontend   │  │   Backend    │  │   Celery     │ │
+│  │  (Port 30004)│  │  (Port 30001)│  │    Worker    │ │
+│  └───────┬──────┘  └───────┬──────┘  └──────┬───────┘ │
+│          │                 │                 │         │
+│          └────────┬────────┴─────────────────┘         │
+│                   │                                     │
+│  ┌────────────────┼─────────────────────────┐          │
+│  │       Internal Docker Network            │          │
+│  │  ┌─────────┐  ┌─────────┐  ┌──────────┐ │          │
+│  │  │ Postgres│  │  Redis  │  │ ChromaDB │ │          │
+│  │  └─────────┘  └─────────┘  └──────────┘ │          │
+│  └──────────────────────────────────────────┘          │
+└─────────────────────────────────────────────────────────┘</code></pre>
+<p><strong>Port Mapping:</strong></p>
+<ul>
+<li><code>30001</code> → Backend API</li>
+<li><code>30002</code> → PostgreSQL (dev access)</li>
+<li><code>30003</code> → ChromaDB (AI search)</li>
+<li><code>30004</code> → Frontend UI</li>
+<li><code>6380</code> → Redis (dev access)</li>
+</ul>
+</section>
+<section id="feature-deep-dive" class="slide level2">
+<h2>✨ Feature Deep Dive</h2>
+<h3 id="multi-company-support">1. 🏢 Multi-Company Support</h3>
+<p><strong>Business Value:</strong> One deployment serves unlimited
+companies with complete data isolation.</p>
+<p><strong>Features:</strong></p>
+<ul>
+<li>Automatic company creation from email domain</li>
+<li>First user from domain becomes Admin</li>
+<li>Strict logical isolation (ALL queries filtered by
+<code>company_id</code>)</li>
+<li>Super Admin dashboard for cross-company management</li>
+</ul>
+<p><strong>Technical Implementation:</strong></p>
+<ul>
+<li>Database: <code>company_id</code> foreign key on all major
+tables</li>
+<li>Security: Middleware ensures users only access their company
+data</li>
+<li>Performance: Indexed <code>company_id</code> columns for fast
+filtering</li>
+</ul>
+<p><strong>Real-World Example:</strong></p>
+<pre><code>user@acme.com → Company &quot;Acme Corp&quot; (auto-created)
+user@techcorp.io → Company &quot;TechCorp&quot; (separate instance)</code></pre>
+</section>
+<section class="slide level2">
+
+<h3 id="ai-powered-company-profiling">2. 🧠 AI-Powered Company
+Profiling</h3>
+<p><strong>Business Value:</strong> 10-minute setup instead of hours of
+manual data entry.</p>
+<p><strong>16 LinkedIn-Style Fields:</strong></p>
+<table>
+<colgroup>
+<col style="width: 55%" />
+<col style="width: 44%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th>Category</th>
+<th>Fields</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><strong>Basic</strong></td>
+<td>Name, Tagline, Industry, Founded Year, Size, HQ, Type</td>
+</tr>
+<tr class="even">
+<td><strong>About</strong></td>
+<td>Description, Mission, Vision, Culture, Values</td>
+</tr>
+<tr class="odd">
+<td><strong>Business</strong></td>
+<td>Products/Services, Target Market, Competitive Advantage,
+Specialties</td>
+</tr>
+<tr class="even">
+<td><strong>Social</strong></td>
+<td>LinkedIn, Twitter, Facebook, Logo</td>
+</tr>
+</tbody>
+</table>
+<p><strong>AI Process:</strong></p>
+<ol type="1">
+<li>Enter company website URL</li>
+<li>AI scrapes multiple pages (home, about, careers)</li>
+<li>Extracts structured data from JSON-LD and meta tags</li>
+<li>Generates comprehensive profile in 30 seconds</li>
+</ol>
+<p><strong>Technical Stack:</strong></p>
+<ul>
+<li>BeautifulSoup for web scraping</li>
+<li>OpenAI GPT-4o-mini for intelligent extraction</li>
+<li>Custom prompts for each field type</li>
+<li>Re-generation with custom instructions</li>
+</ul>
+</section>
+<section class="slide level2">
+
+<h3 id="comprehensive-job-descriptions">3. 🚀 Comprehensive Job
+Descriptions</h3>
+<p><strong>Business Value:</strong> Professional job postings in 2
+minutes instead of hours.</p>
+<p><strong>11 Detailed Fields:</strong></p>
+<ul>
+<li>Location, Employment Type, Salary Range</li>
+<li>Responsibilities (AI-generated bullets)</li>
+<li>Required Qualifications</li>
+<li>Preferred Qualifications</li>
+<li>Benefits</li>
+<li>Team Information</li>
+<li>Growth Opportunities</li>
+<li>Application Process</li>
+<li>Remote Policy</li>
+</ul>
+<p><strong>Smart Features:</strong></p>
+<ul>
+<li><strong>Context-Aware:</strong> Uses your company’s mission and
+values</li>
+<li><strong>Regeneration:</strong> Update anytime with new AI
+content</li>
+<li><strong>Fine-Tuning:</strong> Add custom instructions (“emphasize
+remote-first”)</li>
+</ul>
+<p><strong>Example Workflow:</strong></p>
+<pre><code>1. Type: &quot;Senior DevOps Engineer&quot;
+2. AI generates full description using company context
+3. Review &amp; edit if needed
+4. Publish → Auto-match existing candidates</code></pre>
+</section>
+<section class="slide level2">
+
+<h3 id="enterprise-security-sso">4. 🔐 Enterprise Security &amp;
+SSO</h3>
+<p><strong>Authentication Methods:</strong></p>
+<ul>
+<li>✅ Email/Password (Argon2 hashed)</li>
+<li>✅ Microsoft Azure AD (OAuth 2.0)</li>
+<li>✅ Google Workspace (OAuth 2.0)</li>
+<li>✅ Email Verification</li>
+<li>✅ Password Reset (time-limited tokens)</li>
+</ul>
+<p><strong>Security Features:</strong></p>
+<table>
+<thead>
+<tr class="header">
+<th>Feature</th>
+<th>Implementation</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>JWT Auth</td>
+<td>HS256, 30-min expiry</td>
+</tr>
+<tr class="even">
+<td>Password Hashing</td>
+<td>Argon2 (memory-hard)</td>
+</tr>
+<tr class="odd">
+<td>RBAC</td>
+<td>5 levels (Super Admin → Interviewer)</td>
+</tr>
+<tr class="even">
+<td>Multi-Tenancy</td>
+<td>Logical isolation via <code>company_id</code></td>
+</tr>
+<tr class="odd">
+<td>Network Isolation</td>
+<td>Internal Docker network</td>
+</tr>
+<tr class="even">
+<td>CORS</td>
+<td>Strict origin policies</td>
+</tr>
+<tr class="odd">
+<td>SQL Injection</td>
+<td>SQLAlchemy ORM</td>
+</tr>
+<tr class="even">
+<td>Input Validation</td>
+<td>Pydantic schemas</td>
+</tr>
+<tr class="odd">
+<td>File Security</td>
+<td>Unique filenames, path sanitization</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Audit Logging:</strong></p>
+<ul>
+<li>Every action logged with user, timestamp, IP</li>
+<li>Searchable and exportable for compliance</li>
+<li>Real-time activity feed for admins</li>
+</ul>
+</section>
+<section class="slide level2">
+
+<h3 id="ai-powered-cv-parsing">5. 🎯 AI-Powered CV Parsing</h3>
+<p><strong>Business Value:</strong> Extract structured data from messy
+resumes automatically.</p>
+<p><strong>Extracted Fields:</strong></p>
+<ul>
+<li>Personal: Name, Email, Phone, Address, Links</li>
+<li>Professional: Summary, Skills, Years of Experience</li>
+<li>Work History: Company, Title, Duration, Description</li>
+<li>Education: School, Degree, Year</li>
+<li>Metadata: Current/Expected Salary</li>
+</ul>
+<p><strong>Smart Features:</strong></p>
+<ul>
+<li><strong>Hidden Link Detection:</strong> Finds LinkedIn/GitHub in PDF
+metadata</li>
+<li><strong>Contact Normalization:</strong> Cleans phone numbers and
+emails</li>
+<li><strong>Timeline Grouping:</strong> Groups multiple roles at same
+company</li>
+<li><strong>Error Recovery:</strong> Handles poorly formatted
+resumes</li>
+</ul>
+<p><strong>Processing Flow:</strong></p>
+<pre><code>Upload → Celery Queue → AI Parsing → Database → ChromaDB Embedding</code></pre>
+<p><strong>Performance:</strong></p>
+<ul>
+<li>Async processing (doesn’t block UI)</li>
+<li>Batch operations (process 50+ CVs)</li>
+<li>Retry logic for failed jobs</li>
+<li>Real-time status updates</li>
+</ul>
+</section>
+<section class="slide level2">
+
+<h3 id="semantic-ai-search">6. 🔍 Semantic AI Search</h3>
+<p><strong>Business Value:</strong> Find candidates by meaning, not just
+keywords.</p>
+<p><strong>Features:</strong></p>
+<ul>
+<li>Natural language queries: “Find React developers with AWS
+experience”</li>
+<li>Auto-sync on startup (self-healing)</li>
+<li>Vector embeddings via OpenAI</li>
+<li>ChromaDB for semantic matching</li>
+</ul>
+<p><strong>Technical Architecture:</strong></p>
+<pre><code>CV Parsed → OpenAI Embedding → ChromaDB Index
+         ↓
+Search Query → OpenAI Embedding → Vector Search → Ranked Results</code></pre>
+<p><strong>Self-Healing:</strong></p>
+<ul>
+<li>Detects missing embeddings on startup</li>
+<li>Automatically re-indexes</li>
+<li>Manual bulk re-index available</li>
+</ul>
+</section>
+<section class="slide level2">
+
+<h3 id="candidate-pipeline-management">7. 🎨 Candidate Pipeline
+Management</h3>
+<p><strong>Business Value:</strong> Visual Kanban workflow for managing
+candidates.</p>
+<p><strong>Stages:</strong> New → Screening → Interview → Offer →
+Hired</p>
+<p><strong>Features:</strong></p>
+<ul>
+<li>Drag-and-drop candidates between stages</li>
+<li>Bulk actions (assign, delete, reprocess)</li>
+<li>Real-time updates across users</li>
+<li>Version-based cache invalidation</li>
+<li>Mobile-responsive (!!)</li>
+</ul>
+<p><strong>Smart Matching:</strong></p>
+<ul>
+<li>As soon as job created → system scans ALL existing CVs</li>
+<li>Suggests “Silver Medalists” (qualified but not hired)</li>
+<li>Match score based on skills and experience</li>
+</ul>
+</section>
+<section class="slide level2">
+
+<h3 id="interview-management">8. 🎤 Interview Management</h3>
+<p><strong>Business Value:</strong> Complete interview workflow from
+scheduling to feedback.</p>
+<p><strong>Features:</strong></p>
+<ul>
+<li>Interview assignment to team members</li>
+<li>Multi-stage tracking (Screening, Technical, Final)</li>
+<li>Detailed feedback with ratings (1-10)</li>
+<li>Interview history timeline</li>
+<li>Rescheduling &amp; reassignment</li>
+<li>No-show tracking</li>
+<li>Email notifications</li>
+</ul>
+<p><strong>Dedicated Interview Mode:</strong></p>
+<ul>
+<li>Split-screen view (CV left, feedback right)</li>
+<li>Toggle PDF/Parsed view</li>
+<li>Inline scheduling</li>
+<li>Mobile-optimized</li>
+</ul>
+<p><strong>Email Notifications:</strong></p>
+<ul>
+<li>Auto-send calendar invites</li>
+<li>Interview reminders</li>
+<li>Reschedule notifications</li>
+<li>Async email delivery (doesn’t block UI)</li>
+</ul>
+</section>
+<section class="slide level2">
+
+<h3 id="full-mobile-responsiveness">9. 📱 Full Mobile
+Responsiveness</h3>
+<p><strong>Business Value:</strong> Recruit on-the-go from any
+device.</p>
+<p><strong>Features:</strong></p>
+<ul>
+<li>Complete feature parity with desktop</li>
+<li>Touch-optimized (44px+ targets)</li>
+<li>Smooth drawer animations</li>
+<li>Hamburger navigation</li>
+<li>Responsive tables and cards</li>
+<li>Mobile-first interview mode</li>
+</ul>
+<p><strong>Technical:</strong> Tailwind CSS breakpoints for responsive
+design</p>
+</section>
+<section class="slide level2">
+
+<h3 id="real-time-analytics">10. 📈 Real-Time Analytics</h3>
+<p><strong>Business Value:</strong> Data-driven hiring decisions.</p>
+<p><strong>Dashboard Metrics:</strong></p>
+<ul>
+<li>Active Jobs</li>
+<li>Total Candidates</li>
+<li>Hires This Month</li>
+<li>Silver Medalists (runner-ups)</li>
+</ul>
+<p><strong>Pipeline Insights (per job):</strong></p>
+<ul>
+<li>Average years of experience</li>
+<li>Average current salary</li>
+<li>Average expected salary</li>
+<li>Candidate distribution by stage</li>
+</ul>
+<p><strong>Department Stats:</strong></p>
+<ul>
+<li>Headcount by department</li>
+<li>Active jobs per department</li>
+<li>Hiring velocity</li>
+</ul>
+</section>
+<section class="slide level2">
+
+<h3 id="background-processing">11. ⚡ Background Processing</h3>
+<p><strong>Business Value:</strong> UI remains fast even during heavy
+operations.</p>
+<p><strong>Celery Worker Tasks:</strong></p>
+<ul>
+<li>CV parsing (AI-heavy)</li>
+<li>Bulk candidate reprocessing</li>
+<li>Email sending</li>
+<li>Vector embedding generation</li>
+</ul>
+<p><strong>Technology:</strong></p>
+<ul>
+<li>Redis as message broker</li>
+<li>Automatic retries on failure</li>
+<li>Task status tracking</li>
+<li>Real-time progress updates</li>
+</ul>
+</section>
+<section class="slide level2">
+
+<h3 id="ai-department-generator">12. 🤖 AI Department Generator</h3>
+<p><strong>Business Value:</strong> Professional department profiles in
+seconds.</p>
+<p><strong>Features:</strong></p>
+<ul>
+<li>One-click AI generation</li>
+<li>Department description</li>
+<li>Technology stack suggestions</li>
+<li>Job templates for common roles</li>
+<li>Context-aware (uses company profile)</li>
+</ul>
+<p><strong>Example:</strong></p>
+<pre><code>Department: Engineering
+  → AI generates:
+    - Description: &quot;Building scalable cloud infrastructure...&quot;
+    - Tech Stack: React, Python, Kubernetes, AWS
+    - Templates: Senior Engineer, DevOps Lead, etc.</code></pre>
+</section>
+<section class="slide level2">
+
+<h3 id="role-based-access-control-rbac">13. 👥 Role-Based Access Control
+(RBAC)</h3>
+<p><strong>Business Value:</strong> Appropriate access for each team
+member.</p>
+<p><strong>Roles &amp; Permissions:</strong></p>
+<table>
+<colgroup>
+<col style="width: 20%" />
+<col style="width: 23%" />
+<col style="width: 56%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th>Role</th>
+<th>Scope</th>
+<th>Key Permissions</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><strong>Super Admin</strong></td>
+<td>Platform-wide</td>
+<td>All companies, all features</td>
+</tr>
+<tr class="even">
+<td><strong>Admin</strong></td>
+<td>Company-wide</td>
+<td>All jobs, billing, user management</td>
+</tr>
+<tr class="odd">
+<td><strong>Recruiter</strong></td>
+<td>Company-wide</td>
+<td>Create/manage jobs, move candidates, view-only settings</td>
+</tr>
+<tr class="even">
+<td><strong>Hiring Manager</strong></td>
+<td>Department only</td>
+<td>Manage own department jobs, add interviewers to own dept</td>
+</tr>
+<tr class="odd">
+<td><strong>Interviewer</strong></td>
+<td>Assigned interviews</td>
+<td>Submit feedback, <strong>salary masked</strong></td>
+</tr>
+</tbody>
+</table>
+<p><strong>Department Scoping:</strong></p>
+<ul>
+<li>Hiring Managers only see their department</li>
+<li>Auto-assignment when adding team members</li>
+<li>Cannot access other departments’ data</li>
+</ul>
+<p><strong>Salary Masking:</strong></p>
+<ul>
+<li>Interviewers see “CONFIDENTIAL” instead of salary</li>
+<li>Prevents conflict of interest</li>
+</ul>
+</section>
+<section class="slide level2">
+
+<h3 id="resume-processing-features">14. 🔄 Resume Processing
+Features</h3>
+<p><strong>Business Value:</strong> Fix AI errors and maintain data
+quality.</p>
+<p><strong>Resume/Reprocess Button:</strong></p>
+<ul>
+<li>Visible to: Admin, Recruiter, Hiring Manager</li>
+<li>Triggers: Re-parses ALL pending/failed CVs</li>
+<li>Use case: After uploading bulk CVs, resume interrupted
+processing</li>
+</ul>
+<p><strong>Edit Mode:</strong></p>
+<ul>
+<li>Fix AI parsing errors directly in UI</li>
+<li>Toggle on/off per field</li>
+<li>Update name, experience, summary</li>
+</ul>
+<p><strong>Bulk Operations:</strong></p>
+<ul>
+<li>Select 50+ candidates</li>
+<li>Reprocess all selected</li>
+<li>Delete all selected</li>
+<li>Real-time status updates</li>
+</ul>
+</section>
+<section id="security-architecture" class="slide level2">
+<h2>🛡️ Security Architecture</h2>
+<h3 id="authentication-flow">Authentication Flow</h3>
+<pre class="mermaid"><code>sequenceDiagram
+    User-&gt;&gt;Frontend: Login
+    Frontend-&gt;&gt;Backend: POST /auth/login
+    Backend-&gt;&gt;Database: Verify credentials
+Database-&gt;&gt;Backend: User data
+    Backend-&gt;&gt;Backend: Generate JWT
+    Backend-&gt;&gt;Frontend: JWT Token
+    Frontend-&gt;&gt;Frontend: Store token (localStorage)
+    Frontend-&gt;&gt;Backend: API calls with token
+    Backend-&gt;&gt;Backend: Validate JWT
+    Backend-&gt;&gt;Frontend: Protected data</code></pre>
+<h3 id="multi-tenancy-security">Multi-Tenancy Security</h3>
+<p><strong>Logical Isolation:</strong></p>
+<div class="sourceCode" id="cb10"><pre
+class="sourceCode python"><code class="sourceCode python"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Every query automatically filtered</span></span>
+<span id="cb10-2"><a href="#cb10-2" aria-hidden="true" tabindex="-1"></a>candidates <span class="op">=</span> db.query(CV).<span class="bu">filter</span>(</span>
+<span id="cb10-3"><a href="#cb10-3" aria-hidden="true" tabindex="-1"></a>    CV.company_id <span class="op">==</span> current_user.company_id</span>
+<span id="cb10-4"><a href="#cb10-4" aria-hidden="true" tabindex="-1"></a>).<span class="bu">all</span>()</span></code></pre></div>
+<p><strong>Middleware Protection:</strong></p>
+<ul>
+<li>JWT validation on every request</li>
+<li>Company ID extracted from user token</li>
+<li>Automatic filtering applied</li>
+</ul>
+<p><strong>Database Design:</strong></p>
+<ul>
+<li><code>company_id</code> foreign key on: CVs, Jobs, Applications,
+Interviews</li>
+<li>Index on <code>company_id</code> for performance</li>
+<li>CASCADE delete ensuring no orphaned data</li>
+</ul>
+</section>
+<section class="slide level2">
+
+<h3 id="network-security">Network Security</h3>
+<pre><code>Internet
+   ↓
+[Nginx Proxy] (optional)
+   ↓
+[Docker Network]
+   ├─ Frontend (exposed: 30004)
+   ├─ Backend (exposed: 30001)
+   └─ [Internal Network]--- Postgres, Redis, ChromaDB</code></pre>
+<p><strong>Security Layers:</strong></p>
+<ol type="1">
+<li>Only Frontend &amp; API exposed to host</li>
+<li>Database &amp; Redis on internal network</li>
+<li>CORS prevents unauthorized origins</li>
+<li>Environment variables for secrets</li>
+</ol>
+</section>
+<section id="cicd-testing-strategy" class="slide level2">
+<h2>🧪 CI/CD &amp; Testing Strategy</h2>
+<h3 id="testing-pyramid">Testing Pyramid</h3>
+<pre><code>    /\
+   /E2E\         10% - Full workflows (Cypress)
+  /____\
+ /Integ.\       20% - API + DB (pytest)
+/________\
+/  Unit   \      70% - Business logic (pytest + Vitest)
+/__________\</code></pre>
+<h3 id="test-coverage-dec-2025">Test Coverage (Dec 2025)</h3>
+<table>
+<thead>
+<tr class="header">
+<th>Component</th>
+<th>Coverage</th>
+<th>Status</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><strong>Backend</strong></td>
+<td><strong>76%</strong></td>
+<td>✅ Healthy</td>
+</tr>
+<tr class="even">
+<td><strong>Frontend</strong></td>
+<td><strong>33%</strong></td>
+<td>⚠️ Improving</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Backend:</strong> 100% coverage for Models, Schemas, Auth</p>
+<h3 id="testing-infrastructure">Testing Infrastructure</h3>
+<p><strong>Backend Unit Tests:</strong></p>
+<ul>
+<li>Tool: pytest</li>
+<li>Database: In-memory SQLite</li>
+<li>Fixtures: <code>authenticated_client</code> with pre-configured
+admin</li>
+<li>Isolation: Database reset per test</li>
+</ul>
+<p><strong>Frontend Unit Tests:</strong></p>
+<ul>
+<li>Tool: Vitest + React Testing Library</li>
+<li>Mocks: API responses</li>
+<li>Focus: Component rendering &amp; interactions</li>
+</ul>
+<p><strong>E2E Tests:</strong></p>
+<ul>
+<li>Tool: Cypress</li>
+<li>Stack: Full dockerized environment</li>
+<li>Database: Real PostgreSQL with seeded data</li>
+<li>Zero retries needed (reliable with real services)</li>
+</ul>
+</section>
+<section class="slide level2">
+
+<h3 id="cicd-pipeline">CI/CD Pipeline</h3>
+<p><strong>GitHub Actions Workflows:</strong></p>
+<h4 id="main-cicd-cid-cd.yml">1. Main CI/CD
+(<code>cid-cd.yml</code>)</h4>
+<div class="sourceCode" id="cb13"><pre
+class="sourceCode yaml"><code class="sourceCode yaml"><span id="cb13-1"><a href="#cb13-1" aria-hidden="true" tabindex="-1"></a><span class="fu">on</span><span class="kw">:</span><span class="at"> </span><span class="kw">[</span><span class="at">push</span><span class="kw">,</span><span class="at"> pull_request</span><span class="kw">]</span></span>
+<span id="cb13-2"><a href="#cb13-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-3"><a href="#cb13-3" aria-hidden="true" tabindex="-1"></a><span class="fu">jobs</span><span class="kw">:</span></span>
+<span id="cb13-4"><a href="#cb13-4" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="fu">test-backend</span><span class="kw">:</span></span>
+<span id="cb13-5"><a href="#cb13-5" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="kw">-</span><span class="at"> Setup Python 3.13</span></span>
+<span id="cb13-6"><a href="#cb13-6" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="kw">-</span><span class="at"> Install dependencies</span></span>
+<span id="cb13-7"><a href="#cb13-7" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="kw">-</span><span class="at"> Lint with Ruff</span></span>
+<span id="cb13-8"><a href="#cb13-8" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="kw">-</span><span class="at"> Run pytest (unit tests)</span></span>
+<span id="cb13-9"><a href="#cb13-9" aria-hidden="true" tabindex="-1"></a><span class="at">  </span></span>
+<span id="cb13-10"><a href="#cb13-10" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="fu">test-frontend</span><span class="kw">:</span></span>
+<span id="cb13-11"><a href="#cb13-11" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="kw">-</span><span class="at"> Setup Node 18</span></span>
+<span id="cb13-12"><a href="#cb13-12" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="kw">-</span><span class="at"> Install dependencies</span></span>
+<span id="cb13-13"><a href="#cb13-13" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="kw">-</span><span class="at"> Lint with ESLint</span></span>
+<span id="cb13-14"><a href="#cb13-14" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="kw">-</span><span class="at"> Run Vitest</span></span>
+<span id="cb13-15"><a href="#cb13-15" aria-hidden="true" tabindex="-1"></a><span class="at">  </span></span>
+<span id="cb13-16"><a href="#cb13-16" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="fu">build-and-push</span><span class="kw">:</span></span>
+<span id="cb13-17"><a href="#cb13-17" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">needs</span><span class="kw">:</span><span class="at"> </span><span class="kw">[</span><span class="at">test-backend</span><span class="kw">,</span><span class="at"> test-frontend</span><span class="kw">]</span></span>
+<span id="cb13-18"><a href="#cb13-18" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="kw">-</span><span class="at"> Build Docker images</span></span>
+<span id="cb13-19"><a href="#cb13-19" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="kw">-</span><span class="at"> Push to Docker Hub</span></span></code></pre></div>
+<p><strong>Quality Gates:</strong></p>
+<ul>
+<li>✅ Zero test failures</li>
+<li>✅ Zero linting errors</li>
+<li>✅ Successful Docker builds</li>
+</ul>
+<h4 id="e2e-tests-e2e-tests.yml">2. E2E Tests
+(<code>e2e-tests.yml</code>)</h4>
+<div class="sourceCode" id="cb14"><pre
+class="sourceCode yaml"><code class="sourceCode yaml"><span id="cb14-1"><a href="#cb14-1" aria-hidden="true" tabindex="-1"></a><span class="fu">on</span><span class="kw">:</span><span class="at"> </span><span class="kw">[</span><span class="at">push to main</span><span class="kw">,</span><span class="at"> PR</span><span class="kw">,</span><span class="at"> manual trigger</span><span class="kw">]</span></span>
+<span id="cb14-2"><a href="#cb14-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb14-3"><a href="#cb14-3" aria-hidden="true" tabindex="-1"></a><span class="fu">steps</span><span class="kw">:</span></span>
+<span id="cb14-4"><a href="#cb14-4" aria-hidden="true" tabindex="-1"></a><span class="at">  1. Start E2E stack (docker-compose.e2e.yml)</span></span>
+<span id="cb14-5"><a href="#cb14-5" aria-hidden="true" tabindex="-1"></a><span class="at">  2. Wait for services healthy</span></span>
+<span id="cb14-6"><a href="#cb14-6" aria-hidden="true" tabindex="-1"></a><span class="at">  3. Reset database schema</span></span>
+<span id="cb14-7"><a href="#cb14-7" aria-hidden="true" tabindex="-1"></a><span class="at">  4. Run Alembic migrations</span></span>
+<span id="cb14-8"><a href="#cb14-8" aria-hidden="true" tabindex="-1"></a><span class="at">  5. Seed test data</span></span>
+<span id="cb14-9"><a href="#cb14-9" aria-hidden="true" tabindex="-1"></a><span class="at">  6. Execute Cypress tests</span></span>
+<span id="cb14-10"><a href="#cb14-10" aria-hidden="true" tabindex="-1"></a><span class="at">  7. Upload artifacts (videos/screenshots)</span></span>
+<span id="cb14-11"><a href="#cb14-11" aria-hidden="true" tabindex="-1"></a><span class="at">  8. Cleanup</span></span></code></pre></div>
+<p><strong>E2E Stack Features:</strong></p>
+<ul>
+<li>Isolated environment (separate DB, ports)</li>
+<li>Real services (no mocks)</li>
+<li>Automatic cleanup</li>
+<li>Artifact retention (7 days)</li>
+</ul>
+</section>
+<section class="slide level2">
+
+<h3 id="linting-code-quality">Linting &amp; Code Quality</h3>
+<p><strong>Backend (Python):</strong></p>
+<ul>
+<li>Tool: Ruff (fast Rust-based linter)</li>
+<li>Rules: PEP 8 compliance</li>
+<li>Auto-fix available</li>
+</ul>
+<p><strong>Frontend (JavaScript):</strong></p>
+<ul>
+<li>Tool: ESLint</li>
+<li>Rules: React best practices</li>
+<li>Hooks: Pre-commit validation</li>
+</ul>
+<p><strong>Command Examples:</strong></p>
+<div class="sourceCode" id="cb15"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb15-1"><a href="#cb15-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Backend</span></span>
+<span id="cb15-2"><a href="#cb15-2" aria-hidden="true" tabindex="-1"></a><span class="ex">docker</span> compose exec backend ruff check .</span>
+<span id="cb15-3"><a href="#cb15-3" aria-hidden="true" tabindex="-1"></a><span class="ex">docker</span> compose exec backend ruff check . <span class="at">--fix</span></span>
+<span id="cb15-4"><a href="#cb15-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-5"><a href="#cb15-5" aria-hidden="true" tabindex="-1"></a><span class="co"># Frontend</span></span>
+<span id="cb15-6"><a href="#cb15-6" aria-hidden="true" tabindex="-1"></a><span class="ex">docker</span> compose exec frontend npm run lint</span></code></pre></div>
+</section>
+<section class="slide level2">
+
+<h3 id="database-migrations">Database Migrations</h3>
+<p><strong>Tool:</strong> Alembic</p>
+<p><strong>Workflow:</strong></p>
+<ol type="1">
+<li>Create migration:
+<code>alembic revision -m "description"</code></li>
+<li>Edit generated file (upgrade/downgrade functions)</li>
+<li>Apply: <code>alembic upgrade head</code></li>
+<li>Rollback: <code>alembic downgrade -1</code></li>
+</ol>
+<p><strong>Best Practices:</strong></p>
+<ul>
+<li>Idempotent migrations (check before alter)</li>
+<li>Descriptive names</li>
+<li>Test both upgrade and downgradeExample migration:</li>
+</ul>
+<div class="sourceCode" id="cb16"><pre
+class="sourceCode python"><code class="sourceCode python"><span id="cb16-1"><a href="#cb16-1" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> upgrade():</span>
+<span id="cb16-2"><a href="#cb16-2" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Check if column exists before adding</span></span>
+<span id="cb16-3"><a href="#cb16-3" aria-hidden="true" tabindex="-1"></a>    conn <span class="op">=</span> op.get_bind()</span>
+<span id="cb16-4"><a href="#cb16-4" aria-hidden="true" tabindex="-1"></a>    inspector <span class="op">=</span> sa.inspect(conn)</span>
+<span id="cb16-5"><a href="#cb16-5" aria-hidden="true" tabindex="-1"></a>    columns <span class="op">=</span> [c[<span class="st">&#39;name&#39;</span>] <span class="cf">for</span> c <span class="kw">in</span> inspector.get_columns(<span class="st">&#39;interviews&#39;</span>)]</span>
+<span id="cb16-6"><a href="#cb16-6" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb16-7"><a href="#cb16-7" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> <span class="st">&#39;created_at&#39;</span> <span class="kw">not</span> <span class="kw">in</span> columns:</span>
+<span id="cb16-8"><a href="#cb16-8" aria-hidden="true" tabindex="-1"></a>        op.add_column(<span class="st">&#39;interviews&#39;</span>, </span>
+<span id="cb16-9"><a href="#cb16-9" aria-hidden="true" tabindex="-1"></a>            sa.Column(<span class="st">&#39;created_at&#39;</span>, sa.DateTime(timezone<span class="op">=</span><span class="va">True</span>)))</span></code></pre></div>
+</section>
+<section id="roadmap-future-features" class="slide level2">
+<h2>🚀 Roadmap &amp; Future Features</h2>
+<h3 id="current-v1.11.0-stable">Current: v1.11.0 (Stable)</h3>
+<p><strong>Delivered Features:</strong></p>
+<ul>
+<li>✅ Multi-company support</li>
+<li>✅ AI Company Profiling</li>
+<li>✅ AI Job Generation</li>
+<li>✅ Microsoft + Google SSO</li>
+<li>✅ Email Verification &amp; Password Reset</li>
+<li>✅ Semantic Search (ChromaDB)</li>
+<li>✅ Interview Management</li>
+<li>✅ Mobile Responsive</li>
+<li>✅ Department Management</li>
+<li>✅ Role-Based Permissions</li>
+</ul>
+</section>
+<section class="slide level2">
+
+<h3 id="v2.0-roadmap-20-weeks">v2.0 Roadmap (20 weeks)</h3>
+<h4 id="phase-1-foundation-weeks-1-4">Phase 1: Foundation (Weeks
+1-4)</h4>
+<ul class="task-list">
+<li><label><input type="checkbox" />✅ Google Sign-In
+(COMPLETE)</label></li>
+<li><label><input type="checkbox" />Enhanced Audit Logging</label></li>
+<li><label><input type="checkbox" />Department-scoped RBAC
+improvements</label></li>
+</ul>
+<h4 id="phase-2-calendar-automation-weeks-5-8">Phase 2: Calendar &amp;
+Automation (Weeks 5-8)</h4>
+<ul class="task-list">
+<li><label><input type="checkbox" />Google Calendar
+Integration</label></li>
+<li><label><input type="checkbox" />Microsoft Outlook
+Integration</label></li>
+<li><label><input type="checkbox" />Auto Interview Invitations (with
+attendee rules)</label></li>
+</ul>
+<h4 id="phase-3-interview-redesign-weeks-9-12">Phase 3: Interview
+Redesign (Weeks 9-12)</h4>
+<ul class="task-list">
+<li><label><input type="checkbox" />Visual timeline UI</label></li>
+<li><label><input type="checkbox" />Structured scorecards</label></li>
+<li><label><input type="checkbox" />360° feedback view</label></li>
+<li><label><input type="checkbox" />Pipeline-Interview merge (unified
+Kanban)</label></li>
+</ul>
+<h4 id="phase-4-intelligence-weeks-13-16">Phase 4: Intelligence (Weeks
+13-16)</h4>
+<ul class="task-list">
+<li><label><input type="checkbox" />GraphRAG Knowledge
+Graph</label></li>
+<li><label><input type="checkbox" />Skills Matrix</label></li>
+<li><label><input type="checkbox" />Visual network exploration
+(D3.js)</label></li>
+<li><label><input type="checkbox" />Advanced semantic
+search</label></li>
+<li><label><input type="checkbox" />Role-Skill mapping</label></li>
+</ul>
+<h4 id="phase-5-admin-analytics-weeks-17-20">Phase 5: Admin &amp;
+Analytics (Weeks 17-20)</h4>
+<ul class="task-list">
+<li><label><input type="checkbox" />Advanced Admin
+Dashboard</label></li>
+<li><label><input type="checkbox" />Real-time activity feed</label></li>
+<li><label><input type="checkbox" />Time-to-hire analytics</label></li>
+<li><label><input type="checkbox" />Custom report builder</label></li>
+</ul>
+</section>
+<section class="slide level2">
+
+<h3 id="strategic-features-explained">Strategic Features Explained</h3>
+<h4 id="calendar-integration">Calendar Integration</h4>
+<p><strong>Business Impact:</strong> Zero manual scheduling, auto-sync
+with Google/Outlook</p>
+<p><strong>Features:</strong></p>
+<ul>
+<li>Two-way sync</li>
+<li>Availability detection</li>
+<li>Auto-invites to interviewer, hiring manager, recruiter</li>
+<li>Reschedule propagation</li>
+</ul>
+<h4 id="graphrag-skills-matrix">GraphRAG &amp; Skills Matrix</h4>
+<p><strong>Business Impact:</strong> Intelligent candidate discovery and
+skill gap analysis</p>
+<p><strong>Capabilities:</strong></p>
+<ul>
+<li>Knowledge graph: Candidates ↔︎ Skills ↔︎ Projects ↔︎ Companies</li>
+<li>Visual network exploration</li>
+<li>Semantic queries: “Find React developers with cloud experience”</li>
+<li>Skills matrix comparison (candidate vs. job requirements)</li>
+</ul>
+<p><strong>Example Use Case:</strong></p>
+<pre><code>Query: &quot;Find candidates similar to John Smith&quot;
+  → Graph algorithm finds:
+    - Similar tech stacks
+    - Overlapping companies
+    - Related project types</code></pre>
+</section>
+<section id="technical-onboarding" class="slide level2">
+<h2>🎓 Technical Onboarding</h2>
+<h3 id="development-setup">Development Setup</h3>
+<p><strong>Prerequisites:</strong></p>
+<ul>
+<li>Docker &amp; Docker Compose</li>
+<li>OpenAI API Key</li>
+<li>(Optional) SSO credentials</li>
+</ul>
+<p><strong>Quick Start:</strong></p>
+<div class="sourceCode" id="cb18"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb18-1"><a href="#cb18-1" aria-hidden="true" tabindex="-1"></a><span class="co"># 1. Clone repository</span></span>
+<span id="cb18-2"><a href="#cb18-2" aria-hidden="true" tabindex="-1"></a><span class="fu">git</span> clone <span class="op">&lt;</span>repo-url<span class="op">&gt;</span></span>
+<span id="cb18-3"><a href="#cb18-3" aria-hidden="true" tabindex="-1"></a><span class="bu">cd</span> Headhunter</span>
+<span id="cb18-4"><a href="#cb18-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb18-5"><a href="#cb18-5" aria-hidden="true" tabindex="-1"></a><span class="co"># 2. Configure .env</span></span>
+<span id="cb18-6"><a href="#cb18-6" aria-hidden="true" tabindex="-1"></a><span class="fu">cp</span> .env.example .env</span>
+<span id="cb18-7"><a href="#cb18-7" aria-hidden="true" tabindex="-1"></a><span class="co"># Edit .env with your OPENAI_API_KEY</span></span>
+<span id="cb18-8"><a href="#cb18-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb18-9"><a href="#cb18-9" aria-hidden="true" tabindex="-1"></a><span class="co"># 3. Launch stack</span></span>
+<span id="cb18-10"><a href="#cb18-10" aria-hidden="true" tabindex="-1"></a><span class="ex">docker</span> compose up <span class="at">-d</span> <span class="at">--build</span></span>
+<span id="cb18-11"><a href="#cb18-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb18-12"><a href="#cb18-12" aria-hidden="true" tabindex="-1"></a><span class="co"># 4. Run migrations</span></span>
+<span id="cb18-13"><a href="#cb18-13" aria-hidden="true" tabindex="-1"></a><span class="ex">docker</span> compose exec backend alembic upgrade head</span>
+<span id="cb18-14"><a href="#cb18-14" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb18-15"><a href="#cb18-15" aria-hidden="true" tabindex="-1"></a><span class="co"># 5. Access</span></span>
+<span id="cb18-16"><a href="#cb18-16" aria-hidden="true" tabindex="-1"></a><span class="co"># Frontend: http://localhost:30004</span></span>
+<span id="cb18-17"><a href="#cb18-17" aria-hidden="true" tabindex="-1"></a><span class="co"># API Docs: http://localhost:30001/docs</span></span></code></pre></div>
+</section>
+<section class="slide level2">
+
+<h3 id="environment-variables">Environment Variables</h3>
+<p><strong>Required:</strong></p>
+<div class="sourceCode" id="cb19"><pre
+class="sourceCode ini"><code class="sourceCode ini"><span id="cb19-1"><a href="#cb19-1" aria-hidden="true" tabindex="-1"></a><span class="dt">OPENAI_API_KEY</span><span class="ot">=</span><span class="st">sk-proj-xxxxx</span></span>
+<span id="cb19-2"><a href="#cb19-2" aria-hidden="true" tabindex="-1"></a><span class="dt">POSTGRES_USER</span><span class="ot">=</span><span class="st">user</span></span>
+<span id="cb19-3"><a href="#cb19-3" aria-hidden="true" tabindex="-1"></a><span class="dt">POSTGRES_PASSWORD</span><span class="ot">=</span><span class="st">password</span></span>
+<span id="cb19-4"><a href="#cb19-4" aria-hidden="true" tabindex="-1"></a><span class="dt">DATABASE_URL</span><span class="ot">=</span><span class="st">postgresql://user:password@db:5432/headhunter_db</span></span></code></pre></div>
+<p><strong>Optional SSO:</strong></p>
+<div class="sourceCode" id="cb20"><pre
+class="sourceCode ini"><code class="sourceCode ini"><span id="cb20-1"><a href="#cb20-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Microsoft</span></span>
+<span id="cb20-2"><a href="#cb20-2" aria-hidden="true" tabindex="-1"></a><span class="dt">SSO_CLIENT_ID</span><span class="ot">=</span><span class="st">xxxxx</span></span>
+<span id="cb20-3"><a href="#cb20-3" aria-hidden="true" tabindex="-1"></a><span class="dt">SSO_CLIENT_SECRET</span><span class="ot">=</span><span class="st">xxxxx</span></span>
+<span id="cb20-4"><a href="#cb20-4" aria-hidden="true" tabindex="-1"></a><span class="dt">SSO_TENANT_ID</span><span class="ot">=</span><span class="st">xxxxx</span></span>
+<span id="cb20-5"><a href="#cb20-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb20-6"><a href="#cb20-6" aria-hidden="true" tabindex="-1"></a><span class="co"># Google</span></span>
+<span id="cb20-7"><a href="#cb20-7" aria-hidden="true" tabindex="-1"></a><span class="dt">GOOGLE_CLIENT_ID</span><span class="ot">=</span><span class="st">xxxxx</span></span>
+<span id="cb20-8"><a href="#cb20-8" aria-hidden="true" tabindex="-1"></a><span class="dt">GOOGLE_CLIENT_SECRET</span><span class="ot">=</span><span class="st">xxxxx</span></span></code></pre></div>
+<p><strong>Optional Email:</strong></p>
+<div class="sourceCode" id="cb21"><pre
+class="sourceCode ini"><code class="sourceCode ini"><span id="cb21-1"><a href="#cb21-1" aria-hidden="true" tabindex="-1"></a><span class="dt">MAIL_USERNAME</span><span class="ot">=</span><span class="st">your-email@example.com</span></span>
+<span id="cb21-2"><a href="#cb21-2" aria-hidden="true" tabindex="-1"></a><span class="dt">MAIL_PASSWORD</span><span class="ot">=</span><span class="st">app-password</span></span>
+<span id="cb21-3"><a href="#cb21-3" aria-hidden="true" tabindex="-1"></a><span class="dt">MAIL_SERVER</span><span class="ot">=</span><span class="st">smtp.gmail.com</span></span>
+<span id="cb21-4"><a href="#cb21-4" aria-hidden="true" tabindex="-1"></a><span class="dt">MAIL_PORT</span><span class="ot">=</span><span class="dv">587</span></span></code></pre></div>
+</section>
+<section class="slide level2">
+
+<h3 id="key-development-commands">Key Development Commands</h3>
+<p><strong>Backend:</strong></p>
+<div class="sourceCode" id="cb22"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb22-1"><a href="#cb22-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Run tests</span></span>
+<span id="cb22-2"><a href="#cb22-2" aria-hidden="true" tabindex="-1"></a><span class="ex">docker</span> compose exec backend pytest tests/ <span class="at">-v</span></span>
+<span id="cb22-3"><a href="#cb22-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb22-4"><a href="#cb22-4" aria-hidden="true" tabindex="-1"></a><span class="co"># Lint</span></span>
+<span id="cb22-5"><a href="#cb22-5" aria-hidden="true" tabindex="-1"></a><span class="ex">docker</span> compose exec backend ruff check .</span>
+<span id="cb22-6"><a href="#cb22-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb22-7"><a href="#cb22-7" aria-hidden="true" tabindex="-1"></a><span class="co"># Shell access</span></span>
+<span id="cb22-8"><a href="#cb22-8" aria-hidden="true" tabindex="-1"></a><span class="ex">docker</span> compose exec backend bash</span>
+<span id="cb22-9"><a href="#cb22-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb22-10"><a href="#cb22-10" aria-hidden="true" tabindex="-1"></a><span class="co"># View logs</span></span>
+<span id="cb22-11"><a href="#cb22-11" aria-hidden="true" tabindex="-1"></a><span class="ex">docker</span> compose logs backend <span class="at">-f</span></span></code></pre></div>
+<p><strong>Frontend:</strong></p>
+<div class="sourceCode" id="cb23"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb23-1"><a href="#cb23-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Run tests</span></span>
+<span id="cb23-2"><a href="#cb23-2" aria-hidden="true" tabindex="-1"></a><span class="ex">docker</span> compose exec frontend npm run test</span>
+<span id="cb23-3"><a href="#cb23-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb23-4"><a href="#cb23-4" aria-hidden="true" tabindex="-1"></a><span class="co"># Lint</span></span>
+<span id="cb23-5"><a href="#cb23-5" aria-hidden="true" tabindex="-1"></a><span class="ex">docker</span> compose exec frontend npm run lint</span>
+<span id="cb23-6"><a href="#cb23-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb23-7"><a href="#cb23-7" aria-hidden="true" tabindex="-1"></a><span class="co"># Shell access</span></span>
+<span id="cb23-8"><a href="#cb23-8" aria-hidden="true" tabindex="-1"></a><span class="ex">docker</span> compose exec frontend sh</span></code></pre></div>
+<p><strong>Database:</strong></p>
+<div class="sourceCode" id="cb24"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb24-1"><a href="#cb24-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Create migration</span></span>
+<span id="cb24-2"><a href="#cb24-2" aria-hidden="true" tabindex="-1"></a><span class="ex">docker</span> compose exec backend alembic revision <span class="at">-m</span> <span class="st">&quot;description&quot;</span></span>
+<span id="cb24-3"><a href="#cb24-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb24-4"><a href="#cb24-4" aria-hidden="true" tabindex="-1"></a><span class="co"># Apply migrations</span></span>
+<span id="cb24-5"><a href="#cb24-5" aria-hidden="true" tabindex="-1"></a><span class="ex">docker</span> compose exec backend alembic upgrade head</span>
+<span id="cb24-6"><a href="#cb24-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb24-7"><a href="#cb24-7" aria-hidden="true" tabindex="-1"></a><span class="co"># Rollback</span></span>
+<span id="cb24-8"><a href="#cb24-8" aria-hidden="true" tabindex="-1"></a><span class="ex">docker</span> compose exec backend alembic downgrade <span class="at">-1</span></span>
+<span id="cb24-9"><a href="#cb24-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb24-10"><a href="#cb24-10" aria-hidden="true" tabindex="-1"></a><span class="co"># Connect to DB</span></span>
+<span id="cb24-11"><a href="#cb24-11" aria-hidden="true" tabindex="-1"></a><span class="ex">docker</span> compose exec db psql <span class="at">-U</span> user <span class="at">-d</span> headhunter_db</span></code></pre></div>
+</section>
+<section class="slide level2">
+
+<h3 id="code-organization">Code Organization</h3>
+<p><strong>Backend Conventions:</strong></p>
+<ul>
+<li><code>api/v1/</code> - REST endpoints (grouped by entity)</li>
+<li><code>models/</code> - SQLAlchemy models (database tables)</li>
+<li><code>services/</code> - Business logic (AI, search, etc.)</li>
+<li><code>core/</code> - Infrastructure (DB, auth, email)</li>
+</ul>
+<p><strong>Frontend Conventions:</strong></p>
+<ul>
+<li><code>pages/</code> - Page-level components</li>
+<li><code>components/</code> - Reusable UI components</li>
+<li><code>hooks/</code> - Custom React hooks</li>
+<li><code>services/</code> - API client functions</li>
+</ul>
+<p><strong>Naming:</strong></p>
+<ul>
+<li>Python: <code>snake_case</code> (files, functions, variables)</li>
+<li>JavaScript: <code>camelCase</code> (functions, variables),
+<code>PascalCase</code> (components)</li>
+<li>Database: <code>snake_case</code> (tables, columns)</li>
+</ul>
+</section>
+<section class="slide level2">
+
+<h3 id="common-tasks">Common Tasks</h3>
+<p><strong>Add New Endpoint:</strong></p>
+<ol type="1">
+<li>Create Pydantic schemas</li>
+<li>Add endpoint to <code>api/v1/</code></li>
+<li>Update API router</li>
+<li>Write tests</li>
+<li>Update documentation</li>
+</ol>
+<p><strong>Add Database Table:</strong></p>
+<ol type="1">
+<li>Create SQLAlchemy model in <code>models/models.py</code></li>
+<li>Generate migration:
+<code>alembic revision -m "add_table"</code></li>
+<li>Edit migration file</li>
+<li>Apply: <code>alembic upgrade head</code></li>
+<li>Update schemas</li>
+</ol>
+<p><strong>Add Frontend Page:</strong></p>
+<ol type="1">
+<li>Create component in <code>pages/</code></li>
+<li>Add route in <code>App.jsx</code></li>
+<li>Create API service function</li>
+<li>Add navigation link</li>
+<li>Style with Tailwind</li>
+</ol>
+</section>
+<section id="business-value-proposition" class="slide level2">
+<h2>💼 Business Value Proposition</h2>
+<h3 id="cost-comparison">Cost Comparison</h3>
+<table>
+<thead>
+<tr class="header">
+<th>Solution</th>
+<th>Annual Cost</th>
+<th>Limitations</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><strong>Greenhouse</strong></td>
+<td>$6,500 - $18,000</td>
+<td>Per-seat pricing, vendor lock-in</td>
+</tr>
+<tr class="even">
+<td><strong>Lever</strong></td>
+<td>$12,000 - $25,000</td>
+<td>Cloud-only, limited customization</td>
+</tr>
+<tr class="odd">
+<td><strong>Workday</strong></td>
+<td>$50,000+</td>
+<td>Enterprise only, complex setup</td>
+</tr>
+<tr class="even">
+<td><strong>Headhunter AI</strong></td>
+<td><strong>$0 - $1,200</strong></td>
+<td>Open-source, unlimited users</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Cost Breakdown (Headhunter AI):</strong></p>
+<ul>
+<li>Software: $0 (self-hosted)</li>
+<li>OpenAI API: ~$50-100/month (varies)</li>
+<li>Infrastructure: $100-1000/month (own servers/cloud)</li>
+<li><strong>Total:</strong> $1,800 - $13,200/year</li>
+</ul>
+<h3 id="roi-calculation">ROI Calculation</h3>
+<p><strong>For 50-person company:</strong></p>
+<table>
+<thead>
+<tr class="header">
+<th>Metric</th>
+<th>Before</th>
+<th>After</th>
+<th>Savings</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><strong>Time per CV</strong></td>
+<td>15 min</td>
+<td>2 min</td>
+<td>87% faster</td>
+</tr>
+<tr class="even">
+<td><strong>CVs per month</strong></td>
+<td>200</td>
+<td>200</td>
+<td>-</td>
+</tr>
+<tr class="odd">
+<td><strong>Hours saved/month</strong></td>
+<td>-</td>
+<td>43 hrs</td>
+<td>~$2,150/mo @ $50/hr</td>
+</tr>
+<tr class="even">
+<td><strong>Annual savings</strong></td>
+<td>-</td>
+<td>-</td>
+<td><strong>$25,800/year</strong></td>
+</tr>
+</tbody>
+</table>
+<p><strong>Additional Benefits:</strong></p>
+<ul>
+<li>No vendor lock-in</li>
+<li>Full data ownership</li>
+<li>GDPR/compliance friendly (self-hosted)</li>
+<li>Unlimited customization</li>
+<li>No per-seat fees</li>
+</ul>
+</section>
+<section class="slide level2">
+
+<h3 id="strategic-advantages">Strategic Advantages</h3>
+<p><strong>1. Data Ownership</strong></p>
+<ul>
+<li>All candidate data on your infrastructure</li>
+<li>No third-party data sharing</li>
+<li>Easy GDPR compliance</li>
+<li>Export anytime</li>
+</ul>
+<p><strong>2. Customization</strong></p>
+<ul>
+<li>Full source code access</li>
+<li>White-label potential</li>
+<li>Custom integrations</li>
+<li>Tailored workflows</li>
+</ul>
+<p><strong>3. Scalability</strong></p>
+<ul>
+<li>Unlimited users</li>
+<li>Unlimited companies (multi-tenant)</li>
+<li>Horizontal scaling (add more workers)</li>
+<li>No licensing constraints</li>
+</ul>
+<p><strong>4. Security</strong></p>
+<ul>
+<li>Self-hosted = no cloud exposure</li>
+<li>Air-gapped deployment possible</li>
+<li>Custom authentication</li>
+<li>Audit trails</li>
+</ul>
+</section>
+<section class="slide level2">
+
+<h3 id="target-use-cases">Target Use Cases</h3>
+<p><strong>Best For:</strong></p>
+<ul>
+<li>Tech-savvy companies with DevOps</li>
+<li>Companies with sensitive data requirements</li>
+<li>High-volume hiring (100+ CVs/month)</li>
+<li>Multi-office/multi-brand organizations</li>
+<li>Cost-conscious startups</li>
+</ul>
+<p><strong>Not Ideal For:</strong></p>
+<ul>
+<li>Non-technical teams without IT support</li>
+<li>Companies preferring SaaS simplicity</li>
+<li>Very small teams (&lt; 5 hires/year)</li>
+</ul>
+</section>
+<section id="additional-resources" class="slide level2">
+<h2>📚 Additional Resources</h2>
+<h3 id="documentation">Documentation</h3>
+<ul>
+<li>README: <code>/README.md</code></li>
+<li>Roadmap: <code>/docs/wiki/ROADMAP_V2.md</code></li>
+<li>Testing Strategy: <code>/docs/wiki/TESTING_STRATEGY.md</code></li>
+<li>Role Permissions: <code>/docs/wiki/ROLE_PERMISSIONS.md</code></li>
+<li>Design System: <code>/docs/DESIGN_SYSTEM.md</code></li>
+<li>Verification: <code>/docs/VERIFICATION.md</code></li>
+</ul>
+<h3 id="api-documentation">API Documentation</h3>
+<ul>
+<li>Swagger UI: <code>http://localhost:30001/docs</code></li>
+<li>ReDoc: <code>http://localhost:30001/redoc</code></li>
+</ul>
+<h3 id="support">Support</h3>
+<ul>
+<li>GitHub Issues: For bug reports</li>
+<li>GitHub Discussions: For Q&amp;A</li>
+<li>Team Wiki: Internal knowledge base</li>
+</ul>
+</section>
+<section id="key-takeaways" class="slide level2">
+<h2>🎯 Key Takeaways</h2>
+<h3 id="technical-excellence">Technical Excellence</h3>
+<p>✅ Modern tech stack (React, FastAPI, Docker)<br />
+✅ 76% test coverage backend<br />
+✅ Automated CI/CD pipeline<br />
+✅ Production-ready architecture</p>
+<h3 id="business-value-1">Business Value</h3>
+<p>✅ 80% reduction in manual work<br />
+✅ $25K+ annual savings<br />
+✅ Complete data ownership<br />
+✅ Unlimited scalability</p>
+<h3 id="security">Security</h3>
+<p>✅ Enterprise-grade authentication<br />
+✅ Multi-tenant isolation<br />
+✅ RBAC with 5 role levels<br />
+✅ SOC 2 ready architecture</p>
+<h3 id="innovation">Innovation</h3>
+<p>✅ AI-powered parsing &amp; matching<br />
+✅ Semantic search capabilities<br />
+✅ Context-aware job generation<br />
+✅ Mobile-first design</p>
+</section>
+<section id="next-steps" class="slide level2">
+<h2>🚀 Next Steps</h2>
+<h3 id="for-development-team">For Development Team</h3>
+<ol type="1">
+<li>Complete Phase 1 roadmap (RBAC improvements)</li>
+<li>Begin calendar integration POC</li>
+<li>Increase frontend test coverage to 60%</li>
+</ol>
+<h3 id="for-business-team">For Business Team</h3>
+<ol type="1">
+<li>Define pricing model (if productizing)</li>
+<li>Create customer onboarding materials</li>
+<li>Develop case studies</li>
+</ol>
+<h3 id="for-operations">For Operations</h3>
+<ol type="1">
+<li>Setup production infrastructure</li>
+<li>Configure monitoring (Sentry, DataDogConfigure backup strategy</li>
+<li>Implement disaster recovery</li>
+</ol>
+</section>
+<section class="slide level2">
+
+<p><strong>Built with ❤️ by the Headhunter AI Engineering
+Team</strong></p>
+<p><em>This presentation document is markdown-based and can be easily
+converted to PDF using Pandoc or to PowerPoint using Marp or similar
+tools.</em></p>
+</section>
+<section id="conversion-instructions" class="slide level2">
+<h2>Conversion Instructions</h2>
+<h3 id="to-pdf">To PDF</h3>
+<div class="sourceCode" id="cb25"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb25-1"><a href="#cb25-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Using Pandoc</span></span>
+<span id="cb25-2"><a href="#cb25-2" aria-hidden="true" tabindex="-1"></a><span class="ex">pandoc</span> presentation.md <span class="at">-o</span> presentation.pdf <span class="at">--pdf-engine</span><span class="op">=</span>xelatex</span>
+<span id="cb25-3"><a href="#cb25-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb25-4"><a href="#cb25-4" aria-hidden="true" tabindex="-1"></a><span class="co"># Using Marp</span></span>
+<span id="cb25-5"><a href="#cb25-5" aria-hidden="true" tabindex="-1"></a><span class="ex">marp</span> presentation.md <span class="at">-o</span> presentation.pdf</span></code></pre></div>
+<h3 id="to-powerpoint">To PowerPoint</h3>
+<div class="sourceCode" id="cb26"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb26-1"><a href="#cb26-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Using Pandoc</span></span>
+<span id="cb26-2"><a href="#cb26-2" aria-hidden="true" tabindex="-1"></a><span class="ex">pandoc</span> presentation.md <span class="at">-o</span> presentation.pptx</span>
+<span id="cb26-3"><a href="#cb26-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb26-4"><a href="#cb26-4" aria-hidden="true" tabindex="-1"></a><span class="co"># Using Marp</span></span>
+<span id="cb26-5"><a href="#cb26-5" aria-hidden="true" tabindex="-1"></a><span class="ex">marp</span> presentation.md <span class="at">-o</span> presentation.pptx</span></code></pre></div>
+<h3 id="to-html-slides">To HTML Slides</h3>
+<div class="sourceCode" id="cb27"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb27-1"><a href="#cb27-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Using Marp</span></span>
+<span id="cb27-2"><a href="#cb27-2" aria-hidden="true" tabindex="-1"></a><span class="ex">marp</span> presentation.md <span class="at">-o</span> presentation.html <span class="at">--theme</span> default</span>
+<span id="cb27-3"><a href="#cb27-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb27-4"><a href="#cb27-4" aria-hidden="true" tabindex="-1"></a><span class="co"># Using reveal.js via Pandoc</span></span>
+<span id="cb27-5"><a href="#cb27-5" aria-hidden="true" tabindex="-1"></a><span class="ex">pandoc</span> presentation.md <span class="at">-t</span> revealjs <span class="at">-s</span> <span class="at">-o</span> presentation.html</span></code></pre></div>
+</section></section>
+    </div>
+  </div>
+
+  <script src="https://unpkg.com/reveal.js@4.3.1//dist/reveal.js"></script>
+
+  <!-- reveal.js plugins -->
+  <script src="https://unpkg.com/reveal.js@4.3.1//plugin/notes/notes.js"></script>
+  <script src="https://unpkg.com/reveal.js@4.3.1//plugin/search/search.js"></script>
+  <script src="https://unpkg.com/reveal.js@4.3.1//plugin/zoom/zoom.js"></script>
+
+  <script>
+
+      // Full list of configuration options available at:
+      // https://revealjs.com/config/
+      Reveal.initialize({
+        // Display controls in the bottom right corner
+        controls: true,
+
+        // Help the user learn the controls by providing hints, for example by
+        // bouncing the down arrow when they first encounter a vertical slide
+        controlsTutorial: true,
+
+        // Determines where controls appear, "edges" or "bottom-right"
+        controlsLayout: 'bottom-right',
+
+        // Visibility rule for backwards navigation arrows; "faded", "hidden"
+        // or "visible"
+        controlsBackArrows: 'faded',
+
+        // Display a presentation progress bar
+        progress: true,
+
+        // Display the page number of the current slide
+        slideNumber: false,
+
+        // 'all', 'print', or 'speaker'
+        showSlideNumber: 'all',
+
+        // Add the current slide number to the URL hash so that reloading the
+        // page/copying the URL will return you to the same slide
+        hash: true,
+
+        // Start with 1 for the hash rather than 0
+        hashOneBasedIndex: false,
+
+        // Flags if we should monitor the hash and change slides accordingly
+        respondToHashChanges: true,
+
+        // Push each slide change to the browser history
+        history: false,
+
+        // Enable keyboard shortcuts for navigation
+        keyboard: true,
+
+        // Enable the slide overview mode
+        overview: true,
+
+        // Disables the default reveal.js slide layout (scaling and centering)
+        // so that you can use custom CSS layout
+        disableLayout: false,
+
+        // Vertical centering of slides
+        center: true,
+
+        // Enables touch navigation on devices with touch input
+        touch: true,
+
+        // Loop the presentation
+        loop: false,
+
+        // Change the presentation direction to be RTL
+        rtl: false,
+
+        // see https://revealjs.com/vertical-slides/#navigation-mode
+        navigationMode: 'default',
+
+        // Randomizes the order of slides each time the presentation loads
+        shuffle: false,
+
+        // Turns fragments on and off globally
+        fragments: true,
+
+        // Flags whether to include the current fragment in the URL,
+        // so that reloading brings you to the same fragment position
+        fragmentInURL: true,
+
+        // Flags if the presentation is running in an embedded mode,
+        // i.e. contained within a limited portion of the screen
+        embedded: false,
+
+        // Flags if we should show a help overlay when the questionmark
+        // key is pressed
+        help: true,
+
+        // Flags if it should be possible to pause the presentation (blackout)
+        pause: true,
+
+        // Flags if speaker notes should be visible to all viewers
+        showNotes: false,
+
+        // Global override for autoplaying embedded media (null/true/false)
+        autoPlayMedia: null,
+
+        // Global override for preloading lazy-loaded iframes (null/true/false)
+        preloadIframes: null,
+
+        // Number of milliseconds between automatically proceeding to the
+        // next slide, disabled when set to 0, this value can be overwritten
+        // by using a data-autoslide attribute on your slides
+        autoSlide: 0,
+
+        // Stop auto-sliding after user input
+        autoSlideStoppable: true,
+
+        // Use this method for navigation when auto-sliding
+        autoSlideMethod: null,
+
+        // Specify the average time in seconds that you think you will spend
+        // presenting each slide. This is used to show a pacing timer in the
+        // speaker view
+        defaultTiming: null,
+
+        // Enable slide navigation via mouse wheel
+        mouseWheel: false,
+
+        // The display mode that will be used to show slides
+        display: 'block',
+
+        // Hide cursor if inactive
+        hideInactiveCursor: true,
+
+        // Time before the cursor is hidden (in ms)
+        hideCursorTime: 5000,
+
+        // Opens links in an iframe preview overlay
+        previewLinks: false,
+
+        // Transition style (none/fade/slide/convex/concave/zoom)
+        transition: 'slide',
+
+        // Transition speed (default/fast/slow)
+        transitionSpeed: 'default',
+
+        // Transition style for full page slide backgrounds
+        // (none/fade/slide/convex/concave/zoom)
+        backgroundTransition: 'fade',
+
+        // Number of slides away from the current that are visible
+        viewDistance: 3,
+
+        // Number of slides away from the current that are visible on mobile
+        // devices. It is advisable to set this to a lower number than
+        // viewDistance in order to save resources.
+        mobileViewDistance: 2,
+
+        // reveal.js plugins
+        plugins: [
+          RevealNotes,
+          RevealSearch,
+          RevealZoom
+        ]
+      });
+    </script>
+    </body>
+</html>

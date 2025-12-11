@@ -44,7 +44,7 @@ jobs:
 
       - name: Seed test database
         run: |
-          docker compose -f docker-compose.e2e.yml exec -T backend-e2e env PYTHONPATH=/app python tests/seed_test_data.py
+          docker compose -f docker-compose.e2e.yml exec -T backend-e2e env PYTHONPATH=/app AUTO_CONFIRM=true python tests/seed_test_data.py
 
       - name: Run Cypress E2E tests
         run: |

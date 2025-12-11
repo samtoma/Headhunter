@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import {
-    ArrowLeft, Calendar, User, Briefcase, Star, Check,
+    ArrowLeft, User, Briefcase, Star, Check,
     Save, MapPin, FileText, GraduationCap, Award,
     Linkedin, Github, ExternalLink, FileCode, Eye, MoreVertical,
     X, UserPlus, CalendarClock, XCircle, AlertTriangle
@@ -361,7 +361,7 @@ const InterviewMode = () => {
                                             let hostname = "";
                                             try {
                                                 hostname = (new URL(link)).hostname.toLowerCase();
-                                            } catch (e) {
+                                            } catch {
                                                 hostname = "";
                                             }
                                             // Strict hostname matching

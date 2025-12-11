@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
-from datetime import timedelta
+from datetime import datetime, timedelta, timezone
 from app.core.database import get_db
 from app.models.models import User, Company, UserRole, ActivityLog
 from app.api.deps import get_current_user
@@ -218,7 +218,6 @@ async def verify_email(token: str, db: Session = Depends(get_db)):
 
 @router.get("/me")
 def read_users_me(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    from datetime import datetime, timezone
     
     # Get version from company's last data update
     version = None
@@ -239,3 +238,76 @@ def read_users_me(current_user: User = Depends(get_current_user), db: Session = 
         "is_active": current_user.is_active,
         "version": version
     }
+
+@router.post("/forgot-password")
+async def forgot_password(email: str, db: Session = Depends(get_db)):
+    """Request a password reset email."""
+    import uuid
+    from datetime import timedelta
+    from app.models.models import PasswordResetToken
+    from app.core.email import send_password_reset_email
+    
+    # Always return success to prevent email enumeration
+    user = db.query(User).filter(User.email == email).first()
+    if not user:
+        return {"message": "If an account exists with that email, a password reset link has been sent."}
+    
+    # Generate secure token
+    token = str(uuid.uuid4())
+    expires_at = datetime.now(timezone.utc) + timedelta(hours=1)
+    
+    # Create reset token
+    reset_token = PasswordResetToken(
+        token=token,
+        user_id=user.id,
+        expires_at=expires_at,
+        used=False
+    )
+    db.add(reset_token)
+    db.commit()
+    
+    # Send email
+    try:
+        await send_password_reset_email(
+            email=user.email,
+            token=token,
+            user_name=user.full_name or user.email.split("@")[0]
+        )
+    except Exception as e:
+        # Log but don't expose email errors
+        print(f"Failed to send reset email: {e}")
+    
+    return {"message": "If an account exists with that email, a password reset link has been sent."}
+
+
+@router.post("/reset-password")
+def reset_password(token: str, new_password: str, db: Session = Depends(get_db)):
+    """Reset password using a valid token."""
+    from app.models.models import PasswordResetToken
+    
+    # Find token
+    reset_token = db.query(PasswordResetToken).filter(
+        PasswordResetToken.token == token
+    ).first()
+    
+    if not reset_token:
+        raise HTTPException(status_code=400, detail="Invalid or expired reset token")
+    
+    # Check if used
+    if reset_token.used:
+        raise HTTPException(status_code=400, detail="This reset link has already been used")
+    
+    # Check if expired
+    if reset_token.expires_at < datetime.now(timezone.utc):
+        raise HTTPException(status_code=400, detail="This reset link has expired")
+    
+    # Update password
+    user = db.query(User).filter(User.id == reset_token.user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    user.hashed_password = get_password_hash(new_password)
+    reset_token.used = True
+    db.commit()
+    
+    return {"message": "Password reset successfully"}

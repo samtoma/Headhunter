@@ -21,15 +21,44 @@ from app.models.models import (
 from app.core.security import get_password_hash
 import os
 import json
+import sys
 
-# E2E test database URL - use DATABASE_URL from environment (set by docker-compose)
+# E2E test database URL - ONLY use for testing!
 DATABASE_URL = os.getenv(
-    "DATABASE_URL",
-    "postgresql://testuser:testpass@db-e2e:5432/headhunter_e2e_db"
+    "DATABASE_URL_TEST",
+    os.getenv("DATABASE_URL", "postgresql://testuser:testpass@db-e2e:5432/headhunter_e2e_db")
 )
 
 def seed_database():
-    """Seed the database with test data."""
+    """
+    Seed the database with test data.
+    
+    ⚠️  WARNING: This script will DROP ALL TABLES and recreate them.
+    Only run this on test databases, never on production!
+    """
+    
+    # Safety check to prevent running on production database
+    if "headhunter_db" in DATABASE_URL or "production" in DATABASE_URL.lower():
+        print("❌ ERROR: Refusing to run on production/development database!")
+        print(f"   Database URL contains 'headhunter_db' or 'production': {DATABASE_URL[:50]}...")
+        print("   This script is ONLY for E2E test databases.")
+        print("   Set DATABASE_URL_TEST environment variable to override.")
+        sys.exit(1)
+    
+    print(f"🔧 Connecting to: {DATABASE_URL[:50]}...")
+    
+    # Allow auto-confirmation via environment variable (for CI/CD)
+    auto_confirm = os.getenv("AUTO_CONFIRM", "false").lower() == "true"
+    
+    if auto_confirm:
+        print("⚠️  AUTO_CONFIRM=true - Skipping confirmation prompt")
+        print("⚠️  This will DROP ALL TABLES and recreate them.")
+    else:
+        response = input("⚠️  This will DROP ALL TABLES. Continue? (yes/no): ")
+        if response.lower() != "yes":
+            print("Aborted.")
+            sys.exit(0)
+    
     engine = create_engine(DATABASE_URL)
     
     # Create all tables
