@@ -7,6 +7,8 @@ import DashboardView from './components/dashboard/DashboardView';
 import AuthCallback from './components/auth/AuthCallback';
 import VerifyEmail from './components/auth/VerifyEmail';
 import PendingVerification from './components/auth/PendingVerification';
+import ForgotPassword from './components/auth/ForgotPassword';
+import ResetPassword from './components/auth/ResetPassword';
 
 import Pipeline from './pages/Pipeline';
 import Settings from './pages/Settings';
@@ -64,6 +66,8 @@ const AppRoutes = () => {
         <Routes>
             <Route path="/login" element={<Login />} />
             <Route path="/signup" element={<Signup />} />
+            <Route path="/forgot-password" element={<ForgotPassword />} />
+            <Route path="/reset-password" element={<ResetPassword />} />
             <Route path="/auth/callback" element={<AuthCallback />} />
             <Route path="/setup" element={<CompanySetupWizard />} />
 
