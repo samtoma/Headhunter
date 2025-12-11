@@ -37,7 +37,7 @@ def seed_database():
     Only run this on test databases, never on production!
     """
     
-   # Safety check to prevent running on production database
+    # Safety check to prevent running on production database
     if "headhunter_db" in DATABASE_URL or "production" in DATABASE_URL.lower():
         print("❌ ERROR: Refusing to run on production/development database!")
         print(f"   Database URL contains 'headhunter_db' or 'production': {DATABASE_URL[:50]}...")
@@ -46,10 +46,18 @@ def seed_database():
         sys.exit(1)
     
     print(f"🔧 Connecting to: {DATABASE_URL[:50]}...")
-    response = input("⚠️  This will DROP ALL TABLES. Continue? (yes/no): ")
-    if response.lower() != "yes":
-        print("Aborted.")
-        sys.exit(0)
+    
+    # Allow auto-confirmation via environment variable (for CI/CD)
+    auto_confirm = os.getenv("AUTO_CONFIRM", "false").lower() == "true"
+    
+    if auto_confirm:
+        print("⚠️  AUTO_CONFIRM=true - Skipping confirmation prompt")
+        print("⚠️  This will DROP ALL TABLES and recreate them.")
+    else:
+        response = input("⚠️  This will DROP ALL TABLES. Continue? (yes/no): ")
+        if response.lower() != "yes":
+            print("Aborted.")
+            sys.exit(0)
     
     engine = create_engine(DATABASE_URL)
     
