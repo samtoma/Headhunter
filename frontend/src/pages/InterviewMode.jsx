@@ -358,9 +358,22 @@ const InterviewMode = () => {
                                             let Icon = ExternalLink;
                                             let label = "Link";
                                             let style = "bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100";
-                                            const lower = (link || "").toLowerCase();
-                                            if (lower.includes("linkedin.com")) { Icon = Linkedin; label = "LinkedIn"; style = "bg-sky-50 text-sky-700 border-sky-200 hover:bg-sky-100"; }
-                                            else if (lower.includes("github.com")) { Icon = Github; label = "GitHub"; style = "bg-slate-800 text-white border-slate-900 hover:bg-slate-700"; }
+                                            let hostname = "";
+                                            try {
+                                                hostname = (new URL(link)).hostname.toLowerCase();
+                                            } catch (e) {
+                                                hostname = "";
+                                            }
+                                            // Strict hostname matching
+                                            if (hostname === "linkedin.com" || hostname === "www.linkedin.com") {
+                                                Icon = Linkedin;
+                                                label = "LinkedIn";
+                                                style = "bg-sky-50 text-sky-700 border-sky-200 hover:bg-sky-100";
+                                            } else if (hostname === "github.com" || hostname === "www.github.com") {
+                                                Icon = Github;
+                                                label = "GitHub";
+                                                style = "bg-slate-800 text-white border-slate-900 hover:bg-slate-700";
+                                            }
                                             return (
                                                 <a key={i} href={link} target="_blank" rel="noreferrer" className={`px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 transition border ${style}`}>
                                                     <Icon size={14} /> {label}
