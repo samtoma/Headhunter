@@ -20,7 +20,7 @@ const ForgotPassword = () => {
                 params: { email }
             })
             setSuccess(true)
-        } catch (err) {
+        } catch {
             setError('Failed to send reset email. Please try again.')
         } finally {
             setLoading(false)
@@ -37,7 +37,7 @@ const ForgotPassword = () => {
                         </div>
                         <h2 className="text-2xl font-bold text-slate-900 mb-2">Check Your Email</h2>
                         <p className="text-slate-600 mb-6">
-                            We've sent a password reset link to <span className="font-semibold text-indigo-600">{email}</span>
+                            We&apos;ve sent a password reset link to <span className="font-semibold text-indigo-600">{email}</span>
                         </p>
                         <p className="text-sm text-slate-500 mb-6">
                             The link will expire in 1 hour for security reasons.
@@ -70,7 +70,7 @@ const ForgotPassword = () => {
                         <Mail className="w-8 h-8 text-white" />
                     </div>
                     <h1 className="text-3xl font-bold text-slate-900 mb-2">Forgot Password?</h1>
-                    <p className="text-slate-600">No worries, we'll send you reset instructions.</p>
+                    <p className="text-slate-600">No worries, we&apos;ll send you reset instructions.</p>
                 </div>
 
                 {error && (
