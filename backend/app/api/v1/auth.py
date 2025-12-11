@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
-from datetime import timedelta
+from datetime import datetime, timedelta, timezone
 from app.core.database import get_db
 from app.models.models import User, Company, UserRole, ActivityLog
 from app.api.deps import get_current_user
@@ -218,7 +218,6 @@ async def verify_email(token: str, db: Session = Depends(get_db)):
 
 @router.get("/me")
 def read_users_me(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    from datetime import datetime, timezone
     
     # Get version from company's last data update
     version = None
