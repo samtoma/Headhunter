@@ -1,4 +1,4 @@
-# 🧠 Headhunter AI (v1.8.1)
+# 🧠 Headhunter AI (v1.11.0)
 
 **Headhunter AI** is a production-grade, self-hosted Applicant Tracking System (ATS) engineered for high-performance recruitment teams.
 
@@ -99,6 +99,13 @@ Headhunter AI is built with a "Security First" mindset, ensuring data privacy an
 * **Multi-Page Analysis:** Scrapes main page, about page, careers page, and more for complete data.
 * **16 LinkedIn-Style Fields:**
 
+### 3. 🔍 Semantic AI Search & Auto-Sync
+
+* **Vector Embeddings**: CVs are automatically embedded using OpenAI and stored in ChromaDB for semantic search.
+* **Auto-Sync Service**: A background service automatically ensures that all parsed CVs in Postgres are indexed in ChromaDB on application startup.
+* **Self-Healing**: Automatic detection and recovery of missing embeddings.
+* **Manual Re-indexing**: `backend/scripts/reindex_chroma.py` is available for manual bulk updates.
+
   * **Basic Info:** Name, Tagline, Industry, Founded Year, Company Size, Headquarters, Company Type
   * **About:** Description, Mission, Vision, Culture, Core Values
   * **Business:** Products/Services, Target Market, Competitive Advantage, Specialties
@@ -119,8 +126,10 @@ Headhunter AI is built with a "Security First" mindset, ensuring data privacy an
 ### 4. 🔐 Enterprise Security & SSO
 
 * **Microsoft SSO Integration:** Securely log in using your corporate Microsoft account (Azure AD).
+* **Google Sign-In:** OAuth 2.0 authentication with Google Workspace accounts for seamless single sign-on.
 * **Email Verification:** Automated email verification flow to ensure user authenticity.
 * **Secure Authentication:** JWT-based authentication with automatic token refresh.
+* **Password Reset:** Secure password reset workflow with time-limited, single-use tokens sent via email.
 
 ### 5. 🎯 Context-Aware AI Engine
 
@@ -194,7 +203,9 @@ Headhunter AI is built with a "Security First" mindset, ensuring data privacy an
 
 * **Docker** & **Docker Compose** installed.
 * **OpenAI API Key** (Required for AI features).
-* **Microsoft Azure App Registration** (For SSO - Optional).
+* **SSO Configuration** (Optional - supports Microsoft Azure AD and Google Workspace).
+
+> **Note:** See [VERIFICATION.md](docs/VERIFICATION.md) for confirmed working features and system health checks.
 
 ### 1. Clone the Repository
 
@@ -220,10 +231,15 @@ POSTGRES_DB=headhunter_db
 # Internal Docker Network URL
 DATABASE_URL=postgresql://user:password@db:5432/headhunter_db
 
-# --- SSO CONFIGURATION (Microsoft - Optional) ---
-SSO_CLIENT_ID=your-client-id
-SSO_CLIENT_SECRET=your-client-secret
+# --- SSO CONFIGURATION ---
+# Microsoft SSO (Optional)
+SSO_CLIENT_ID=your-microsoft-client-id
+SSO_CLIENT_SECRET=your-microsoft-client-secret
 SSO_TENANT_ID=your-tenant-id
+
+# Google Sign-In (Optional)
+GOOGLE_CLIENT_ID=your-google-client-id
+GOOGLE_CLIENT_SECRET=your-google-client-secret
 
 # --- EMAIL CONFIGURATION ---
 MAIL_USERNAME=your-email@example.com
@@ -301,7 +317,16 @@ Unit Tests (70%) - Business logic
 | **Frontend** | **33%** | ⚠️ Improving (Target: 80%) |
 
 *Backend coverage includes 100% coverage for Models, Schemas, and Auth.*
-```
+
+**Feature Verification:** See [VERIFICATION.md](docs/VERIFICATION.md) for detailed endpoint testing and feature validation.
+
+**Key Verified Features:**
+- ✅ Google Sign-In OAuth flow
+- ✅ Password Reset backend
+- ✅ Email Verification
+- ✅ Multi-SSO support (Microsoft + Google)
+- ✅ AI Search with ChromaDB
+- ✅ All core API endpoints
 
 ### Continuous Integration/Continuous Deployment (CI/CD)
 
@@ -446,7 +471,7 @@ The CI/CD pipeline enforces:
 
 ## Roadmap
 
-### Current Status: v1.8.1 (Stable Release)
+### Current Status: v1.11.0 (Stable Release)
 
 The system is a fully functional, enterprise-grade Applicant Tracking System with:
 
@@ -458,7 +483,10 @@ The system is a fully functional, enterprise-grade Applicant Tracking System wit
 * ✅ **Multi-company support** with complete data isolation.
 * ✅ **AI-powered Company Profiling** (16 fields).
 * ✅ **Comprehensive Job Description Generation** (11 fields).
-* ✅ **Enterprise Security & SSO** (Microsoft).
+* ✅ **Enterprise Security & Multiple SSO Providers** (Microsoft, Google).
+* ✅ **Email Verification & Password Reset** for secure account management.
+* ✅ **AI Search with Auto-Sync** using ChromaDB for semantic candidate search.
+* ✅ **Mobile-Responsive Interview Mode** with enriched CV parsing.
 
 ---
 

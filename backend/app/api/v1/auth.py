@@ -18,13 +18,18 @@ class Token(BaseModel):
     role: str
     company_name: Optional[str] = None
     is_new_company: bool = False
+    email: Optional[str] = None
+    full_name: Optional[str] = None
+    profile_picture: Optional[str] = None
+    sso_provider: Optional[str] = None  # 'google', 'microsoft', or null for password
 
 class UserCreate(BaseModel):
     email: str
     password: str
+    full_name: Optional[str] = None  # Optional display name
 
 @router.post("/signup", response_model=Token)
-def signup(user: UserCreate, db: Session = Depends(get_db)):
+async def signup(user: UserCreate, db: Session = Depends(get_db)):
     db_user = db.query(User).filter(User.email == user.email).first()
     if db_user:
         raise HTTPException(status_code=400, detail="Email already registered")
@@ -53,11 +58,23 @@ def signup(user: UserCreate, db: Session = Depends(get_db)):
         email=user.email, 
         hashed_password=hashed_password,
         company_id=company.id,
-        role=user_role
+        role=user_role,
+        full_name=user.full_name  # Store provided name
     )
     db.add(new_user)
     db.commit()
     db.refresh(new_user)
+
+    # Send Verification Email
+    try:
+        verification_token = create_access_token(
+            data={"sub": new_user.email, "type": "verification"}, 
+            expires_delta=timedelta(hours=24)
+        )
+        from app.core.email import send_verification_email
+        await send_verification_email(new_user.email, verification_token)
+    except Exception as e:
+        auth_logger.log_action(action="error", message=f"Failed to send verification email: {str(e)}", user_id=new_user.id, user_email=new_user.email, company_id=company.id)
     
     access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     access_token = create_access_token(
@@ -80,7 +97,10 @@ def signup(user: UserCreate, db: Session = Depends(get_db)):
         "token_type": "bearer",
         "role": new_user.role,
         "company_name": company.name,
-        "is_new_company": is_new_company
+        "is_new_company": is_new_company,
+        "email": new_user.email,
+        "full_name": new_user.full_name,
+        "profile_picture": new_user.profile_picture
     }
 
 @router.post("/login", response_model=Token)
@@ -92,6 +112,15 @@ def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(), db:
             detail="Incorrect username or password",
             headers={"WWW-Authenticate": "Bearer"},
         )
+    
+    # Check Verification
+    if not user.is_verified:
+        raise HTTPException(
+            status_code=403,
+            detail="Email not verified",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
     access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     access_token = create_access_token(
         data={"sub": user.email}, expires_delta=access_token_expires
@@ -125,8 +154,28 @@ def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(), db:
         "token_type": "bearer",
         "role": user.role,
         "company_name": user.company.name if user.company else None,
-        "is_new_company": False
+        "is_new_company": False,
+        "email": user.email,
+        "full_name": user.full_name,
+        "profile_picture": user.profile_picture,
+        "sso_provider": user.sso_provider
     }
+
+@router.post("/resend-verification")
+async def resend_verification(email: str, db: Session = Depends(get_db)):
+    user = db.query(User).filter(User.email == email).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    if user.is_verified:
+        return {"message": "Email already verified"}
+        
+    verification_token = create_access_token(data={"sub": user.email, "type": "verification"}, expires_delta=timedelta(hours=24))
+    
+    from app.core.email import send_verification_email
+    await send_verification_email(user.email, verification_token)
+    
+    return {"message": "Verification email sent"}
 
 @router.post("/send-verification")
 async def send_verification(email: str, db: Session = Depends(get_db)):
@@ -168,12 +217,25 @@ async def verify_email(token: str, db: Session = Depends(get_db)):
     return {"message": "Email verified successfully"}
 
 @router.get("/me")
-def read_users_me(current_user: User = Depends(get_current_user)):
+def read_users_me(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    from datetime import datetime, timezone
+    
+    # Get version from company's last data update
+    version = None
+    if current_user.company_id:
+        company = db.query(Company).filter(Company.id == current_user.company_id).first()
+        if company and company.last_data_update:
+            version = company.last_data_update.isoformat()
+        else:
+            # Fallback to current time
+            version = datetime.now(timezone.utc).isoformat()
+    
     return {
         "id": current_user.id,
         "email": current_user.email,
         "role": current_user.role,
         "company_id": current_user.company_id,
         "department": current_user.department,
-        "is_active": current_user.is_active
+        "is_active": current_user.is_active,
+        "version": version
     }

@@ -138,7 +138,8 @@ def process_cv(cv_id: int):
                             "name": data.get("name", "Unknown"),
                             "email": clean_and_dump(data, ["email", "emails"]),
                             "filename": cv_filename,
-                            "cv_id": cv_id
+                            "cv_id": cv_id,
+                            "company_id": cv.company_id
                         }],
                         embeddings=[embedding]
                     )

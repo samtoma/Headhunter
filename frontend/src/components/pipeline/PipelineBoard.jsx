@@ -1,4 +1,3 @@
-import React from 'react';
 import CandidateCard from './CandidateCard';
 
 const PipelineBoard = ({

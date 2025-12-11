@@ -44,6 +44,11 @@ def test_login_flow(client, db):
     # Setup user
     client.post("/auth/signup", json={"email": "login@test.com", "password": "password123"})
     
+    # Manual verify
+    user = db.query(User).filter(User.email == "login@test.com").first()
+    user.is_verified = True
+    db.commit()
+    
     # 1. Success
     res = client.post("/auth/login", data={"username": "login@test.com", "password": "password123"})
     assert res.status_code == 200
@@ -88,3 +93,42 @@ def test_verification_flow(client, db):
     token_orphan = create_access_token(data={"sub": "ghost@test.com", "type": "verification"})
     res = client.get(f"/auth/verify?token={token_orphan}")
     assert res.status_code == 404
+
+def test_login_blocks_unverified_user(client, db):
+    # Setup unverified user
+    client.post("/auth/signup", json={"email": "unverified@test.com", "password": "password123"})
+    
+    # Try login
+    res = client.post("/auth/login", data={"username": "unverified@test.com", "password": "password123"})
+    assert res.status_code == 403
+    assert res.json()["detail"] == "Email not verified"
+    
+    # Manually verify
+    user = db.query(User).filter(User.email == "unverified@test.com").first()
+    user.is_verified = True
+    db.commit()
+    
+    # Try login again
+    res = client.post("/auth/login", data={"username": "unverified@test.com", "password": "password123"})
+    assert res.status_code == 200
+
+def test_resend_verification_flow(client, db):
+    # Setup unverified user
+    client.post("/auth/signup", json={"email": "resend@test.com", "password": "password123"})
+    
+    # Mock email sending
+    from unittest.mock import patch
+    with patch("app.core.email.send_verification_email") as mock_send:
+        # Resend
+        res = client.post("/auth/resend-verification", params={"email": "resend@test.com"})
+        assert res.status_code == 200
+        mock_send.assert_called_once()
+        
+    # Test resend for already verified user
+    user = db.query(User).filter(User.email == "resend@test.com").first()
+    user.is_verified = True
+    db.commit()
+    
+    res = client.post("/auth/resend-verification", params={"email": "resend@test.com"})
+    assert res.status_code == 200
+    assert "already verified" in res.json()["message"]

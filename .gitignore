@@ -2,6 +2,8 @@
 .env
 .env.local
 .env.production
+.env.backup
+.env.example
 
 # --- Heavy AI Models ---
 # Ignore all GGUF models to save bandwidth and storage
@@ -25,6 +27,7 @@ venv/
 .venv/
 backend/venv/
 *.log
+logs/
 
 # --- Node Frontend ---
 frontend/node_modules/

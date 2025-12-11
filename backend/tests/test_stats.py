@@ -1,7 +1,7 @@
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 from app.models.models import User, UserRole, Job, Application, ActivityLog
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from app.core.security import get_password_hash
 
 def test_get_department_stats(authenticated_client: TestClient, db: Session):
@@ -51,7 +51,7 @@ def test_get_department_stats(authenticated_client: TestClient, db: Session):
 
 def test_department_stats_rbac(client: TestClient, db: Session):
     # Create Interviewer (Not allowed)
-    interviewer = User(email="interviewer@stats.com", hashed_password=get_password_hash("pass"), role=UserRole.INTERVIEWER, company_id=1)
+    interviewer = User(email="interviewer@stats.com", hashed_password=get_password_hash("pass"), role=UserRole.INTERVIEWER, company_id=1, is_verified=True)
     db.add(interviewer)
     db.commit()
     
@@ -65,7 +65,7 @@ def test_department_stats_rbac(client: TestClient, db: Session):
 
 def test_login_activity(client: TestClient, db: Session):
     # 1. Create Super Admin
-    admin = User(email="super@stats.com", hashed_password=get_password_hash("pass"), role=UserRole.SUPER_ADMIN, company_id=1)
+    admin = User(email="super@stats.com", hashed_password=get_password_hash("pass"), role=UserRole.SUPER_ADMIN, company_id=1, is_verified=True)
     db.add(admin)
     db.commit()
     
@@ -77,7 +77,7 @@ def test_login_activity(client: TestClient, db: Session):
     # 2. Create Logs
     # Today: 2 logins
     # Yesterday: 1 login
-    today = datetime.utcnow()
+    today = datetime.now(timezone.utc)
     yesterday = today - timedelta(days=1)
     
     log1 = ActivityLog(company_id=1, user_id=admin.id, action="login", created_at=today)

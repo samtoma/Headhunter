@@ -95,18 +95,11 @@ describe('CandidateDrawer', () => {
         const overviewTab = screen.getByRole('button', { name: /overview/i })
         expect(overviewTab).toHaveClass('text-indigo-600')
 
-        // Click Timeline tab and verify
-        const timelineTab = screen.getByRole('button', { name: /timeline/i })
-        fireEvent.click(timelineTab)
+        // Click Activity tab and verify
+        const activityTab = screen.getByRole('button', { name: /activity/i })
+        fireEvent.click(activityTab)
         await waitFor(() => {
-            expect(timelineTab).toHaveClass('text-indigo-600')
-        })
-
-        // Click Interviews tab and verify
-        const interviewsTab = screen.getByRole('button', { name: /interviews/i })
-        fireEvent.click(interviewsTab)
-        await waitFor(() => {
-            expect(interviewsTab).toHaveClass('text-indigo-600')
+            expect(activityTab).toHaveClass('text-indigo-600')
         })
     }, 10000) // Increase timeout to 10s
 
@@ -127,7 +120,7 @@ describe('CandidateDrawer', () => {
         })
     })
 
-    it('displays timeline items after switching to timeline tab', async () => {
+    it('displays activity items after switching to activity tab', async () => {
         render(
             <CandidateDrawer
                 cv={mockCv}
@@ -144,9 +137,9 @@ describe('CandidateDrawer', () => {
             expect(axios.get).toHaveBeenCalledWith(expect.stringContaining('/timeline'))
         })
 
-        // Switch to Timeline tab
-        const timelineTab = screen.getByRole('button', { name: /timeline/i })
-        fireEvent.click(timelineTab)
+        // Switch to Activity tab
+        const activityTab = screen.getByRole('button', { name: /activity/i })
+        fireEvent.click(activityTab)
 
         // Check that the timeline content is rendered (not the empty state)
         await waitFor(() => {

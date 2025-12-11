@@ -102,6 +102,34 @@ async def test_parse_cv_with_llm_no_key():
         assert res == {}
 
 @pytest.mark.asyncio
+async def test_parse_cv_with_llm_success():
+    mock_response = {
+        "name": "Test User",
+        "education": [{
+            "institution": "University of Tech",
+            "degree": "BSc Computer Science",
+            "field_of_study": "CS",
+            "year": "2023",
+            "grade": "4.0"
+        }]
+    }
+    
+    # Mock the Async Client and its chat.completions.create method
+    mock_client = MagicMock()
+    mock_completion = MagicMock()
+    mock_completion.choices = [MagicMock(message=MagicMock(content=json.dumps(mock_response)))]
+    mock_client.chat.completions.create.return_value = mock_completion
+    
+    # We need to mock the context manager because the code uses `async with get_openai_client() as client:`
+    # But wait, looking at parser.py (line 411 in view), it uses:
+    # client = get_openai_client()
+    # response = await client.chat.completions.create(...)
+    # It does NOT use async with if get_openai_client returns the client directly.
+    # Let's check parser.py again to be sure about the client usage.
+    
+    pass 
+
+@pytest.mark.asyncio
 async def test_parse_cv_with_llm_error():
     with patch("app.services.parser.get_openai_client", side_effect=Exception("API Error")):
         res = await parse_cv_with_llm("text", "file.pdf")

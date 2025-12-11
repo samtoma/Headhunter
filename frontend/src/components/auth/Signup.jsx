@@ -1,12 +1,14 @@
 import { useState } from 'react'
 import axios from 'axios'
-import { Lock, Mail } from 'lucide-react'
+import { Lock, Mail, User } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
 import { useNavigate } from 'react-router-dom'
+import GoogleSignInButton from './GoogleSignInButton'
 
 const Signup = () => {
     const [email, setEmail] = useState("")
     const [password, setPassword] = useState("")
+    const [fullName, setFullName] = useState("")
     const [error, setError] = useState("")
     const [loading, setLoading] = useState(false)
     const { login } = useAuth()
@@ -18,12 +20,26 @@ const Signup = () => {
         setError("")
 
         try {
-            const res = await axios.post('/api/auth/signup', { email, password })
+            const res = await axios.post('/api/auth/signup', {
+                email,
+                password,
+                full_name: fullName || null // Optional field
+            })
+
             localStorage.setItem('token', res.data.access_token)
             localStorage.setItem('role', res.data.role)
             localStorage.setItem('company_name', res.data.company_name || "")
+            if (res.data.email) localStorage.setItem('email', res.data.email)
+            if (res.data.full_name) localStorage.setItem('full_name', res.data.full_name)
 
-            login(res.data.access_token)
+            // Call login with all user data
+            login(res.data.access_token, {
+                role: res.data.role,
+                company_name: res.data.company_name,
+                email: res.data.email,
+                full_name: res.data.full_name,
+                picture: res.data.profile_picture
+            })
 
             if (res.data.is_new_company) {
                 navigate('/setup')
@@ -53,6 +69,21 @@ const Signup = () => {
                 )}
 
                 <form onSubmit={handleSubmit} className="space-y-4">
+                    {/* Full Name Field - NEW */}
+                    <div>
+                        <label className="block text-sm font-medium text-slate-700 mb-1">Full Name <span className="text-slate-400">(Optional)</span></label>
+                        <div className="relative">
+                            <User className="absolute left-3 top-2.5 text-slate-400 w-5 h-5" />
+                            <input
+                                type="text"
+                                className="w-full pl-10 pr-4 py-2 rounded-lg border border-slate-200 focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition"
+                                placeholder="John Doe"
+                                value={fullName}
+                                onChange={e => setFullName(e.target.value)}
+                            />
+                        </div>
+                    </div>
+
                     <div>
                         <label className="block text-sm font-medium text-slate-700 mb-1">Email Address</label>
                         <div className="relative">
@@ -90,6 +121,17 @@ const Signup = () => {
                     >
                         {loading ? "Creating Account..." : "Sign Up"}
                     </button>
+
+                    <div className="relative my-6">
+                        <div className="absolute inset-0 flex items-center">
+                            <div className="w-full border-t border-slate-200"></div>
+                        </div>
+                        <div className="relative flex justify-center text-sm">
+                            <span className="px-2 bg-white text-slate-500">Or continue with</span>
+                        </div>
+                    </div>
+
+                    <GoogleSignInButton />
                 </form>
 
                 <div className="mt-6 text-center text-sm text-slate-500">

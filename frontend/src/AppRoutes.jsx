@@ -4,14 +4,19 @@ import Login from './components/auth/Login';
 import Signup from './components/auth/Signup';
 import CompanySetupWizard from './components/auth/CompanySetupWizard';
 import DashboardView from './components/dashboard/DashboardView';
+import AuthCallback from './components/auth/AuthCallback';
+import VerifyEmail from './components/auth/VerifyEmail';
+import PendingVerification from './components/auth/PendingVerification';
 
 import Pipeline from './pages/Pipeline';
 import Settings from './pages/Settings';
 import SuperAdminDashboard from './components/dashboard/SuperAdminDashboard';
 import Team from './pages/Team';
 import InterviewerDashboard from './pages/InterviewerDashboard';
+import InterviewMode from './pages/InterviewMode';
 import Search from './pages/Search';
 import Analytics from './pages/Analytics';
+import InterviewsAdmin from './pages/InterviewsAdmin';
 import Departments from './pages/Departments';
 import Sidebar from './components/layout/Sidebar';
 import ErrorBoundary from './components/ErrorBoundary';
@@ -59,7 +64,11 @@ const AppRoutes = () => {
         <Routes>
             <Route path="/login" element={<Login />} />
             <Route path="/signup" element={<Signup />} />
+            <Route path="/auth/callback" element={<AuthCallback />} />
             <Route path="/setup" element={<CompanySetupWizard />} />
+
+            <Route path="/verify" element={<VerifyEmail />} />
+            <Route path="/pending-verification" element={<PendingVerification />} />
 
             <Route path="/" element={
                 <ProtectedRoute>
@@ -75,6 +84,20 @@ const AppRoutes = () => {
                         <ErrorBoundary>
                             <Pipeline />
                         </ErrorBoundary>
+                    </AppLayout>
+                </ProtectedRoute>
+            } />
+
+            <Route path="/interview/:interviewId" element={
+                <ProtectedRoute>
+                    <InterviewMode />
+                </ProtectedRoute>
+            } />
+
+            <Route path="/interviews" element={
+                <ProtectedRoute>
+                    <AppLayout>
+                        <InterviewsAdmin />
                     </AppLayout>
                 </ProtectedRoute>
             } />

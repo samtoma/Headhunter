@@ -7,7 +7,7 @@ from app.core.security import get_password_hash
 
 def test_analytics_access_denied_for_interviewer(client: TestClient, db: Session):
     # Create Interviewer
-    interviewer = User(email="interviewer@analytics.com", hashed_password=get_password_hash("password"), role=UserRole.INTERVIEWER, company_id=1)
+    interviewer = User(email="interviewer@analytics.com", hashed_password=get_password_hash("password"), role=UserRole.INTERVIEWER, company_id=1, is_verified=True)
     db.add(interviewer)
     db.commit()
     

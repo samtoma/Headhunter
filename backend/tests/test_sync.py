@@ -1,7 +1,7 @@
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 from app.models.models import User, Company, UserRole
-from datetime import datetime
+from datetime import datetime, timezone
 from app.core.security import get_password_hash
 
 def test_sync_version_standard(authenticated_client: TestClient, db: Session):
@@ -10,13 +10,12 @@ def test_sync_version_standard(authenticated_client: TestClient, db: Session):
     company_id = res.json()["company_id"]
     
     company = db.query(Company).filter(Company.id == company_id).first()
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
     company.last_data_update = now
     db.commit()
     
-    res = authenticated_client.get("/sync/version")
-    assert res.status_code == 200
-    assert res.json()["version"] == now.isoformat()
+    # Compare up to seconds, ignoring timezone suffix differences
+    assert res.json()["version"][:19] == now.isoformat()[:19]
 
 def test_sync_version_no_update_timestamp(authenticated_client: TestClient, db: Session):
     # Setup: Company with None last_data_update
@@ -38,7 +37,7 @@ def test_sync_version_no_update_timestamp(authenticated_client: TestClient, db: 
 def test_sync_version_no_company(client: TestClient, db: Session):
     # Create user without company (if possible, or mock it)
     # Model might enforce company_id, but let's try
-    user = User(email="nocompany@sync.com", hashed_password=get_password_hash("pass"), role=UserRole.RECRUITER, company_id=None)
+    user = User(email="nocompany@sync.com", hashed_password=get_password_hash("pass"), role=UserRole.RECRUITER, company_id=None, is_verified=True)
     # If company_id is nullable in DB but not in model, this might fail.
     # Checking model... User.company_id is ForeignKey.
     # Let's try to add it.

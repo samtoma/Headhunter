@@ -104,6 +104,30 @@ def get_processing_status(db: Session = Depends(get_db), current_user: User = De
     processing_cvs = db.query(models.CV.id).filter(models.CV.is_parsed.is_(False), models.CV.company_id == current_user.company_id).all()
     return {"processing_ids": [cv.id for cv in processing_cvs]}
 
+@router.post("/resume-all")
+def resume_all_processing(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    """
+    Resume processing for all unparsed CVs in the company.
+    Re-queues all CVs where is_parsed=False.
+    Useful after server restart or failed batch processing.
+    """
+    # Get all unparsed CVs for this company
+    unparsed_cvs = db.query(models.CV).filter(
+        models.CV.is_parsed.is_(False), 
+        models.CV.company_id == current_user.company_id
+    ).all()
+    
+    queued_ids = []
+    for cv in unparsed_cvs:
+        process_cv_task.delay(cv.id)
+        queued_ids.append(cv.id)
+    
+    return {
+        "status": "resumed",
+        "queued_count": len(queued_ids),
+        "queued_ids": queued_ids
+    }
+
 @router.get("/{cv_id}/download")
 def download_cv(
     cv_id: int,
