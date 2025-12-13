@@ -44,7 +44,7 @@ const ForgotPassword = () => {
                         </p>
                         <button
                             onClick={() => navigate('/login')}
-                            className="w-full bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-bold py-3 rounded-lg transition transform hover:scale-105 shadow-lg"
+                            className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 rounded-lg transition shadow-lg"
                         >
                             Back to Login
                         </button>
@@ -66,8 +66,8 @@ const ForgotPassword = () => {
                 </button>
 
                 <div className="text-center mb-8">
-                    <div className="mx-auto w-16 h-16 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-full flex items-center justify-center mb-4 shadow-lg">
-                        <Mail className="w-8 h-8 text-white" />
+                    <div className="mx-auto w-16 h-16 bg-indigo-100 rounded-full flex items-center justify-center mb-4">
+                        <Mail className="w-8 h-8 text-indigo-600" />
                     </div>
                     <h1 className="text-3xl font-bold text-slate-900 mb-2">Forgot Password?</h1>
                     <p className="text-slate-600">No worries, we&apos;ll send you reset instructions.</p>
@@ -98,7 +98,7 @@ const ForgotPassword = () => {
                     <button
                         type="submit"
                         disabled={loading}
-                        className="w-full bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-bold py-3 rounded-lg transition transform hover:scale-105 shadow-lg disabled:opacity-70 disabled:cursor-not-allowed disabled:transform-none"
+                        className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 rounded-lg transition shadow-lg disabled:opacity-70 disabled:cursor-not-allowed"
                     >
                         {loading ? (
                             <span className="flex items-center justify-center gap-2">

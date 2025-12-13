@@ -27,6 +27,8 @@ This document defines the design rules and patterns for the Headhunter applicati
 
 #### Primary Button (Form Submit, Save)
 
+> **Note:** Use solid colors only. Do not use gradients for primary buttons to maintain consistency with the clean, flat design system.
+
 ```jsx
 className="bg-indigo-600 text-white px-6 py-2 rounded-lg font-bold hover:bg-indigo-700 transition disabled:opacity-50"
 ```
@@ -131,6 +133,20 @@ className="px-2 py-0.5 bg-slate-100 text-slate-600 rounded-full text-xs font-bol
 - Default size: `size={16}` for buttons, `size={14}` for inline
 - Loading spinner: `<Loader2 className="animate-spin" />`
 - AI/Magic indicator: `<Sparkles />`
+
+### Icon Containers (Auth/Features)
+
+For feature icons or auth page headers, use solid light backgrounds with colored icons. **Do not use gradients.**
+
+```jsx
+// Correct
+<div className="w-16 h-16 bg-indigo-100 rounded-full flex items-center justify-center">
+  <Icon className="w-8 h-8 text-indigo-600" />
+</div>
+
+// Incorrect (Do not use)
+<div className="bg-gradient-to-br from-indigo-500 to-purple-600 ..." />
+```
 
 ## Layout Patterns
 

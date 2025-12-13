@@ -91,8 +91,8 @@ const ResetPassword = () => {
         <div className="min-h-screen bg-gradient-to-br from-purple-50 via-indigo-50 to-blue-50 flex items-center justify-center p-4">
             <div className="bg-white p-8 rounded-2xl shadow-2xl w-full max-w-md border border-purple-100">
                 <div className="text-center mb-8">
-                    <div className="mx-auto w-16 h-16 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-full flex items-center justify-center mb-4 shadow-lg">
-                        <Lock className="w-8 h-8 text-white" />
+                    <div className="mx-auto w-16 h-16 bg-indigo-100 rounded-full flex items-center justify-center mb-4">
+                        <Lock className="w-8 h-8 text-indigo-600" />
                     </div>
                     <h1 className="text-3xl font-bold text-slate-900 mb-2">Reset Password</h1>
                     <p className="text-slate-600">Enter your new password below.</p>
