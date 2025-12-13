@@ -22,7 +22,9 @@ def get_all_profiles(
 ):
     query = db.query(CV).options(
         joinedload(CV.parsed_data),
-        joinedload(CV.applications).joinedload(Application.interviews)
+        joinedload(CV.uploader),  # Load who uploaded the CV
+        joinedload(CV.applications).joinedload(Application.interviews),
+        joinedload(CV.applications).joinedload(Application.assigner)  # Load who assigned to pipeline
     ).filter(CV.company_id == current_user.company_id)
     
     # Track joins to avoid duplicates
@@ -95,6 +97,10 @@ def get_all_profiles(
         cv.years_since_upload = 0.0
         cv.projected_experience = 0
         cv.is_outdated = False
+        
+        # Add uploaded_by_name for audit attribution
+        if cv.uploader:
+            cv.uploaded_by_name = cv.uploader.full_name or cv.uploader.email
 
         if cv.uploaded_at:
             uploaded_at = cv.uploaded_at
@@ -128,6 +134,11 @@ def get_all_profiles(
             for app in cv.applications:
                 app.current_salary = "Confidential"
                 app.expected_salary = "Confidential"
+        
+        # Add assigned_by_name for each application
+        for app in cv.applications:
+            if app.assigner:
+                app.assigned_by_name = app.assigner.full_name or app.assigner.email
 
     import math
     return {

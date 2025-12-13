@@ -147,6 +147,16 @@ const JobInsightCard = ({ job, profiles, onEdit, onNavigate }) => {
                     )}
                 </div>
             </div>
+
+            {/* Audit attribution */}
+            {(job.created_by_name || job.modified_by_name) && (
+                <div className="px-5 py-2 text-xs text-slate-400 border-t border-slate-100">
+                    {job.created_by_name && <span>Created by {job.created_by_name}</span>}
+                    {job.modified_by_name && (
+                        <span className="ml-2">· Modified by {job.modified_by_name}</span>
+                    )}
+                </div>
+            )}
         </div>
     )
 }

@@ -9,6 +9,7 @@ from app.core.database import get_db
 from app.models.models import User, UserRole
 from app.api.deps import get_current_user
 from app.core.security import get_password_hash
+from app.api.v1.activity import log_system_activity
 
 router = APIRouter(prefix="/users", tags=["Users"])
 
@@ -99,6 +100,13 @@ def create_user(user: UserCreate, db: Session = Depends(get_db), current_user: U
     db.add(new_user)
     db.commit()
     db.refresh(new_user)
+    
+    # Audit log: user created/invited
+    log_system_activity(
+        db, "user_invited", current_user.id, current_user.company_id,
+        {"user_id": new_user.id, "email": new_user.email, "role": new_user.role}
+    )
+    
     return new_user
 
 @router.delete("/{user_id}")
@@ -118,8 +126,16 @@ def delete_user(user_id: int, db: Session = Depends(get_db), current_user: User 
     if user.id == current_user.id:
         raise HTTPException(status_code=400, detail="Cannot delete yourself")
         
+    user_email = user.email
     db.delete(user)
     db.commit()
+    
+    # Audit log: user deleted
+    log_system_activity(
+        db, "user_deleted", current_user.id, current_user.company_id,
+        {"user_id": user_id, "email": user_email}
+    )
+    
     return {"status": "deleted"}
 
 class UserUpdate(BaseModel):

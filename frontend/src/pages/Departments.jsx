@@ -210,7 +210,17 @@ const Departments = ({ onOpenMobileSidebar }) => {
                                                 </div>
 
                                                 {profile?.description && (
-                                                    <p className="text-sm text-slate-600 line-clamp-2">{profile.description}</p>
+                                                    <p className="text-sm text-slate-600 line-clamp-2 mb-2">{profile.description}</p>
+                                                )}
+
+                                                {/* Audit attribution */}
+                                                {(profile?.created_by_name || profile?.modified_by_name) && (
+                                                    <div className="text-xs text-slate-400 border-t border-slate-100 pt-2 mt-2">
+                                                        {profile.created_by_name && <span>Created by {profile.created_by_name}</span>}
+                                                        {profile.modified_by_name && (
+                                                            <span className="ml-2">· Modified by {profile.modified_by_name}</span>
+                                                        )}
+                                                    </div>
                                                 )}
                                             </div>
                                         )

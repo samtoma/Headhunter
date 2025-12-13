@@ -35,17 +35,39 @@ async def upload_bulk(
         async with aiofiles.open(save_path, "wb") as out:
             await out.write(await f.read())
 
-        # Create CV record
-        cv = models.CV(filename=f.filename, filepath=str(save_path), company_id=current_user.company_id)
+        # Create CV record with audit trail
+        cv = models.CV(
+            filename=f.filename, 
+            filepath=str(save_path), 
+            company_id=current_user.company_id,
+            uploaded_by=current_user.id  # Track who uploaded
+        )
         db.add(cv)
         db.flush()  # obtain cv.id without committing yet
         created_ids.append(cv.id)
 
-        # Optional job link per CV
+        # Optional job link per CV - track who assigned
         if job_id:
             job = db.query(models.Job).filter(models.Job.id == job_id).first()
             if job:
-                db.add(models.Application(cv_id=cv.id, job_id=job_id, status="New"))
+                app = models.Application(
+                    cv_id=cv.id, 
+                    job_id=job_id, 
+                    status="New",
+                    assigned_by=current_user.id,  # Track who assigned
+                    source="manual"  # Uploaded via UI
+                )
+                db.add(app)
+                db.flush()  # Get app.id for activity log
+                
+                # Log activity: candidate added to pipeline
+                from app.api.v1.activity import log_application_activity
+                log_application_activity(
+                    db, app.id, "added_to_pipeline",
+                    user_id=current_user.id,
+                    company_id=current_user.company_id,
+                    details={"job_id": job_id, "job_title": job.title, "source": "manual"}
+                )
 
     db.commit()  # single commit for all inserts
 

@@ -423,7 +423,16 @@ const CandidateDrawer = ({ cv, onClose, updateApp, updateProfile, jobs, selected
                                 <div className="space-y-6">
                                     {/* Active Pipeline */}
                                     <div className={`p-4 rounded-xl ${selectedJobId ? 'bg-indigo-50 border border-indigo-100' : 'bg-white border border-slate-200'}`}>
-                                        <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">Active Pipeline</div>
+                                        <div className="flex justify-between items-center mb-1">
+                                            <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Active Pipeline</div>
+                                            {/* Attribution for active application in top right */}
+                                            {app && (app.assigned_by_name || app.source) && (
+                                                <div className="text-[9px] text-slate-400 font-medium">
+                                                    by {app.assigned_by_name || 'System'}
+                                                    {/* Optional: Show source if needed, or keep it simple as "by Name" */}
+                                                </div>
+                                            )}
+                                        </div>
                                         <div className="font-bold text-slate-900 flex items-center gap-2">
                                             {activeJobId ? <><Layers size={16} className="text-indigo-600" /> {(jobs || []).find(j => j.id === activeJobId)?.title}</> : <><LayoutGrid size={16} /> General Pool</>}
                                             {activeJobId && !selectedJobId && (
@@ -432,6 +441,7 @@ const CandidateDrawer = ({ cv, onClose, updateApp, updateProfile, jobs, selected
                                                 </button>
                                             )}
                                         </div>
+
                                         {activeJobId && (
                                             <div className="mt-3 pt-3 border-t border-indigo-200/50">
                                                 <select value={status} onChange={e => setStatus(e.target.value)} className="w-full mt-1 bg-white border border-indigo-200 text-indigo-900 text-sm rounded-lg p-2 font-medium focus:ring-2 focus:ring-indigo-500 outline-none">
@@ -648,6 +658,8 @@ const CandidateDrawer = ({ cv, onClose, updateApp, updateProfile, jobs, selected
                                                         ))}
                                                     </div>
                                                 )}
+
+
 
                                                 <p className="text-xs text-slate-600 leading-relaxed whitespace-pre-wrap">{int.feedback}</p>
 

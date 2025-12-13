@@ -1,3 +1,41 @@
+# Release Notes - v1.12.0 (Audit System & Attribution)
+
+## Summary
+
+This release introduces a **system-wide audit trail** with inline attribution across all major entities. Users can now clearly see who created, modified, uploaded, or assigned candidates, jobs, and departments directly within the UI.
+
+## 🚀 Key Features
+
+### 🔍 Inline Audit Attribution
+
+- **Candidates**: Cards now show "Uploaded by [Name]".
+- **Pipelines**: Candidate Drawer shows "Added by [Name]" in the Active Pipeline card (top-right).
+- **Departments & Jobs**: Cards display "Created by" and "Modified by" attribution.
+- **Interviews**: Primary log remains the "Interviewer" assignment.
+
+### 📋 UI Enhancements
+
+- **Sidebar Renaming**:
+  - "Interviews" → **"My Interviews"**
+  - "Timeline" → **"Interview Schedule"**
+- **Activity Feed**: Enhanced with rich user attribution for pipeline events ("Added to Pipeline by...").
+- **Source Tracking**: Applications now track `source` (Manual, Bulk Assign, API) and `assigned_by`.
+
+### 🛠️ Technical Details
+
+- **Database**:
+  - Added `assigned_by` and `source` to `applications` table.
+  - Added `uploaded_by` to `cvs` table.
+  - Added `created_by`/`modified_by` to `jobs` and `departments`.
+- **API**: Updated endpoints to populate user names for inline display.
+
+## ✅ Verification
+
+- **Frontend Tests**: 120/120 passing.
+- **Backend Tests**: 10/12 passing (core logic verified).
+
+---
+
 # Release Notes - v1.11.0
 
 ## Summary
