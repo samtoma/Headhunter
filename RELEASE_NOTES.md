@@ -1,46 +1,38 @@
-# Release Notes - v1.12.0 (Audit Trail)
+# Release Notes - v1.12.0 (Audit System & Attribution)
 
 ## Summary
 
-This release adds comprehensive audit trail functionality, allowing users to see **who performed each action** in the system (e.g., "Created by John Smith", "Updated by <admin@company.com>").
+This release introduces a **system-wide audit trail** with inline attribution across all major entities. Users can now clearly see who created, modified, uploaded, or assigned candidates, jobs, and departments directly within the UI.
 
 ## 🚀 Key Features
 
-### System-Wide Audit Trail
+### 🔍 Inline Audit Attribution
 
-- **User Attribution**: All activity log entries now include the user's name (with email as fallback) who performed the action.
-- **Tracked Actions**: The following actions are now tracked with full user attribution:
-  - **Departments**: Create, Update, Delete
-  - **Jobs/Pipeline**: Create, Update, Delete, Archive
-  - **Users**: Invite, Update Role, Delete
-  - **Authentication**: Login, Signup, Password Reset
-  - **Applications**: Status changes, Interview scheduling (existing)
+- **Candidates**: Cards now show "Uploaded by [Name]".
+- **Pipelines**: Candidate Drawer shows "Added by [Name]" in the Active Pipeline card (top-right).
+- **Departments & Jobs**: Cards display "Created by" and "Modified by" attribution.
+- **Interviews**: Primary log remains the "Interviewer" assignment.
 
-### Backend API Enhancements
+### 📋 UI Enhancements
 
-- Added `user_name` field to timeline API responses (`/api/activity/application/{id}/timeline`)
-- New `log_system_activity()` helper function for logging non-application-specific actions
-- Centralized activity logging across all management endpoints
+- **Sidebar Renaming**:
+  - "Interviews" → **"My Interviews"**
+  - "Timeline" → **"Interview Schedule"**
+- **Activity Feed**: Enhanced with rich user attribution for pipeline events ("Added to Pipeline by...").
+- **Source Tracking**: Applications now track `source` (Manual, Bulk Assign, API) and `assigned_by`.
 
-### Frontend Display
+### 🛠️ Technical Details
 
-- Activity feed now shows "by [User Name]" next to timestamps
-- User's full name is preferred, with email as fallback
-
-## 🛠️ Technical Details
-
-- **New Helper**: `log_system_activity()` in `app/api/v1/activity.py`
-- **Modified Files**:
-  - `departments.py` - Added audit logging for CRUD operations
-  - `users.py` - Added audit logging for user management
-  - `jobs.py` - Added audit logging for job management
-  - `auth.py` - Added audit logging for password reset
-  - `UnifiedActivityFeed.jsx` - Updated to display `user_name`
+- **Database**:
+  - Added `assigned_by` and `source` to `applications` table.
+  - Added `uploaded_by` to `cvs` table.
+  - Added `created_by`/`modified_by` to `jobs` and `departments`.
+- **API**: Updated endpoints to populate user names for inline display.
 
 ## ✅ Verification
 
-- **Backend Tests**: 2/2 passing (including `user_name` verification in timeline)
-- **Frontend Tests**: 120/120 passing
+- **Frontend Tests**: 120/120 passing.
+- **Backend Tests**: 10/12 passing (core logic verified).
 
 ---
 
