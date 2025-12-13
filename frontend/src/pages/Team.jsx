@@ -65,7 +65,11 @@ const Team = ({ onOpenMobileSidebar }) => {
 
     const startEdit = (user) => {
         setEditingUser(user.id);
-        setEditForm({ role: user.role, department: user.department || "" });
+        setEditForm({
+            role: user.role,
+            department: user.department || "",
+            permissions: user.permissions || "{}"
+        });
     };
 
     const handleUpdateUser = async (userId) => {
@@ -249,7 +253,7 @@ const Team = ({ onOpenMobileSidebar }) => {
                                                         <select
                                                             value={editForm.department}
                                                             onChange={e => setEditForm({ ...editForm, department: e.target.value })}
-                                                            className="text-xs p-1.5 rounded border border-indigo-200 bg-white outline-none focus:ring-2 focus:ring-indigo-500 w-full"
+                                                            className="text-xs p-1.5 rounded border border-indigo-200 bg-white outline-none focus:ring-2 focus:ring-indigo-500 w-full mb-1"
                                                         >
                                                             <option value="">Select...</option>
                                                             {departments.map(dept => (
@@ -257,7 +261,35 @@ const Team = ({ onOpenMobileSidebar }) => {
                                                             ))}
                                                         </select>
                                                     ) : (
-                                                        <span className="text-sm text-slate-600">{user.department || "-"}</span>
+                                                        <div className="text-sm text-slate-600">{user.department || "-"}</div>
+                                                    )}
+
+                                                    {/* Permissions Section */}
+                                                    {(role === 'admin' || role === 'super_admin') && (
+                                                        <div className="mt-1">
+                                                            {editingUser === user.id ? (
+                                                                <label className="flex items-center gap-2 text-xs text-slate-600 cursor-pointer">
+                                                                    <input
+                                                                        type="checkbox"
+                                                                        checked={JSON.parse(editForm.permissions || '{}').can_view_salary || false}
+                                                                        onChange={e => {
+                                                                            const perms = JSON.parse(editForm.permissions || '{}');
+                                                                            perms.can_view_salary = e.target.checked;
+                                                                            setEditForm({ ...editForm, permissions: JSON.stringify(perms) });
+                                                                        }}
+                                                                        className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                                                                    />
+                                                                    View Salaries
+                                                                </label>
+                                                            ) : (
+                                                                // Show indicator if they have permission
+                                                                (JSON.parse(user.permissions || '{}').can_view_salary) && (
+                                                                    <span className="text-[10px] bg-green-50 text-green-600 px-1.5 py-0.5 rounded border border-green-100 flex items-center gap-1 w-fit mt-1">
+                                                                        $ Salary Access
+                                                                    </span>
+                                                                )
+                                                            )}
+                                                        </div>
                                                     )}
                                                 </td>
                                                 <td className="p-4 text-center">

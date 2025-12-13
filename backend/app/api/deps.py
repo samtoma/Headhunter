@@ -66,3 +66,25 @@ def get_current_user_flexible(
     if user is None:
         raise credentials_exception
     return user
+
+def get_verified_user(
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Ensures the user has verified their email.
+    SSO users and super_admins bypass this check.
+    """
+    if current_user.role == "super_admin":
+        return current_user
+    
+    if current_user.sso_provider:
+        # SSO users are pre-verified
+        return current_user
+    
+    if not current_user.is_verified:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Email verification required. Please check your email."
+        )
+    
+    return current_user

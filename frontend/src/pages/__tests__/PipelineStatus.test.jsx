@@ -16,7 +16,7 @@ vi.mock('react-virtualized-auto-sizer', () => ({
     default: ({ children }) => children({ height: 1000, width: 1000 })
 }))
 vi.mock('react-window', () => ({
-    FixedSizeGrid: ({ children }) => <div>{children({ columnIndex: 0, rowIndex: 0, style: {} })}</div>
+    FixedSizeGrid: ({ children }) => <div>{children({ columnIndex: 0, rowIndex: 0, style: { left: 0, top: 0, width: 100, height: 100 } })}</div>
 }))
 
 // Mock useHeadhunter
@@ -57,7 +57,9 @@ describe('Pipeline Status Change', () => {
         updateApp: vi.fn(),
         updateProfile: vi.fn(),
         assignJob: vi.fn(),
-        removeJob: vi.fn()
+        removeJob: vi.fn(),
+        pipelineStages: ['Screening', 'Technical', 'Culture', 'Final'],
+        companyStages: [{ name: 'Screening', requiresInterview: false }, 'Technical', 'Culture', 'Final']
     }
 
     const renderPipeline = (contextOverrides = {}) => {
@@ -95,7 +97,7 @@ describe('Pipeline Status Change', () => {
         // If we can't find it, we might need to mock the initial state of viewMode in Pipeline.jsx, but we can't easily.
         // Instead, let's click the button.
 
-        const boardBtn = screen.getByLabelText('Board View') // Assuming accessible name
+        const boardBtn = screen.getByTitle('Kanban Board')
         fireEvent.click(boardBtn)
 
         // Now we should see columns. "New", "Screening", etc.
@@ -111,7 +113,7 @@ describe('Pipeline Status Change', () => {
 
         // Let's try firing drop on the "Screening" column.
         // We need to find the drop zone for "Screening".
-        const screeningCol = screen.getByText('Screening').closest('.flex-col') // Assuming column structure
+        const screeningCol = screen.getByTestId('column-Screening')
 
         // Mock dataTransfer
         const dataTransfer = {

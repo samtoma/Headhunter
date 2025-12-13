@@ -11,6 +11,8 @@ vi.mock('lucide-react', () => ({
     Menu: () => <span data-testid="icon-menu" />,
     Briefcase: () => <span data-testid="icon-briefcase" />,
     Layers: () => <span data-testid="icon-layers" />,
+    Calendar: () => <span data-testid="icon-calendar" />,
+    GanttChart: () => <span data-testid="icon-gantt-chart" />,
     X: () => <span data-testid="icon-x" />
 }))
 
@@ -82,7 +84,7 @@ describe('PipelineHeader', () => {
 
         const kanbanIcon = screen.getByTestId('icon-kanban')
         fireEvent.click(kanbanIcon.closest('button'))
-        expect(defaultProps.setViewMode).toHaveBeenCalledWith('board')
+        expect(defaultProps.setViewMode).toHaveBeenCalledWith('kanban')
 
         const listIcon = screen.getByTestId('icon-layout-grid')
         fireEvent.click(listIcon.closest('button'))
@@ -116,7 +118,7 @@ describe('PipelineHeader', () => {
     it('handles file upload for general pool', () => {
         // This test is covered by 'handles file upload selection' test below
         render(<PipelineHeader {...defaultProps} />)
-        expect(screen.getByText('Add')).toBeInTheDocument()
+        expect(screen.getByText('Add Candidate')).toBeInTheDocument()
     })
 
     // Rewrite upload test to be cleaner

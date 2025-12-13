@@ -51,7 +51,7 @@ services:
     restart: unless-stopped
     volumes:
       - ./frontend:/app
-      - /app/node_modules
+      - frontend_node_modules_new:/app/node_modules
     ports:
       - "30004:5173"
     healthcheck:
@@ -147,3 +147,4 @@ networks:
 
 volumes:
   redis_data:
+  frontend_node_modules_new:

@@ -20,15 +20,23 @@ import Search from './pages/Search';
 import Analytics from './pages/Analytics';
 import InterviewsAdmin from './pages/InterviewsAdmin';
 import Departments from './pages/Departments';
+import Timeline from './pages/Timeline';
 import Sidebar from './components/layout/Sidebar';
 import ErrorBoundary from './components/ErrorBoundary';
 import React, { useState } from 'react';
 
 // Protected Route Wrapper
 const ProtectedRoute = ({ children }) => {
-    const { token, loading } = useAuth();
+    const { token, user, loading } = useAuth();
+
     if (loading) return <div>Loading...</div>;
     if (!token) return <Navigate to="/login" replace />;
+
+    // Check email verification (skip for SSO users and super_admin)
+    if (user && !user.is_verified && !user.sso_provider && user.role !== 'super_admin') {
+        return <Navigate to="/pending-verification" replace />;
+    }
+
     return children;
 };
 
@@ -38,6 +46,27 @@ const RoleProtected = ({ children, requiredRole }) => {
     if (loading) return <div>Loading...</div>;
     if (!user || user.role !== requiredRole) return <Navigate to="/" replace />;
     return children;
+};
+
+// Role-based redirect for root path
+const RoleBasedRedirect = () => {
+    const { user, loading } = useAuth();
+
+    if (loading) return <div>Loading...</div>;
+
+    // Redirect based on role
+    if (user?.role === 'super_admin') {
+        return <Navigate to="/super-admin" replace />;
+    } else if (user?.role === 'interviewer') {
+        return <Navigate to="/interviewer" replace />;
+    } else {
+        // Default: show company dashboard
+        return (
+            <AppLayout>
+                <DashboardView />
+            </AppLayout>
+        );
+    }
 };
 
 // Layout Component to wrap protected pages
@@ -76,9 +105,7 @@ const AppRoutes = () => {
 
             <Route path="/" element={
                 <ProtectedRoute>
-                    <AppLayout>
-                        <DashboardView />
-                    </AppLayout>
+                    <RoleBasedRedirect />
                 </ProtectedRoute>
             } />
 
@@ -110,6 +137,14 @@ const AppRoutes = () => {
                 <ProtectedRoute>
                     <AppLayout>
                         <Settings />
+                    </AppLayout>
+                </ProtectedRoute>
+            } />
+
+            <Route path="/timeline" element={
+                <ProtectedRoute>
+                    <AppLayout>
+                        <Timeline />
                     </AppLayout>
                 </ProtectedRoute>
             } />

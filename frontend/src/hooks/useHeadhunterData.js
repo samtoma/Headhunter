@@ -137,11 +137,38 @@ export const useHeadhunterData = () => {
         fetchProfiles(1, false)
     }, [search, sortBy, selectedJobId, resetList, fetchProfiles])
 
-    // Initial Jobs & Stats Load
+    // Company Settings
+    const [company, setCompany] = useState(null)
+    const [pipelineStages, setPipelineStages] = useState(["Screening", "Technical", "Culture", "Final"]) // Default Fallback (Names)
+    const [companyStages, setCompanyStages] = useState([]) // Full objects
+
+    const fetchSettings = useCallback(async () => {
+        if (!token) return
+        try {
+            const res = await axios.get('/api/companies/me')
+            setCompany(res.data)
+            if (res.data.interview_stages) {
+                try {
+                    const parsed = JSON.parse(res.data.interview_stages)
+                    setCompanyStages(parsed)
+                    // Extract just the names
+                    const stageNames = parsed.map(s => s.name)
+                    if (stageNames.length > 0) setPipelineStages(stageNames)
+                } catch (e) {
+                    console.error("Failed to parse stages", e)
+                }
+            }
+        } catch (err) {
+            console.error("Failed to fetch settings", err)
+        }
+    }, [token])
+
+    // Initial Jobs, Stats & Settings Load
     useEffect(() => {
         fetchJobs()
         fetchStats()
-    }, [fetchJobs, fetchStats])
+        fetchSettings()
+    }, [fetchJobs, fetchStats, fetchSettings])
 
     // Smart Polling with Versioning
     useEffect(() => {
@@ -159,6 +186,7 @@ export const useHeadhunterData = () => {
                     fetchProfiles(page, false)
                     fetchJobs()
                     fetchStats()
+                    fetchSettings() // Refresh settings too
                 }
 
                 // Also check processing status for specific CVs
@@ -188,7 +216,7 @@ export const useHeadhunterData = () => {
 
         const i = setInterval(pollStatus, 4000) // Poll every 4s
         return () => clearInterval(i)
-    }, [fetchProfiles, fetchJobs, fetchStats, page, token])
+    }, [fetchProfiles, fetchJobs, fetchStats, fetchSettings, page, token])
 
     // Actions
     const updateApp = useCallback(async (appId, data) => {
@@ -217,11 +245,12 @@ export const useHeadhunterData = () => {
         jobs, setJobs,
         profiles, setProfiles,
         loading, jobsLoading, isFetchingMore, hasMore,
-        fetchJobs, fetchProfiles, loadMoreProfiles,
+        fetchJobs, fetchProfiles, loadMoreProfiles, fetchSettings,
         search, setSearch,
         sortBy, setSortBy,
         selectedJobId, setSelectedJobId,
         total, stats,
+        company, pipelineStages, companyStages,
         updateApp, updateProfile, assignJob, removeJob
     }
 }

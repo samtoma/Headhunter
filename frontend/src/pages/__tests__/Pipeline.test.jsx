@@ -22,7 +22,9 @@ vi.mock('react-window', () => ({
         <div>
             {Array.from({ length: rowCount }).map((_, rowIndex) => (
                 Array.from({ length: columnCount }).map((_, columnIndex) => (
-                    children({ columnIndex, rowIndex, style: { width: columnWidth, height: rowHeight } })
+                    <div key={`${rowIndex}-${columnIndex}`}>
+                        {children({ columnIndex, rowIndex, style: { width: columnWidth, height: rowHeight, left: 0, top: 0 } })}
+                    </div>
                 ))
             ))}
         </div>
@@ -47,6 +49,20 @@ vi.mock('../../components/pipeline/CandidateCard', () => ({
             <button onClick={(e) => { e.stopPropagation(); onSelect() }}>
                 {selected ? 'Selected' : 'Select'}
             </button>
+        </div>
+    )
+}))
+
+vi.mock('../../components/pipeline/CalendarView', () => ({
+    default: () => <div data-testid="calendar-view">Calendar View</div>
+}))
+
+vi.mock('../../components/pipeline/TimelineView', () => ({
+    default: ({ jobId, onSelectCandidate, onScheduleInterview }) => (
+        <div data-testid="timeline-view">
+            Timeline View for {jobId}
+            <button onClick={() => onSelectCandidate({ application_id: 1 })}>Select Candidate</button>
+            <button onClick={() => onScheduleInterview({ candidate: { id: 1 }, stage: 'Screening' })}>Schedule Interview</button>
         </div>
     )
 }))
@@ -108,7 +124,9 @@ describe('Pipeline Integration', () => {
         updateApp: vi.fn(),
         updateProfile: vi.fn(),
         assignJob: vi.fn(),
-        removeJob: vi.fn()
+        removeJob: vi.fn(),
+        pipelineStages: ['Screening', 'Technical', 'Culture', 'Final'],
+        companyStages: ['Screening', 'Technical', 'Culture', 'Final']
     }
 
     const renderPipeline = (contextOverrides = {}) => {
@@ -236,7 +254,7 @@ describe('Pipeline Integration', () => {
         renderPipeline({ selectedJobId: null })
 
         // Find Add button (it's a label acting as button)
-        const addBtn = screen.getByText('Add')
+        const addBtn = screen.getByText('Add Candidate')
 
         // We can't easily click the file input label to trigger modal without file selection
         // But the code says: onChange of input triggers modal if no selectedJob

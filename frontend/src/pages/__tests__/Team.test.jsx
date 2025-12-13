@@ -25,6 +25,7 @@ describe('Team Component', () => {
         axios.get.mockImplementation((url) => {
             if (url === '/api/users/') return Promise.resolve({ data: mockUsers });
             if (url === '/api/users/stats') return Promise.resolve({ data: mockStats });
+            if (url === '/api/company/profile') return Promise.resolve({ data: { departments: JSON.stringify(['Engineering', 'Sales']) } });
             return Promise.reject(new Error('Not found'));
         });
     });
