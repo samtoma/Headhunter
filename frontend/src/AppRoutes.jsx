@@ -20,6 +20,7 @@ import Search from './pages/Search';
 import Analytics from './pages/Analytics';
 import InterviewsAdmin from './pages/InterviewsAdmin';
 import Departments from './pages/Departments';
+import Timeline from './pages/Timeline';
 import Sidebar from './components/layout/Sidebar';
 import ErrorBoundary from './components/ErrorBoundary';
 import React, { useState } from 'react';
@@ -136,6 +137,14 @@ const AppRoutes = () => {
                 <ProtectedRoute>
                     <AppLayout>
                         <Settings />
+                    </AppLayout>
+                </ProtectedRoute>
+            } />
+
+            <Route path="/timeline" element={
+                <ProtectedRoute>
+                    <AppLayout>
+                        <Timeline />
                     </AppLayout>
                 </ProtectedRoute>
             } />

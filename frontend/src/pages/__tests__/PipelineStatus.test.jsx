@@ -57,7 +57,9 @@ describe('Pipeline Status Change', () => {
         updateApp: vi.fn(),
         updateProfile: vi.fn(),
         assignJob: vi.fn(),
-        removeJob: vi.fn()
+        removeJob: vi.fn(),
+        pipelineStages: ['Screening', 'Technical', 'Culture', 'Final'],
+        companyStages: ['Screening', 'Technical', 'Culture', 'Final']
     }
 
     const renderPipeline = (contextOverrides = {}) => {

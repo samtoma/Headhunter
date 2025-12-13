@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session, joinedload
 from typing import Optional
 from datetime import datetime, timezone
 from app.core.database import get_db
-from app.models.models import CV, ParsedCV, Application, User, UserRole, Interview
+from app.models.models import CV, ParsedCV, Application, User, UserRole, Interview, Job
 from app.api.deps import get_current_user
 from app.schemas.cv import CVResponse, UpdateProfile, PaginatedResponse
 from sqlalchemy import or_, desc, asc, func, case
@@ -34,7 +34,17 @@ def get_all_profiles(
         # Only show candidates with assigned interviews
         query = query.join(Application).join(Interview).filter(Interview.interviewer_id == current_user.id)
         joined_application = True
-    
+
+    # --- HIRING MANAGER RESTRICTIONS ---
+    if current_user.role == UserRole.HIRING_MANAGER:
+        if current_user.department:
+            if not joined_application:
+                query = query.join(Application)
+                joined_application = True
+            query = query.join(Job).filter(Job.department == current_user.department)
+        else:
+            # If HM has no department, they see nothing (safe default)
+            query = query.filter(False)
     # --- FILTERS ---
     if job_id:
         if not joined_application:
@@ -140,6 +150,13 @@ def get_profile(cv_id: int, db: Session = Depends(get_db), current_user: User = 
         # Only show candidates with assigned interviews
         query = query.join(Application).join(Interview).filter(Interview.interviewer_id == current_user.id)
     
+    # --- HIRING MANAGER RESTRICTIONS ---
+    if current_user.role == UserRole.HIRING_MANAGER:
+        if current_user.department:
+            query = query.join(Application).join(Job).filter(Job.department == current_user.department)
+        else:
+            query = query.filter(False)
+    
     cv = query.first()
     if not cv:
         raise HTTPException(404, "Profile not found or access denied")
@@ -238,7 +255,7 @@ def get_department_stats(db: Session = Depends(get_db), current_user: User = Dep
     jobs_by_dept = db.query(
         Job.department, 
         func.count(Job.id).label('job_count'),
-        func.sum(case((Job.is_active == True, 1), else_=0)).label('active_job_count')
+        func.sum(case((Job.is_active, 1), else_=0)).label('active_job_count')
     ).filter(
         Job.company_id == current_user.company_id
     ).group_by(Job.department).all()
@@ -257,7 +274,8 @@ def get_department_stats(db: Session = Depends(get_db), current_user: User = Dep
     
     # Initialize with job data
     for dept, total_jobs, active_jobs in jobs_by_dept:
-        if not dept: continue
+        if not dept:
+            continue
         departments[dept] = {
             "name": dept,
             "totalJobs": total_jobs,
@@ -271,7 +289,8 @@ def get_department_stats(db: Session = Depends(get_db), current_user: User = Dep
 
     # Fill in application data
     for dept, status, count in apps_stats:
-        if not dept: continue
+        if not dept:
+            continue
         if dept not in departments:
             departments[dept] = {
                 "name": dept,

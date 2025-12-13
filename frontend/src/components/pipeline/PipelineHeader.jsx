@@ -1,5 +1,5 @@
 
-import { Search, LayoutGrid, Kanban, Upload, Layers, Briefcase, Calendar } from 'lucide-react'
+import { Search, LayoutGrid, Kanban, Upload, Layers, Briefcase, Calendar, GanttChart } from 'lucide-react'
 
 import PageHeader from '../layout/PageHeader'
 
@@ -113,6 +113,14 @@ const PipelineHeader = ({
                     >
                         <Calendar size={16} />
                         <span className="hidden xl:inline">Calendar</span>
+                    </button>
+                    <button
+                        onClick={() => setViewMode("timeline")}
+                        className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium transition ${viewMode === "timeline" ? "bg-white shadow text-indigo-600" : "text-slate-500 hover:text-slate-700 hover:bg-slate-200/50"}`}
+                        title="Timeline"
+                    >
+                        <GanttChart size={16} />
+                        <span className="hidden xl:inline">Timeline</span>
                     </button>
                 </div>
             )}

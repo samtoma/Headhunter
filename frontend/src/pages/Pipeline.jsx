@@ -14,6 +14,7 @@ import BulkAssignModal from '../components/modals/BulkAssignModal';
 import CreateJobModal from '../components/modals/CreateJobModal';
 import ScheduleInterviewModal from '../components/modals/ScheduleInterviewModal';
 import CalendarView from '../components/pipeline/CalendarView';
+import TimelineView from '../components/pipeline/TimelineView';
 import axios from 'axios';
 
 const Pipeline = ({ onOpenMobileSidebar }) => {
@@ -21,7 +22,7 @@ const Pipeline = ({ onOpenMobileSidebar }) => {
         jobs, profiles, setProfiles, fetchJobs, fetchProfiles,
         loadMoreProfiles, hasMore, isFetchingMore,
         search, setSearch, sortBy, setSortBy,
-        selectedJobId, setSelectedJobId, // Added setSelectedJobId
+        selectedJobId, // Added setSelectedJobId
         updateApp, updateProfile, assignJob, removeJob,
         loading, jobsLoading,
         pipelineStages, companyStages
@@ -37,7 +38,6 @@ const Pipeline = ({ onOpenMobileSidebar }) => {
     const [viewMode, setViewMode] = useState("list");
     const [selectedIds, setSelectedIds] = useState([]);
     const [selectedCv, setSelectedCv] = useState(null);
-    const [draggingId, setDraggingId] = useState(null); // New state
 
     // Modals
     const [showUploadModal, setShowUploadModal] = useState(false);
@@ -204,8 +204,8 @@ const Pipeline = ({ onOpenMobileSidebar }) => {
             // Check if interview already exists for this stage
             const existingInterview = app.interviews?.find(i => i.step === newStatus);
 
-            if (existingInterview || !requiresInterview) {
-                // Just update status if interview exists OR if interview is not required
+            if (existingInterview || (!requiresInterview && !stageConfig?.requiresReviewer)) {
+                // Just update status if interview exists OR if interview/review is not required
                 await updateApp(app.id, { status: newStatus });
                 setProfiles(prev => prev.map(p => {
                     if (p.id !== id) return p;
@@ -219,9 +219,13 @@ const Pipeline = ({ onOpenMobileSidebar }) => {
                 }));
                 console.log("Status updated (Interview exists or not required)");
             } else {
-                // Show modal to schedule new interview
+                // Show modal to schedule new interview or assign reviewer
                 const candidate = profiles.find(p => p.id === id);
-                setScheduleData({ candidate, stage: newStatus });
+                setScheduleData({
+                    candidate,
+                    stage: newStatus,
+                    mode: stageConfig?.requiresReviewer && !requiresInterview ? 'review' : 'interview'
+                });
                 setShowScheduleModal(true);
             }
             return;
@@ -242,39 +246,6 @@ const Pipeline = ({ onOpenMobileSidebar }) => {
             await updateApp(app.id, { status: newStatus });
         }
     };
-
-    /**
-     * Called after the ScheduleInterviewModal confirms scheduling.
-     */
-    const onInterviewScheduled = async (interviewData) => {
-        if (!scheduleData) return;
-
-        const { candidate, stage } = scheduleData;
-        const app = candidate.applications.find(a => a.job_id === selectedJob.id);
-
-        if (!app) return;
-
-        // Update application status to match interview stage
-        await updateApp(app.id, { status: stage });
-
-        // Update local state immediately
-        setProfiles(prev => prev.map(p => {
-            if (p.id !== candidate.id) return p;
-            const newApps = p.applications.map(a => {
-                if (a.id === app.id) {
-                    const newInterviews = [...(a.interviews || []), interviewData];
-                    return { ...a, status: stage, interviews: newInterviews };
-                }
-                return a;
-            });
-            return { ...p, applications: newApps };
-        }));
-
-        // Close modal and reset
-        setShowScheduleModal(false);
-        setScheduleData(null);
-    };
-
 
     const handleBulkReprocess = async () => {
         if (!confirm(`Reprocess ${selectedIds.length} CVs?`)) return;
@@ -490,6 +461,41 @@ const Pipeline = ({ onOpenMobileSidebar }) => {
                                 )}
                             </div>
                         )}
+
+                        {/* TIMELINE VIEW */}
+                        {viewMode === 'timeline' && (
+                            <TimelineView
+                                jobId={selectedJob?.id}
+                                onSelectCandidate={(candidate) => {
+                                    // Find the full CV profile from candidate data
+                                    const cv = profiles.find(p =>
+                                        p.applications?.some(a => a.id === candidate.application_id)
+                                    );
+                                    if (cv) setSelectedCv(cv);
+                                }}
+                                onScheduleInterview={({ candidate, stage }) => {
+                                    // Find the full CV profile
+                                    const cv = profiles.find(p =>
+                                        p.applications?.some(a => a.id === candidate.application_id)
+                                    );
+                                    if (cv) {
+                                        setScheduleData({
+                                            candidate: cv,
+                                            stage: stage,
+                                            mode: 'interview'
+                                        });
+                                        setShowScheduleModal(true);
+                                    }
+                                }}
+                                onViewInterview={({ candidate }) => {
+                                    // Find the full CV profile and open drawer
+                                    const cv = profiles.find(p =>
+                                        p.applications?.some(a => a.id === candidate.application_id)
+                                    );
+                                    if (cv) setSelectedCv(cv);
+                                }}
+                            />
+                        )}
                     </>
                 )}
             </div>
@@ -539,6 +545,7 @@ const Pipeline = ({ onOpenMobileSidebar }) => {
                     initialStep={scheduleData.stage}
                     interviewToEdit={scheduleData.interview}
                     preselectedDate={scheduleData.preselectedDate}
+                    mode={scheduleData.mode}
                 />
             )}
         </>

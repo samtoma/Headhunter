@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import axios from 'axios';
 import { X, Calendar, Clock, User, Briefcase, ChevronDown } from 'lucide-react';
 
-const ScheduleInterviewModal = ({ show, onClose, onSchedule, candidate, candidates, job, initialStep, interviewToEdit, preselectedDate }) => {
+const ScheduleInterviewModal = ({ show, onClose, onSchedule, candidate, candidates, job, initialStep, interviewToEdit, preselectedDate, mode = "interview" }) => {
     const [step, setStep] = useState(initialStep || "Screening");
     const [date, setDate] = useState("");
     const [time, setTime] = useState("");
@@ -86,11 +86,11 @@ const ScheduleInterviewModal = ({ show, onClose, onSchedule, candidate, candidat
         e.preventDefault();
         setLoading(true);
         try {
-            const scheduledAt = new Date(`${date}T${time}`).toISOString();
+            const scheduledAt = mode === 'review' ? null : new Date(`${date}T${time}`).toISOString();
 
             const payload = {
                 step: step,
-                status: "Scheduled", // Explicitly scheduled
+                status: mode === 'review' ? "Pending Review" : "Scheduled",
                 scheduled_at: scheduledAt,
                 interviewer_id: interviewerId ? parseInt(interviewerId) : null
             };
@@ -148,7 +148,7 @@ const ScheduleInterviewModal = ({ show, onClose, onSchedule, candidate, candidat
                 <div className="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
                     <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2">
                         <Calendar className="text-indigo-600" size={20} />
-                        {isEditing ? "Reschedule Interview" : "Schedule Interview"}
+                        {mode === 'review' ? "Assign Reviewer" : (isEditing ? "Reschedule Interview" : "Schedule Interview")}
                     </h3>
                     <button onClick={onClose} className="p-2 hover:bg-slate-200 rounded-full transition text-slate-400 hover:text-slate-600">
                         <X size={20} />
@@ -190,34 +190,36 @@ const ScheduleInterviewModal = ({ show, onClose, onSchedule, candidate, candidat
                         </div>
                     )}
 
-                    <div className="grid grid-cols-2 gap-4">
-                        <div>
-                            <label className="block text-xs font-bold text-slate-500 uppercase mb-1.5">Date</label>
-                            <div className="relative">
-                                <Calendar className="absolute left-3 top-2.5 text-slate-400" size={16} />
-                                <input
-                                    type="date"
-                                    required
-                                    className="w-full pl-10 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm font-medium focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition"
-                                    value={date}
-                                    onChange={e => setDate(e.target.value)}
-                                />
+                    {mode !== 'review' && (
+                        <div className="grid grid-cols-2 gap-4">
+                            <div>
+                                <label className="block text-xs font-bold text-slate-500 uppercase mb-1.5">Date</label>
+                                <div className="relative">
+                                    <Calendar className="absolute left-3 top-2.5 text-slate-400" size={16} />
+                                    <input
+                                        type="date"
+                                        required={mode !== 'review'}
+                                        className="w-full pl-10 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm font-medium focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition"
+                                        value={date}
+                                        onChange={e => setDate(e.target.value)}
+                                    />
+                                </div>
+                            </div>
+                            <div>
+                                <label className="block text-xs font-bold text-slate-500 uppercase mb-1.5">Time</label>
+                                <div className="relative">
+                                    <Clock className="absolute left-3 top-2.5 text-slate-400" size={16} />
+                                    <input
+                                        type="time"
+                                        required={mode !== 'review'}
+                                        className="w-full pl-10 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm font-medium focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition"
+                                        value={time}
+                                        onChange={e => setTime(e.target.value)}
+                                    />
+                                </div>
                             </div>
                         </div>
-                        <div>
-                            <label className="block text-xs font-bold text-slate-500 uppercase mb-1.5">Time</label>
-                            <div className="relative">
-                                <Clock className="absolute left-3 top-2.5 text-slate-400" size={16} />
-                                <input
-                                    type="time"
-                                    required
-                                    className="w-full pl-10 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm font-medium focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition"
-                                    value={time}
-                                    onChange={e => setTime(e.target.value)}
-                                />
-                            </div>
-                        </div>
-                    </div>
+                    )}
 
                     <div className="grid grid-cols-2 gap-4">
                         <div>
@@ -231,7 +233,7 @@ const ScheduleInterviewModal = ({ show, onClose, onSchedule, candidate, candidat
                             </select>
                         </div>
                         <div>
-                            <label className="block text-xs font-bold text-slate-500 uppercase mb-1.5">Interviewer</label>
+                            <label className="block text-xs font-bold text-slate-500 uppercase mb-1.5">{mode === 'review' ? "Reviewer" : "Interviewer"}</label>
                             <div className="relative">
                                 <User className="absolute left-3 top-2.5 text-slate-400" size={16} />
                                 <select
@@ -254,7 +256,7 @@ const ScheduleInterviewModal = ({ show, onClose, onSchedule, candidate, candidat
                             disabled={loading}
                             className="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold shadow-lg shadow-indigo-200 transition active:scale-[0.98] disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                         >
-                            {loading ? <span className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></span> : (interviewToEdit ? "Update Schedule" : "Confirm Schedule")}
+                            {loading ? <span className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></span> : mode === 'review' ? "Assign Reviewer" : (interviewToEdit ? "Update Schedule" : "Confirm Schedule")}
                         </button>
                     </div>
                 </form>

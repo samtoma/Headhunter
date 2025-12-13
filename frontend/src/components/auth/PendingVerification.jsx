@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
-import { Mail, CheckCircle, ArrowRight, Loader2, LogOut } from 'lucide-react';
+import { Mail, CheckCircle, Loader2, LogOut } from 'lucide-react';
 import axios from 'axios';
 
 const PendingVerification = () => {
@@ -38,7 +38,7 @@ const PendingVerification = () => {
 
                 <h1 className="text-2xl font-bold text-slate-900 mb-2">Verify your email</h1>
                 <p className="text-slate-600 mb-6">
-                    We've sent a verification link to <span className="font-semibold text-slate-800">{user?.email}</span>.
+                    We&apos;ve sent a verification link to <span className="font-semibold text-slate-800">{user?.email}</span>.
                     Please check your inbox and click the link to activate your account.
                 </p>
 
@@ -52,7 +52,7 @@ const PendingVerification = () => {
                     </button>
 
                     <div className="pt-4 border-t border-slate-100">
-                        <p className="text-sm text-slate-500 mb-3">Didn't receive the email?</p>
+                        <p className="text-sm text-slate-500 mb-3">Didn&apos;t receive the email?</p>
 
                         {resendStatus === 'sending' ? (
                             <button disabled className="text-indigo-400 font-bold flex items-center justify-center gap-2 mx-auto cursor-not-allowed">

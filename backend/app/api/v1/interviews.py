@@ -433,7 +433,7 @@ def get_interview_timeline(
     - Hiring Manager: Jobs in their department only
     - Interviewer: Not allowed
     """
-    from app.models.models import Job, CV, ParsedCV, UserRole
+    from app.models.models import Job, CV, UserRole
     
     # Fetch job
     job = db.query(Job).filter(Job.id == job_id, Job.company_id == current_user.company_id).first()

@@ -1,4 +1,4 @@
-import { BrainCircuit, LayoutDashboard, Briefcase as BriefcaseIcon, Archive, Layers, Lock, Plus, Settings, LogOut, Building2, X, ChevronDown, ChevronRight, Users, Calendar, Sparkles, TrendingUp } from 'lucide-react'
+import { BrainCircuit, LayoutDashboard, Briefcase as BriefcaseIcon, Archive, Layers, Lock, Plus, Settings, LogOut, Building2, X, ChevronDown, ChevronRight, Users, Calendar, Sparkles, TrendingUp, GanttChart } from 'lucide-react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import { useHeadhunter } from '../../context/HeadhunterContext'
@@ -204,6 +204,11 @@ const Sidebar = ({ isMobileOpen, setIsMobileOpen }) => {
                             <button onClick={() => handleNavigation("/interviews")}
                                 className={`w-full flex items-center gap-3 p-2.5 rounded-lg text-sm font-medium transition ${currentPath === "/interviews" ? 'bg-indigo-50 text-indigo-700 ring-1 ring-indigo-200' : 'text-slate-600 hover:bg-slate-50'}`}>
                                 <Calendar size={18} /> Interviews
+                            </button>
+
+                            <button onClick={() => handleNavigation("/timeline")}
+                                className={`w-full flex items-center gap-3 p-2.5 rounded-lg text-sm font-medium transition ${currentPath === "/timeline" ? 'bg-indigo-50 text-indigo-700 ring-1 ring-indigo-200' : 'text-slate-600 hover:bg-slate-50'}`}>
+                                <GanttChart size={18} /> Timeline
                             </button>
 
                             <div className="mt-6 px-3 flex justify-between items-center mb-2">

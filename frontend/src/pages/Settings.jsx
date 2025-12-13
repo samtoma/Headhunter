@@ -286,6 +286,8 @@ const Settings = ({ onOpenMobileSidebar }) => {
                                                             onChange={(e) => {
                                                                 const newStages = [...stages];
                                                                 newStages[idx].requiresInterview = e.target.checked;
+                                                                // Mutually exclusiveish? Or can act as both? Let's say separate.
+                                                                // If review is required, often interview is not, but flexible.
                                                                 setStages(newStages);
                                                             }}
                                                             className="w-4 h-4 text-indigo-600 rounded border-slate-300 focus:ring-indigo-500"
@@ -293,6 +295,23 @@ const Settings = ({ onOpenMobileSidebar }) => {
                                                         <div>
                                                             <div className="font-medium text-slate-800">Requires Live Interview</div>
                                                             <div className="text-xs text-slate-500">Uncheck for stages like &quot;Resume Review&quot; or &quot;Homework&quot;</div>
+                                                        </div>
+                                                    </label>
+
+                                                    <label className="flex items-center gap-3 text-sm text-slate-600 cursor-pointer select-none mt-3">
+                                                        <input
+                                                            type="checkbox"
+                                                            checked={!!stage.requiresReviewer}
+                                                            onChange={(e) => {
+                                                                const newStages = [...stages];
+                                                                newStages[idx].requiresReviewer = e.target.checked;
+                                                                setStages(newStages);
+                                                            }}
+                                                            className="w-4 h-4 text-indigo-600 rounded border-slate-300 focus:ring-indigo-500"
+                                                        />
+                                                        <div>
+                                                            <div className="font-medium text-slate-800">Requires Reviewer Assignment</div>
+                                                            <div className="text-xs text-slate-500">For homework review, code test, etc.</div>
                                                         </div>
                                                     </label>
                                                 </div>
