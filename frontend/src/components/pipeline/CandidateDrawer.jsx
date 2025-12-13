@@ -27,16 +27,16 @@ const CandidateDrawer = ({ cv, onClose, updateApp, updateProfile, jobs, selected
     const app = activeJobId && Array.isArray(cv?.applications) ? cv.applications.find(a => a.job_id === activeJobId) : null
 
     const [editData, setEditData] = useState({
-        name: d.name,
+        name: d.name || "",
         email: safeList(d.email)[0] || "",
         phone: safeList(d.phone)[0] || "",
-        address: d.address,
-        summary: d.summary,
+        address: d.address || "",
+        summary: d.summary || "",
         skills: safeList(d.skills).join(", "),
         age: d.age || "",
         experience_years: cv?.parsed_data?.experience_years || 0,
-        marital_status: d.marital_status,
-        military_status: d.military_status
+        marital_status: d.marital_status || "",
+        military_status: d.military_status || ""
     })
 
     const [notes, setNotes] = useState(app ? app.notes : "")
@@ -435,7 +435,7 @@ const CandidateDrawer = ({ cv, onClose, updateApp, updateProfile, jobs, selected
                                         {activeJobId && (
                                             <div className="mt-3 pt-3 border-t border-indigo-200/50">
                                                 <select value={status} onChange={e => setStatus(e.target.value)} className="w-full mt-1 bg-white border border-indigo-200 text-indigo-900 text-sm rounded-lg p-2 font-medium focus:ring-2 focus:ring-indigo-500 outline-none">
-                                                    {["New", ...(companyStages.map(s => s.name)), "Offer", "Hired", "Silver Medalist", "Rejected"].map(s => <option key={s} value={s}>{s}</option>)}
+                                                    {[...new Set(["New", ...(companyStages.map(s => s.name)), "Offer", "Hired", "Silver Medalist", "Rejected"])].map(s => <option key={s} value={s}>{s}</option>)}
                                                 </select>
                                             </div>
                                         )}

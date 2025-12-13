@@ -278,8 +278,8 @@ const Settings = ({ onOpenMobileSidebar }) => {
 
                                             {/* Advanced Settings */}
                                             {stage.expanded && (
-                                                <div className="pl-9 pr-2 pb-2 pt-2 border-t border-slate-200/50 mt-1 animate-in slide-in-from-top-2 duration-200">
-                                                    <label className="flex items-center gap-3 text-sm text-slate-600 cursor-pointer select-none">
+                                                <div className="pl-9 pr-2 pb-2 pt-2 border-t border-slate-200/50 mt-1 animate-in slide-in-from-top-2 duration-200 flex flex-wrap gap-x-8 gap-y-2">
+                                                    <label className="flex items-center gap-3 text-sm text-slate-600 cursor-pointer select-none border border-transparent p-1.5 rounded-lg hover:bg-slate-50 transition-colors -ml-1.5">
                                                         <input
                                                             type="checkbox"
                                                             checked={stage.requiresInterview !== false} // Default true
@@ -294,11 +294,11 @@ const Settings = ({ onOpenMobileSidebar }) => {
                                                         />
                                                         <div>
                                                             <div className="font-medium text-slate-800">Requires Live Interview</div>
-                                                            <div className="text-xs text-slate-500">Uncheck for stages like &quot;Resume Review&quot; or &quot;Homework&quot;</div>
+                                                            <div className="text-xs text-slate-500">Uncheck for &quot;Homework&quot;</div>
                                                         </div>
                                                     </label>
 
-                                                    <label className="flex items-center gap-3 text-sm text-slate-600 cursor-pointer select-none mt-3">
+                                                    <label className="flex items-center gap-3 text-sm text-slate-600 cursor-pointer select-none border border-transparent p-1.5 rounded-lg hover:bg-slate-50 transition-colors">
                                                         <input
                                                             type="checkbox"
                                                             checked={!!stage.requiresReviewer}
@@ -311,7 +311,7 @@ const Settings = ({ onOpenMobileSidebar }) => {
                                                         />
                                                         <div>
                                                             <div className="font-medium text-slate-800">Requires Reviewer Assignment</div>
-                                                            <div className="text-xs text-slate-500">For homework review, code test, etc.</div>
+                                                            <div className="text-xs text-slate-500">For homework review, etc.</div>
                                                         </div>
                                                     </label>
                                                 </div>

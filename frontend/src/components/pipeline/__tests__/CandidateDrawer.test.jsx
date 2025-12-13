@@ -34,7 +34,7 @@ const mockTimeline = [
     },
     {
         type: "interview",
-        id: 1,
+        id: 2,
         action: "interview_logged",
         created_at: "2023-01-02T14:00:00",
         details: {

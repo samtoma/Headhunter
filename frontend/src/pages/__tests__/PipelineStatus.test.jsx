@@ -16,7 +16,7 @@ vi.mock('react-virtualized-auto-sizer', () => ({
     default: ({ children }) => children({ height: 1000, width: 1000 })
 }))
 vi.mock('react-window', () => ({
-    FixedSizeGrid: ({ children }) => <div>{children({ columnIndex: 0, rowIndex: 0, style: {} })}</div>
+    FixedSizeGrid: ({ children }) => <div>{children({ columnIndex: 0, rowIndex: 0, style: { left: 0, top: 0, width: 100, height: 100 } })}</div>
 }))
 
 // Mock useHeadhunter
