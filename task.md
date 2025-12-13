@@ -37,12 +37,16 @@
 
 ### Phase 1: Foundation (Weeks 1-4)
 
-- [ ] [FEAT-002] Google Sign-In <!-- v2.0 --> <!-- gh: 36 -->
-  - [ ] [FEAT-002-1] Google OAuth Backend Implementation <!-- gh: 37 -->
-  - [ ] [FEAT-002-2] Google Sign-In Button UI <!-- gh: 38 -->
-  - [ ] [FEAT-002-3] Account Linking Logic <!-- gh: 39 -->
-  - [ ] [FEAT-002-4] Database Schema Updates <!-- gh: 40 -->
-- [ ] [FEAT-006-1] Audit Logging Infrastructure <!-- v2.0 --> <!-- gh: 41 -->
+- [x] [FEAT-002] Google Sign-In <!-- v2.0 --> <!-- gh: 36 -->
+  - [x] [FEAT-002-1] Google OAuth Backend Implementation <!-- gh: 37 -->
+  - [x] [FEAT-002-2] Google Sign-In Button UI <!-- gh: 38 -->
+  - [x] [FEAT-002-3] Account Linking Logic <!-- gh: 39 -->
+  - [x] [FEAT-002-4] Database Schema Updates <!-- gh: 40 -->
+- [x] [FEAT-006-1] Audit Logging Infrastructure <!-- v2.0 --> <!-- gh: 41 -->
+  - [x] Inline Attribution for Candidates (Drawer/List) <!-- gh: 85 -->
+  - [x] Inline Attribution for Pipelines <!-- gh: 86 -->
+  - [x] Inline Attribution for Jobs & Departments <!-- gh: 87 -->
+  - [x] Enhanced Activity Log <!-- gh: 88 -->
 
 ### Phase 2: Calendar & Automation (Weeks 5-8)
 
