@@ -49,6 +49,12 @@ class ApplicationOut(BaseModel):
     expected_salary: Optional[str] = None
     notes: Optional[str] = None
     applied_at: datetime
+    
+    # Audit fields
+    assigned_by: Optional[int] = None
+    assigned_by_name: Optional[str] = None
+    source: Optional[str] = None
+    
     model_config = ConfigDict(from_attributes=True)
 
 class ParsedCVOut(BaseModel):
@@ -92,6 +98,11 @@ class CVResponse(BaseModel):
     projected_experience: Optional[int] = 0
     is_outdated: bool = False
     years_since_upload: float = 0.0
+    
+    # Audit fields
+    uploaded_by: Optional[int] = None
+    uploaded_by_name: Optional[str] = None
+    
     model_config = ConfigDict(from_attributes=True)
 
 class PaginatedResponse(BaseModel):

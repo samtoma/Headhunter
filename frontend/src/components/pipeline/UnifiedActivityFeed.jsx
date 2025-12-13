@@ -249,14 +249,25 @@ const UnifiedActivityFeed = ({
                             <div className="flex-1 min-w-0">
                                 <div className="text-sm text-slate-700">
                                     <span className="font-semibold capitalize">{item.data.action?.replace(/_/g, ' ')}</span>
-                                    {item.data.details && (
+                                    {/* Status transition */}
+                                    {item.data.details?.old_status && item.data.details?.new_status && (
                                         <span className="text-slate-500">
-                                            {item.data.details.old_status && item.data.details.new_status && (
-                                                <> · {item.data.details.old_status} → {item.data.details.new_status}</>
-                                            )}
+                                            {' '}· {item.data.details.old_status} → {item.data.details.new_status}
+                                        </span>
+                                    )}
+                                    {/* Rating change */}
+                                    {item.data.details?.new_rating && (
+                                        <span className="text-amber-500">
+                                            {' '}· Rating: {item.data.details.old_rating || '–'} → {item.data.details.new_rating}
                                         </span>
                                     )}
                                 </div>
+                                {/* Notes if present */}
+                                {item.data.details?.notes && (
+                                    <div className="text-xs text-slate-500 bg-slate-50 rounded px-2 py-1 mt-1 line-clamp-2 italic">
+                                        "{item.data.details.notes}"
+                                    </div>
+                                )}
                                 <div className="text-xs text-slate-400 mt-0.5">
                                     {new Date(item.data.created_at).toLocaleString()}
                                     {item.data.user_name && <> · by <span className="text-slate-500">{item.data.user_name}</span></>}

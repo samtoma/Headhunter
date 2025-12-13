@@ -50,8 +50,8 @@ const Timeline = ({ onOpenMobileSidebar }) => {
     return (
         <div className="flex flex-col h-full overflow-hidden">
             <PageHeader
-                title="Interview Timeline"
-                subtitle="Track candidate progress across interview stages"
+                title="Interview Schedule"
+                subtitle="Track all candidate interviews across stages"
                 icon={GanttChart}
                 onOpenMobileSidebar={onOpenMobileSidebar}
                 actions={

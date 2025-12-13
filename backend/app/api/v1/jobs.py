@@ -11,7 +11,7 @@ from app.schemas.job import JobCreate, JobUpdate, JobOut, CandidateMatch, BulkAs
 from app.core.logging import jobs_logger
 from fastapi_cache.decorator import cache
 from fastapi_cache import FastAPICache
-from app.api.v1.activity import log_system_activity
+from app.api.v1.activity import log_system_activity, log_application_activity
 
 router = APIRouter(prefix="/jobs", tags=["Jobs"])
 
@@ -252,8 +252,23 @@ async def bulk_assign_candidates(
         # Check if already assigned
         exists = db.query(Application).filter(Application.job_id == data.job_id, Application.cv_id == cv_id).first()
         if not exists:
-            app = Application(job_id=data.job_id, cv_id=cv_id, status="New")
+            app = Application(
+                job_id=data.job_id, 
+                cv_id=cv_id, 
+                status="New",
+                assigned_by=current_user.id,  # Track who assigned
+                source="bulk_assign"  # Via bulk assign feature
+            )
             db.add(app)
+            db.flush()  # Get app.id for activity log
+            
+            # Log activity: candidate added to pipeline
+            log_application_activity(
+                db, app.id, "added_to_pipeline",
+                user_id=current_user.id,
+                company_id=current_user.company_id,
+                details={"job_id": data.job_id, "job_title": job.title, "source": "bulk_assign"}
+            )
             count += 1
             
     if count > 0:
@@ -281,7 +296,7 @@ async def create_job(job: JobCreate, db: Session = Depends(get_db), current_user
         if job_dict.get(field) is not None:
             job_dict[field] = json.dumps(job_dict[field])
     
-    new_job = Job(**job_dict, company_id=current_user.company_id)
+    new_job = Job(**job_dict, company_id=current_user.company_id, created_by=current_user.id)
     db.add(new_job)
     db.commit()
     db.refresh(new_job)
@@ -296,6 +311,8 @@ async def create_job(job: JobCreate, db: Session = Depends(get_db), current_user
     # Invalidate cache
     await invalidate_job_cache(current_user.company_id)
     
+    # Add user name for response
+    new_job.created_by_name = current_user.full_name or current_user.email
     return new_job
 
 async def invalidate_job_cache(company_id: int):
@@ -324,7 +341,7 @@ async def list_jobs(
     if current_user.role in [UserRole.INTERVIEWER, UserRole.HIRING_MANAGER] and current_user.department:
         query = query.filter(Job.department == current_user.department)
         
-    jobs = query.options(joinedload(Job.applications)).all()
+    jobs = query.options(joinedload(Job.applications), joinedload(Job.creator), joinedload(Job.modifier)).all()
     results = []
     for j in jobs:
         # Count only active candidates (exclude Rejected/Withdrawn)
@@ -333,6 +350,12 @@ async def list_jobs(
         # Create a clean dict from the ORM object, excluding internal state
         j_dict = {k: v for k, v in j.__dict__.items() if not k.startswith('_')}
         j_dict['candidate_count'] = len(active_apps)
+        
+        # Add user names for audit attribution
+        if j.creator:
+            j_dict['created_by_name'] = j.creator.full_name or j.creator.email
+        if j.modifier:
+            j_dict['modified_by_name'] = j.modifier.full_name or j.modifier.email
         
         # Validate and create Pydantic model
         results.append(JobOut.model_validate(j_dict))
@@ -364,6 +387,9 @@ async def update_job(job_id: int, job_data: JobUpdate, db: Session = Depends(get
             
     for key, value in update_data.items():
         setattr(job, key, value)
+    
+    # Set modified_by for audit trail
+    job.modified_by = current_user.id
         
     db.commit()
     db.refresh(job)

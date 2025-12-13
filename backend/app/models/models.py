@@ -170,10 +170,16 @@ class Application(Base):
     expected_salary = Column(String, nullable=True)
     applied_at = Column(DateTime(timezone=True), server_default=func.now())
     hired_at = Column(DateTime(timezone=True), nullable=True)
+    
+    # Audit fields
+    assigned_by = Column(Integer, ForeignKey("users.id"), nullable=True)  # Who added to this pipeline
+    source = Column(String, nullable=True)  # "manual", "api", "landing_page", "bulk_assign"
+    
     cv = relationship("CV", back_populates="applications")
     job = relationship("Job", back_populates="applications")
     interviews = relationship("Interview", back_populates="application", cascade="all, delete-orphan")
     activity_logs = relationship("ActivityLog", back_populates="application", cascade="all, delete-orphan")
+    assigner = relationship("User", foreign_keys=[assigned_by])
 
 class Interview(Base):
     __tablename__ = "interviews"

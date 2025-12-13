@@ -97,6 +97,7 @@ const CandidateCard = ({ cv, onClick, onDelete, onReprocess, status, compact, se
                 <div className="flex items-center gap-2">
                     <span className="text-[10px] text-slate-400 font-medium">
                         {new Date(cv.uploaded_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
+                        {cv.uploaded_by_name && <> · by {cv.uploaded_by_name}</>}
                     </span>
                     {status && <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${getStatusColor(status)}`}>{status}</span>}
                 </div>

@@ -203,12 +203,12 @@ const Sidebar = ({ isMobileOpen, setIsMobileOpen }) => {
 
                             <button onClick={() => handleNavigation("/interviews")}
                                 className={`w-full flex items-center gap-3 p-2.5 rounded-lg text-sm font-medium transition ${currentPath === "/interviews" ? 'bg-indigo-50 text-indigo-700 ring-1 ring-indigo-200' : 'text-slate-600 hover:bg-slate-50'}`}>
-                                <Calendar size={18} /> Interviews
+                                <Calendar size={18} /> My Interviews
                             </button>
 
                             <button onClick={() => handleNavigation("/timeline")}
                                 className={`w-full flex items-center gap-3 p-2.5 rounded-lg text-sm font-medium transition ${currentPath === "/timeline" ? 'bg-indigo-50 text-indigo-700 ring-1 ring-indigo-200' : 'text-slate-600 hover:bg-slate-50'}`}>
-                                <GanttChart size={18} /> Timeline
+                                <GanttChart size={18} /> Interview Schedule
                             </button>
 
                             <div className="mt-6 px-3 flex justify-between items-center mb-2">

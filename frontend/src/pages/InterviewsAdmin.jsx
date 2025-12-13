@@ -93,7 +93,7 @@ const InterviewsAdmin = ({ onOpenMobileSidebar }) => {
     return (
         <div className="flex flex-col h-full overflow-hidden">
             <PageHeader
-                title="Interviews"
+                title="My Interviews"
                 subtitle="Manage all scheduled interviews"
                 icon={Calendar}
                 onOpenMobileSidebar={onOpenMobileSidebar}

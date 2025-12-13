@@ -22,7 +22,15 @@ router = APIRouter(prefix="/departments", tags=["Departments"])
 
 @router.get("/", response_model=List[DepartmentOut])
 def list_departments(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
-    return db.query(Department).filter(Department.company_id == current_user.company_id).all()
+    depts = db.query(Department).filter(Department.company_id == current_user.company_id).all()
+    
+    # Add user names for audit attribution
+    for dept in depts:
+        if dept.creator:
+            dept.created_by_name = dept.creator.full_name or dept.creator.email
+        if dept.modifier:
+            dept.modified_by_name = dept.modifier.full_name or dept.modifier.email
+    return depts
 
 @router.post("/", response_model=DepartmentOut)
 def create_department(
