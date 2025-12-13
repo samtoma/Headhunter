@@ -22,7 +22,9 @@ vi.mock('react-window', () => ({
         <div>
             {Array.from({ length: rowCount }).map((_, rowIndex) => (
                 Array.from({ length: columnCount }).map((_, columnIndex) => (
-                    children({ columnIndex, rowIndex, style: { width: columnWidth, height: rowHeight, left: 0, top: 0 } })
+                    <div key={`${rowIndex}-${columnIndex}`}>
+                        {children({ columnIndex, rowIndex, style: { width: columnWidth, height: rowHeight, left: 0, top: 0 } })}
+                    </div>
                 ))
             ))}
         </div>
