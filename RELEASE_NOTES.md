@@ -2,7 +2,7 @@
 
 ## Summary
 
-This release focuses on stability, fixing critical bugs in the AI Search and Interview Feedback workflows, and enhancing the Interview Mode with a mobile-responsive design and richer data parsing.
+This release focuses on stability, fixing critical bugs in the AI Search and Interview Feedback workflows, and enhancing the Interview Mode with a mobile-responsive design and richer data parsing. We also improved frontend test stability by resolving React warnings and mocked dependencies.
 
 ## 🚀 Key Features
 
@@ -28,6 +28,11 @@ This release focuses on stability, fixing critical bugs in the AI Search and Int
 
 ## 🐛 Bug Fixes
 
+### Frontend Stability
+
+- **Test Suite**: Fixed `PipelineStatus` test failures by correcting mock data and selectors.
+- **React Warnings**: Resolved `window.alert` implementation errors, duplicate key warnings in candidate lists, and uncontrolled input warnings in edit forms.
+
 ### Critical Fixes
 
 - **AI Search Failure**: Fixed an issue where candidates were missing from search results due to missing `company_id` metadata. All 270+ CVs are now correctly indexed.
@@ -48,7 +53,7 @@ This release focuses on stability, fixing critical bugs in the AI Search and Int
 ## ✅ Verification
 
 - **Search**: Verified via `check_embeddings_status.py` (270/270 indexed).
-- **Tests**: Core backend tests passing.
+- **Tests**: Core backend tests passing. Frontend tests passing (100% stable).
 
 ---
 

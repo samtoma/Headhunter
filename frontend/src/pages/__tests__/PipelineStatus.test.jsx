@@ -59,7 +59,7 @@ describe('Pipeline Status Change', () => {
         assignJob: vi.fn(),
         removeJob: vi.fn(),
         pipelineStages: ['Screening', 'Technical', 'Culture', 'Final'],
-        companyStages: ['Screening', 'Technical', 'Culture', 'Final']
+        companyStages: [{ name: 'Screening', requiresInterview: false }, 'Technical', 'Culture', 'Final']
     }
 
     const renderPipeline = (contextOverrides = {}) => {
@@ -97,7 +97,7 @@ describe('Pipeline Status Change', () => {
         // If we can't find it, we might need to mock the initial state of viewMode in Pipeline.jsx, but we can't easily.
         // Instead, let's click the button.
 
-        const boardBtn = screen.getByLabelText('Board View') // Assuming accessible name
+        const boardBtn = screen.getByTitle('Kanban Board')
         fireEvent.click(boardBtn)
 
         // Now we should see columns. "New", "Screening", etc.
@@ -113,7 +113,7 @@ describe('Pipeline Status Change', () => {
 
         // Let's try firing drop on the "Screening" column.
         // We need to find the drop zone for "Screening".
-        const screeningCol = screen.getByText('Screening').closest('.flex-col') // Assuming column structure
+        const screeningCol = screen.getByTestId('column-Screening')
 
         // Mock dataTransfer
         const dataTransfer = {

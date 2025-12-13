@@ -654,6 +654,7 @@ Implement comprehensive role-based access control (RBAC) with department-scoping
 ### Phase 1: Foundation (Weeks 1-4)
 
 - [x] Google Sign-In **COMPLETED**
+- [x] Frontend Test Stability & CI Fixes **COMPLETED**
 - [ ] Database schema updates for all features
 - [ ] Audit logging infrastructure
 - [ ] **Role-Based Permissions (Feature #8)**
