@@ -18,7 +18,9 @@ def get_data_version(
     Frontend polls this to know when to refetch data.
     """
     if not current_user.company:
-        return {"version": datetime.utcnow().isoformat()}
+        # For users without company (like super_admin), return stable version
+        # based on user ID to avoid infinite refresh loops
+        return {"version": f"no_company_{current_user.id}"}
         
     # Refresh to ensure we get the latest from DB
     db.refresh(current_user.company)
@@ -28,3 +30,4 @@ def get_data_version(
         version = current_user.company.created_at
         
     return {"version": version.isoformat() if version else datetime.utcnow().isoformat()}
+

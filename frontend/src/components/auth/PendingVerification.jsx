@@ -1,22 +1,22 @@
 import { useState } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
-import { Mail, CheckCircle, ArrowRight, Loader2 } from 'lucide-react';
+import { useAuth } from '../../context/AuthContext';
+import { useNavigate } from 'react-router-dom';
+import { Mail, CheckCircle, ArrowRight, Loader2, LogOut } from 'lucide-react';
 import axios from 'axios';
 
 const PendingVerification = () => {
-    const location = useLocation();
+    const { user, logout } = useAuth();
     const navigate = useNavigate();
-    const email = location.state?.email;
     const [resendStatus, setResendStatus] = useState('idle'); // idle, sending, sent, error
     const [errorMsg, setErrorMsg] = useState('');
 
     const handleResend = async () => {
-        if (!email) return;
+        if (!user?.email) return;
         setResendStatus('sending');
         try {
-            await axios.post(`/api/auth/resend-verification?email=${email}`);
+            await axios.post(`/api/auth/resend-verification?email=${user.email}`);
             setResendStatus('sent');
-            setTimeout(() => setResendStatus('idle'), 5000); // Reset after 5s
+            setTimeout(() => setResendStatus('idle'), 5000);
         } catch (err) {
             setResendStatus('error');
             console.error(err);
@@ -24,22 +24,10 @@ const PendingVerification = () => {
         }
     };
 
-    if (!email) {
-        return (
-            <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
-                <div className="text-center">
-                    <h2 className="text-xl font-bold text-slate-800 mb-2">Access Denied</h2>
-                    <p className="text-slate-600 mb-4">You need to sign up or log in first.</p>
-                    <button
-                        onClick={() => navigate('/login')}
-                        className="text-indigo-600 font-bold hover:underline"
-                    >
-                        Go to Login
-                    </button>
-                </div>
-            </div>
-        );
-    }
+    const handleLogout = () => {
+        logout();
+        navigate('/login');
+    };
 
     return (
         <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
@@ -50,20 +38,21 @@ const PendingVerification = () => {
 
                 <h1 className="text-2xl font-bold text-slate-900 mb-2">Verify your email</h1>
                 <p className="text-slate-600 mb-6">
-                    We&apos;ve sent a verification link to <span className="font-semibold text-slate-800">{email}</span>.
+                    We've sent a verification link to <span className="font-semibold text-slate-800">{user?.email}</span>.
                     Please check your inbox and click the link to activate your account.
                 </p>
 
                 <div className="space-y-4">
                     <button
-                        onClick={() => navigate('/login')}
+                        onClick={handleLogout}
                         className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 rounded-lg transition flex items-center justify-center gap-2"
                     >
-                        I&apos;ve Verified My Email <ArrowRight className="w-4 h-4" />
+                        <LogOut className="w-4 h-4" />
+                        Logout & Return to Login
                     </button>
 
                     <div className="pt-4 border-t border-slate-100">
-                        <p className="text-sm text-slate-500 mb-3">Didn&apos;t receive the email?</p>
+                        <p className="text-sm text-slate-500 mb-3">Didn't receive the email?</p>
 
                         {resendStatus === 'sending' ? (
                             <button disabled className="text-indigo-400 font-bold flex items-center justify-center gap-2 mx-auto cursor-not-allowed">

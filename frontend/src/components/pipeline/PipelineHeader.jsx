@@ -1,5 +1,5 @@
 
-import { Search, LayoutGrid, Kanban, Upload, Layers, Briefcase } from 'lucide-react'
+import { Search, LayoutGrid, Kanban, Upload, Layers, Briefcase, Calendar } from 'lucide-react'
 
 import PageHeader from '../layout/PageHeader'
 
@@ -87,16 +87,39 @@ const PipelineHeader = ({
                 </select>
             )}
 
+            {/* View Switcher Tabs - Contextual to Job */}
             {selectedJob && (
-                <div className="bg-slate-100 p-1 rounded-lg flex">
-                    <button onClick={() => setViewMode("list")} aria-label="List View" className={`p-1.5 rounded transition ${viewMode === "list" ? "bg-white shadow text-indigo-600" : "text-slate-400"}`}><LayoutGrid size={18} /></button>
-                    <button onClick={() => setViewMode("board")} aria-label="Board View" className={`p-1.5 rounded transition ${viewMode === "board" ? "bg-white shadow text-indigo-600" : "text-slate-400"}`}><Kanban size={18} /></button>
+                <div className="flex bg-slate-100 p-1 rounded-lg">
+                    <button
+                        onClick={() => setViewMode("list")}
+                        className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium transition ${viewMode === "list" ? "bg-white shadow text-indigo-600" : "text-slate-500 hover:text-slate-700 hover:bg-slate-200/50"}`}
+                        title="List View"
+                    >
+                        <LayoutGrid size={16} />
+                        <span className="hidden xl:inline">List</span>
+                    </button>
+                    <button
+                        onClick={() => setViewMode("kanban")}
+                        className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium transition ${viewMode === "kanban" ? "bg-white shadow text-indigo-600" : "text-slate-500 hover:text-slate-700 hover:bg-slate-200/50"}`}
+                        title="Kanban Board"
+                    >
+                        <Kanban size={16} />
+                        <span className="hidden xl:inline">Board</span>
+                    </button>
+                    <button
+                        onClick={() => setViewMode("calendar")}
+                        className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium transition ${viewMode === "calendar" ? "bg-white shadow text-indigo-600" : "text-slate-500 hover:text-slate-700 hover:bg-slate-200/50"}`}
+                        title="Calendar"
+                    >
+                        <Calendar size={16} />
+                        <span className="hidden xl:inline">Calendar</span>
+                    </button>
                 </div>
             )}
 
             <label className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg cursor-pointer flex items-center gap-2 transition shadow-md active:scale-95">
                 <Upload size={16} />
-                <span className="font-bold text-sm hidden sm:inline">{uploading ? "..." : "Add"}</span>
+                <span className="font-bold text-sm hidden sm:inline">{uploading ? "..." : "Add Candidate"}</span>
                 <input type="file" multiple className="hidden" onChange={(e) => {
                     if (e.target.files.length > 0) {
                         if (selectedJob) {

@@ -47,6 +47,36 @@ class InterviewOut(BaseModel):
 
     model_config = ConfigDict(from_attributes=True)
 
+# Timeline View Schemas
+class InterviewTimelineItem(BaseModel):
+    """Individual interview in a candidate's timeline"""
+    id: int
+    stage: str  # e.g. "Screening", "Technical", "Culture", "Final"
+    status: str  # "Scheduled", "Completed", "Cancelled", "No Show"
+    outcome: Optional[str] = None  # "Passed", "Failed", "Pending"
+    interviewer: Optional[str] = None  # Interviewer name
+    interviewer_id: Optional[int] = None
+    scheduled_at: Optional[datetime] = None
+    feedback: Optional[str] = None
+    rating: Optional[int] = None
+    
+    model_config = ConfigDict(from_attributes=True)
+
+class CandidateTimeline(BaseModel):
+    """A candidate's full interview timeline"""
+    candidate_id: int
+    candidate_name: str
+    application_id: int
+    current_stage: Optional[str] = None
+    interviews: List[InterviewTimelineItem]
+    
+class InterviewTimelineResponse(BaseModel):
+    """Timeline view for all candidates in a job"""
+    job_id: int
+    job_title: str
+    stages: List[str]  # Predefined stages for this job
+    candidates: List[CandidateTimeline]
+
 class InterviewDashboardOut(BaseModel):
     id: int
     scheduled_at: Optional[datetime]
@@ -62,6 +92,108 @@ class InterviewDashboardOut(BaseModel):
     interviewer_name: Optional[str] = None  # Added for admin view
 
     model_config = ConfigDict(from_attributes=True)
+
+    model_config = ConfigDict(from_attributes=True)
+
+# Calendar View Schemas
+class CalendarEvent(BaseModel):
+    id: int
+    title: str  # e.g., "Screening - John Doe"
+    start: datetime
+    end: datetime
+    allDay: bool = False
+    resource: Optional[dict] = None  # Extra data like candidate_id, job_id, etc.
+    status: str  # Scheduled, Completed, etc.
+    type: str = "interview"  # potentially "task" later
+    
+    model_config = ConfigDict(from_attributes=True)
+
+@router.get("/calendar", response_model=List[CalendarEvent])
+def get_calendar_events(
+    start: Optional[datetime] = None,
+    end: Optional[datetime] = None,
+    job_id: Optional[int] = None,
+    interviewer_id: Optional[int] = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Get interviews formatted as calendar events.
+    Supports filtering by date range (start, end) and job/interviewer.
+    """
+    query = db.query(Interview).join(Application).join(User, Interview.interviewer_id == User.id, isouter=True)
+    
+    # Company filter
+    if current_user.company_id:
+        query = query.join(Application.job).filter(Application.job.has(company_id=current_user.company_id))
+
+    # Date Range Filter
+    if start:
+        query = query.filter(Interview.scheduled_at >= start)
+    if end:
+        query = query.filter(Interview.scheduled_at <= end)
+        
+    # Additional filters
+    if job_id:
+        query = query.filter(Application.job_id == job_id)
+        
+    # Role-based filtering
+    if current_user.role == "interviewer":
+        # Interviewers see only their own, unless specified otherwise (but strict for now)
+        query = query.filter(Interview.interviewer_id == current_user.id)
+    elif interviewer_id:
+        # Admin can filter by specific interviewer
+        query = query.filter(Interview.interviewer_id == interviewer_id)
+    elif current_user.role == "hiring_manager":
+        # Hiring managers see interviews for their department's jobs
+        # (Assuming dept filtering logic exists or will be added. For now, let them see all company interviews or filter by their jobs)
+        if current_user.department:
+             # This requires joining Job to check department
+             from app.models.models import Job
+             query = query.join(Application.job).filter(Job.department == current_user.department)
+
+    interviews = query.all()
+    
+    events = []
+    from datetime import timedelta
+    
+    for i in interviews:
+        # Determine duration (default 1 hour if not stored)
+        # TODO: Add duration to Interview model
+        duration = timedelta(hours=1)
+        start_time = i.scheduled_at
+        end_time = start_time + duration
+        
+        # Get candidate name (Need to join CV or store it. Application has cv_id)
+        # Using a helper or accessing relationships carefully
+        # Application -> valid_cv (property) or access metadata
+        # Ideally, we should eagerly load these relationships
+        candidate_name = "Candidate"
+        if i.application and i.application.cv and i.application.cv.parsed_data:
+             candidate_name = i.application.cv.parsed_data.name or "Candidate"
+        
+        job_title = "Job"
+        if i.application and i.application.job:
+            job_title = i.application.job.title
+
+        events.append(CalendarEvent(
+            id=i.id,
+            title=f"{i.step}: {candidate_name}",
+            start=start_time,
+            end=end_time,
+            status=i.status,
+            resource={
+                "candidate_name": candidate_name,
+                "job_title": job_title,
+                "interviewer_name": i.interviewer.full_name if i.interviewer else "Unassigned",
+                "interviewer_id": i.interviewer_id,
+                "application_id": i.application_id,
+                "job_id": i.application.job_id if i.application else None,
+                "step": i.step
+            }
+        ))
+        
+    return events
 
 @router.get("/all", response_model=List[InterviewDashboardOut])
 def get_all_interviews(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
@@ -278,12 +410,110 @@ def create_interview(
                         interview_stage=interview.step,
                         scheduled_at=str(interview.scheduled_at),
                         scheduled_by=current_user.email
-                    ))
+                ))
             except Exception:
                 # Silently fail if email service is not available (test environment)
                 pass
 
     return new_interview
+
+@router.get("/timeline/{job_id}", response_model=InterviewTimelineResponse)
+def get_interview_timeline(
+    job_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Get interview timeline view for a specific job position.
+    Shows all candidates and their interview progress through stages.
+    
+    Permissions:
+    - Admin: All jobs
+    - Recruiter: All jobs in company
+    - Hiring Manager: Jobs in their department only
+    - Interviewer: Not allowed
+    """
+    from app.models.models import Job, CV, ParsedCV, UserRole
+    
+    # Fetch job
+    job = db.query(Job).filter(Job.id == job_id, Job.company_id == current_user.company_id).first()
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found")
+    
+    # Permission check
+    if current_user.role == UserRole.INTERVIEWER:
+        raise HTTPException(status_code=403, detail="Interviewers cannot access timeline view")
+    
+    if current_user.role == UserRole.HIRING_MANAGER:
+        # Department scope check
+        if job.department != current_user.department:
+            raise HTTPException(status_code=403, detail="You can only access jobs in your department")
+    
+    # Predefined interview stages (matching frontend Kanban interview columns)
+    stages = ["Screening", "Technical", "Culture", "Final"]
+    
+    # Fetch all applications for this job with their interviews
+    applications = db.query(Application)\
+        .filter(Application.job_id == job_id)\
+        .options(joinedload(Application.cv).joinedload(CV.parsed_data))\
+        .options(joinedload(Application.interviews))\
+        .all()
+    
+    # Build candidate timelines
+    candidates = []
+    for app in applications:
+        # Get candidate name
+        candidate_name = "Unknown"
+        if app.cv:
+            if hasattr(app.cv, 'parsed_data') and app.cv.parsed_data and hasattr(app.cv.parsed_data, 'name'):
+                candidate_name = app.cv.parsed_data.name or app.cv.filename or "Unknown"
+            else:
+                candidate_name = app.cv.filename or "Unknown"
+        
+        # Get all interviews for this application
+        interview_items = []
+        current_stage = None
+        
+        for interview in app.interviews:
+            # Get interviewer name
+            interviewer_name = None
+            if interview.interviewer_id:
+                interviewer = db.query(User).filter(User.id == interview.interviewer_id).first()
+                if interviewer:
+                    interviewer_name = interviewer.full_name or interviewer.email.split('@')[0]
+            
+            interview_items.append(InterviewTimelineItem(
+                id=interview.id,
+                stage=interview.step,
+                status=interview.status,
+                outcome=interview.outcome,
+                interviewer=interviewer_name,
+                interviewer_id=interview.interviewer_id,
+                scheduled_at=interview.scheduled_at,
+                feedback=interview.feedback,
+                rating=interview.rating
+            ))
+            
+            # Determine current stage (last non-completed or last interview)
+            if interview.status != "Completed" and not current_stage:
+                current_stage = interview.step
+            elif interview.status == "Completed":
+                current_stage = interview.step  # Keep updating for last completed
+        
+        candidates.append(CandidateTimeline(
+            candidate_id=app.cv_id if app.cv_id else 0,
+            candidate_name=candidate_name,
+            application_id=app.id,
+            current_stage=current_stage,
+            interviews=sorted(interview_items, key=lambda x: stages.index(x.stage) if x.stage in stages else 999)
+        ))
+    
+    return InterviewTimelineResponse(
+        job_id=job.id,
+        job_title=job.title,
+        stages=stages,
+        candidates=candidates
+    )
 
 @router.get("/application/{application_id}", response_model=List[InterviewOut])
 def get_application_interviews(application_id: int, db: Session = Depends(get_db)):

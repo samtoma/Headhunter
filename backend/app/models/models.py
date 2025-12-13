@@ -72,6 +72,7 @@ class User(Base):
     company = relationship("Company", back_populates="users")
     password_reset_tokens = relationship("PasswordResetToken", back_populates="user", cascade="all, delete-orphan")
     login_count = Column(Integer, default=0)
+    permissions = Column(Text, nullable=True) # JSON permissions e.g. {"view_salary": true}
 
 class Department(Base):
     __tablename__ = "departments"

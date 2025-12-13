@@ -6,7 +6,7 @@ from app.core.database import get_db
 from app.models.models import CV, ParsedCV, Application, User, UserRole, Interview
 from app.api.deps import get_current_user
 from app.schemas.cv import CVResponse, UpdateProfile, PaginatedResponse
-from sqlalchemy import or_, desc, asc
+from sqlalchemy import or_, desc, asc, func, case
 
 router = APIRouter(prefix="/profiles", tags=["Profiles"])
 
@@ -20,7 +20,10 @@ def get_all_profiles(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    query = db.query(CV).options(joinedload(CV.parsed_data)).filter(CV.company_id == current_user.company_id)
+    query = db.query(CV).options(
+        joinedload(CV.parsed_data),
+        joinedload(CV.applications).joinedload(Application.interviews)
+    ).filter(CV.company_id == current_user.company_id)
     
     # Track joins to avoid duplicates
     joined_application = False
@@ -127,7 +130,10 @@ def get_all_profiles(
 
 @router.get("/{cv_id}", response_model=CVResponse)
 def get_profile(cv_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
-    query = db.query(CV).options(joinedload(CV.parsed_data)).filter(CV.id == cv_id, CV.company_id == current_user.company_id)
+    query = db.query(CV).options(
+        joinedload(CV.parsed_data),
+        joinedload(CV.applications).joinedload(Application.interviews)
+    ).filter(CV.id == cv_id, CV.company_id == current_user.company_id)
     
     # --- INTERVIEWER RESTRICTIONS ---
     if current_user.role == UserRole.INTERVIEWER:
@@ -223,3 +229,72 @@ def get_stats(db: Session = Depends(get_db), current_user: User = Depends(get_cu
         "silver": silver,
         "activeJobs": active_jobs
     }
+
+@router.get("/stats/department")
+def get_department_stats(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    from app.models.models import Job, Application
+
+    # 1. Job Counts per Department
+    jobs_by_dept = db.query(
+        Job.department, 
+        func.count(Job.id).label('job_count'),
+        func.sum(case((Job.is_active == True, 1), else_=0)).label('active_job_count')
+    ).filter(
+        Job.company_id == current_user.company_id
+    ).group_by(Job.department).all()
+
+    # 2. Application Counts per Department & Status
+    apps_stats = db.query(
+        Job.department,
+        Application.status,
+        func.count(Application.id).label('count')
+    ).join(Job).filter(
+        Job.company_id == current_user.company_id
+    ).group_by(Job.department, Application.status).all()
+
+    # Process results
+    departments = {}
+    
+    # Initialize with job data
+    for dept, total_jobs, active_jobs in jobs_by_dept:
+        if not dept: continue
+        departments[dept] = {
+            "name": dept,
+            "totalJobs": total_jobs,
+            "activeJobs": active_jobs or 0,
+            "totalCandidates": 0,
+            "hired": 0,
+            "offered": 0,
+            "rejected": 0,
+            "pipeline": {} # status -> count
+        }
+
+    # Fill in application data
+    for dept, status, count in apps_stats:
+        if not dept: continue
+        if dept not in departments:
+            departments[dept] = {
+                "name": dept,
+                "totalJobs": 0,
+                "activeJobs": 0,
+                "totalCandidates": 0,
+                "hired": 0,
+                "offered": 0,
+                "rejected": 0,
+                "pipeline": {}
+            }
+        
+        d = departments[dept]
+        d["totalCandidates"] += count
+        
+        if status == "Hired":
+            d["hired"] += count
+        elif status == "Offer":
+            d["offered"] += count
+        elif status == "Rejected":
+            d["rejected"] += count
+        
+        # Add to pipeline view
+        d["pipeline"][status] = count
+
+    return list(departments.values())

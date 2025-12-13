@@ -22,6 +22,7 @@ class Token(BaseModel):
     full_name: Optional[str] = None
     profile_picture: Optional[str] = None
     sso_provider: Optional[str] = None  # 'google', 'microsoft', or null for password
+    is_verified: bool = False  # Email verification status
 
 class UserCreate(BaseModel):
     email: str
@@ -100,7 +101,9 @@ async def signup(user: UserCreate, db: Session = Depends(get_db)):
         "is_new_company": is_new_company,
         "email": new_user.email,
         "full_name": new_user.full_name,
-        "profile_picture": new_user.profile_picture
+        "profile_picture": None,
+        "sso_provider": None,
+        "is_verified": new_user.is_verified
     }
 
 @router.post("/login", response_model=Token)
@@ -158,7 +161,8 @@ def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(), db:
         "email": user.email,
         "full_name": user.full_name,
         "profile_picture": user.profile_picture,
-        "sso_provider": user.sso_provider
+        "sso_provider": user.sso_provider,
+        "is_verified": user.is_verified
     }
 
 @router.post("/resend-verification")

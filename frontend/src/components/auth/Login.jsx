@@ -41,7 +41,8 @@ const Login = () => {
                 email: res.data.email,
                 full_name: res.data.full_name,
                 picture: res.data.profile_picture,
-                sso_provider: res.data.sso_provider
+                sso_provider: res.data.sso_provider,
+                is_verified: res.data.is_verified
             })
             // Navigation handled by useEffect
         } catch (err) {
@@ -100,7 +101,7 @@ const Login = () => {
                             />
                         </div>
                         <div className="text-right mt-1">
-                            <button 
+                            <button
                                 type="button"
                                 onClick={() => navigate('/forgot-password')}
                                 className="text-sm text-indigo-600 hover:text-indigo-700 font-medium hover:underline transition"

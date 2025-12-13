@@ -9,6 +9,7 @@ class UserBase(BaseModel):
     department: Optional[str] = None
     sso_provider: Optional[str] = None
     is_verified: bool = False
+    permissions: Optional[str] = None # JSON string
 
 class UserOut(UserBase):
     id: int

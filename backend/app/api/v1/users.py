@@ -18,6 +18,7 @@ class UserOut(BaseModel):
     is_active: bool
     role: str
     department: Optional[str] = None
+    permissions: Optional[str] = None # JSON string
     login_count: int = 0
     
     model_config = ConfigDict(from_attributes=True)
@@ -124,6 +125,7 @@ def delete_user(user_id: int, db: Session = Depends(get_db), current_user: User 
 class UserUpdate(BaseModel):
     role: Optional[str] = None
     department: Optional[str] = None
+    permissions: Optional[str] = None
 
 @router.patch("/{user_id}", response_model=UserOut)
 def update_user_role(
@@ -149,8 +151,10 @@ def update_user_role(
         
     if user_update.role:
         user.role = user_update.role
-    if user_update.department is not None: # Allow clearing department
+    if user_update.department is not None:
         user.department = user_update.department
+    if user_update.permissions is not None:
+        user.permissions = user_update.permissions
         
     db.commit()
     db.refresh(user)
@@ -183,6 +187,8 @@ def update_user_role_dedicated(
         user.role = user_update.role
     if user_update.department is not None:
         user.department = user_update.department
+    if user_update.permissions is not None:
+        user.permissions = user_update.permissions
         
     db.commit()
     db.refresh(user)

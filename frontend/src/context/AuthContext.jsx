@@ -11,7 +11,8 @@ export const AuthProvider = ({ children }) => {
         email: localStorage.getItem('email'),
         full_name: localStorage.getItem('full_name'),
         picture: localStorage.getItem('picture'),
-        sso_provider: localStorage.getItem('sso_provider')
+        sso_provider: localStorage.getItem('sso_provider'),
+        is_verified: localStorage.getItem('is_verified') === 'true' // Parse boolean
     });
     const [loading, setLoading] = useState(true);
 
@@ -37,6 +38,7 @@ export const AuthProvider = ({ children }) => {
         if (userData.full_name) localStorage.setItem('full_name', userData.full_name);
         if (userData.picture) localStorage.setItem('picture', userData.picture);
         if (userData.sso_provider) localStorage.setItem('sso_provider', userData.sso_provider);
+        localStorage.setItem('is_verified', userData.is_verified);
     }, []);
 
     const updateUser = useCallback((updates) => {
@@ -47,6 +49,7 @@ export const AuthProvider = ({ children }) => {
             if (updates.role) localStorage.setItem('role', updates.role);
             if (updates.picture) localStorage.setItem('picture', updates.picture);
             if (updates.full_name) localStorage.setItem('full_name', updates.full_name);
+            if (updates.is_verified !== undefined) localStorage.setItem('is_verified', updates.is_verified);
             // Email usually doesn't change this way, but if it did:
             if (updates.email) localStorage.setItem('email', updates.email);
             return newUser;
@@ -62,6 +65,7 @@ export const AuthProvider = ({ children }) => {
         localStorage.removeItem('full_name');
         localStorage.removeItem('picture');
         localStorage.removeItem('sso_provider');
+        localStorage.removeItem('is_verified');
     };
 
     return (
