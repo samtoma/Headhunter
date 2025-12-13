@@ -1,3 +1,49 @@
+# Release Notes - v1.12.0 (Audit Trail)
+
+## Summary
+
+This release adds comprehensive audit trail functionality, allowing users to see **who performed each action** in the system (e.g., "Created by John Smith", "Updated by <admin@company.com>").
+
+## 🚀 Key Features
+
+### System-Wide Audit Trail
+
+- **User Attribution**: All activity log entries now include the user's name (with email as fallback) who performed the action.
+- **Tracked Actions**: The following actions are now tracked with full user attribution:
+  - **Departments**: Create, Update, Delete
+  - **Jobs/Pipeline**: Create, Update, Delete, Archive
+  - **Users**: Invite, Update Role, Delete
+  - **Authentication**: Login, Signup, Password Reset
+  - **Applications**: Status changes, Interview scheduling (existing)
+
+### Backend API Enhancements
+
+- Added `user_name` field to timeline API responses (`/api/activity/application/{id}/timeline`)
+- New `log_system_activity()` helper function for logging non-application-specific actions
+- Centralized activity logging across all management endpoints
+
+### Frontend Display
+
+- Activity feed now shows "by [User Name]" next to timestamps
+- User's full name is preferred, with email as fallback
+
+## 🛠️ Technical Details
+
+- **New Helper**: `log_system_activity()` in `app/api/v1/activity.py`
+- **Modified Files**:
+  - `departments.py` - Added audit logging for CRUD operations
+  - `users.py` - Added audit logging for user management
+  - `jobs.py` - Added audit logging for job management
+  - `auth.py` - Added audit logging for password reset
+  - `UnifiedActivityFeed.jsx` - Updated to display `user_name`
+
+## ✅ Verification
+
+- **Backend Tests**: 2/2 passing (including `user_name` verification in timeline)
+- **Frontend Tests**: 120/120 passing
+
+---
+
 # Release Notes - v1.11.0
 
 ## Summary

@@ -259,7 +259,7 @@ const UnifiedActivityFeed = ({
                                 </div>
                                 <div className="text-xs text-slate-400 mt-0.5">
                                     {new Date(item.data.created_at).toLocaleString()}
-                                    {item.data.user_email && <> · {item.data.user_email}</>}
+                                    {item.data.user_name && <> · by <span className="text-slate-500">{item.data.user_name}</span></>}
                                 </div>
                             </div>
                         </div>

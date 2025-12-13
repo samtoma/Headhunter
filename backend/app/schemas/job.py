@@ -49,6 +49,7 @@ class JobOut(BaseModel):
     department: Optional[str] = None
     description: Optional[str] = None
     created_at: datetime
+    modified_at: Optional[datetime] = None
     candidate_count: int = 0
     is_active: bool = True
     status: str = "Open"
@@ -59,6 +60,12 @@ class JobOut(BaseModel):
     qualifications: List[str] = []
     preferred_qualifications: List[str] = []
     benefits: List[str] = []
+    
+    # Audit fields
+    created_by: Optional[int] = None
+    modified_by: Optional[int] = None
+    created_by_name: Optional[str] = None
+    modified_by_name: Optional[str] = None
 
     @field_validator('skills_required', 'responsibilities', 'qualifications', 'preferred_qualifications', 'benefits', mode='before')
     @classmethod

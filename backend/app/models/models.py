@@ -84,8 +84,14 @@ class Department(Base):
     job_templates = Column(Text, nullable=True) # JSON list of specific sections for job titles
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+    
+    # Audit fields
+    created_by = Column(Integer, ForeignKey("users.id"), nullable=True)
+    modified_by = Column(Integer, ForeignKey("users.id"), nullable=True)
 
     company = relationship("Company", back_populates="departments_rel")
+    creator = relationship("User", foreign_keys=[created_by])
+    modifier = relationship("User", foreign_keys=[modified_by])
 
 class ActivityLog(Base):
     __tablename__ = "activity_logs"
@@ -125,9 +131,16 @@ class Job(Base):
     remote_policy = Column(String, nullable=True)  # Remote work policy
     
     created_at = Column(DateTime(timezone=True), server_default=func.now())
+    modified_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+    
+    # Audit fields
+    created_by = Column(Integer, ForeignKey("users.id"), nullable=True)
+    modified_by = Column(Integer, ForeignKey("users.id"), nullable=True)
     
     company = relationship("Company", back_populates="jobs")
     applications = relationship("Application", back_populates="job", cascade="all, delete-orphan")
+    creator = relationship("User", foreign_keys=[created_by])
+    modifier = relationship("User", foreign_keys=[modified_by])
 
 class CV(Base):
     __tablename__ = "cvs"
@@ -138,8 +151,12 @@ class CV(Base):
     is_parsed = Column(Boolean, default=False, index=True)
     company_id = Column(Integer, ForeignKey("companies.id"), nullable=True, index=True)
     
+    # Audit field
+    uploaded_by = Column(Integer, ForeignKey("users.id"), nullable=True)
+    
     applications = relationship("Application", back_populates="cv", cascade="all, delete-orphan")
     parsed_data = relationship("ParsedCV", back_populates="cv", uselist=False, cascade="all, delete-orphan")
+    uploader = relationship("User", foreign_keys=[uploaded_by])
 
 class Application(Base):
     __tablename__ = "applications"

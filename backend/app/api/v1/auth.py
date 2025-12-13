@@ -314,4 +314,14 @@ def reset_password(token: str, new_password: str, db: Session = Depends(get_db))
     reset_token.used = True
     db.commit()
     
+    # Audit log: password reset
+    log = ActivityLog(
+        user_id=user.id,
+        company_id=user.company_id,
+        action="password_reset",
+        details="{}"
+    )
+    db.add(log)
+    db.commit()
+    
     return {"message": "Password reset successfully"}

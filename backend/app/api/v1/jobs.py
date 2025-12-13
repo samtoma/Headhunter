@@ -11,6 +11,7 @@ from app.schemas.job import JobCreate, JobUpdate, JobOut, CandidateMatch, BulkAs
 from app.core.logging import jobs_logger
 from fastapi_cache.decorator import cache
 from fastapi_cache import FastAPICache
+from app.api.v1.activity import log_system_activity
 
 router = APIRouter(prefix="/jobs", tags=["Jobs"])
 
@@ -286,6 +287,12 @@ async def create_job(job: JobCreate, db: Session = Depends(get_db), current_user
     db.refresh(new_job)
     touch_company_state(db, current_user.company_id)
     
+    # Audit log: job created
+    log_system_activity(
+        db, "job_created", current_user.id, current_user.company_id,
+        {"job_id": new_job.id, "title": new_job.title, "department": new_job.department}
+    )
+    
     # Invalidate cache
     await invalidate_job_cache(current_user.company_id)
     
@@ -375,6 +382,12 @@ async def update_job(job_id: int, job_data: JobUpdate, db: Session = Depends(get
         is_active=job.is_active
     )
     
+    # Audit log: job updated (to ActivityLog for user attribution)
+    log_system_activity(
+        db, "job_updated", current_user.id, current_user.company_id,
+        {"job_id": job.id, "title": job.title, "changes": list(update_data.keys())}
+    )
+    
     # Invalidate cache
     await invalidate_job_cache(current_user.company_id)
     
@@ -393,9 +406,17 @@ async def delete_job(job_id: int, db: Session = Depends(get_db), current_user: U
     if current_user.role == UserRole.HIRING_MANAGER:
         if job.department != current_user.department:
              raise HTTPException(403, "Not authorized to delete jobs outside your department")
+    
+    job_title = job.title
     db.delete(job)
     db.commit()
     touch_company_state(db, current_user.company_id)
+    
+    # Audit log: job deleted
+    log_system_activity(
+        db, "job_deleted", current_user.id, current_user.company_id,
+        {"job_id": job_id, "title": job_title}
+    )
     
     # Invalidate cache
     await invalidate_job_cache(current_user.company_id)

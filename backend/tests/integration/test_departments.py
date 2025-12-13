@@ -110,3 +110,8 @@ def test_activity_log_and_timeline(integration_client, db_session, test_company,
     types = [t["type"] for t in timeline]
     assert "log" in types
     assert "interview" in types
+    
+    # Verify user_name attribution is included (audit trail feature)
+    for entry in timeline:
+        # user_name should be present (can be None if user is not found)
+        assert "user_name" in entry, f"Entry missing user_name: {entry}"

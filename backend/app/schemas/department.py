@@ -19,5 +19,11 @@ class DepartmentOut(DepartmentBase):
     company_id: int
     created_at: datetime
     updated_at: Optional[datetime] = None
+    
+    # Audit fields
+    created_by: Optional[int] = None
+    modified_by: Optional[int] = None
+    created_by_name: Optional[str] = None
+    modified_by_name: Optional[str] = None
 
     model_config = ConfigDict(from_attributes=True)
