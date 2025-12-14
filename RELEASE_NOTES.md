@@ -1,3 +1,48 @@
+# Release Notes - v1.13.0 (Secure Invitation System)
+
+**Release Date:** 2025-12-14
+
+## Summary
+
+This release introduces a **secure, token-based invitation system**, replacing the open signup model for improved security. Administrators can now invite team members with specific roles, track their pending status, and manage their access lifecycle including deactivation and archival.
+
+## 🚀 Key Features
+
+### 📩 Team Invitation Flow
+
+- **Admin Invite**: Admins/Managers can invite new users via email using the "Invite Member" modal.
+- **Role Assignment**: Assign specific roles (Recruiter, Interviewer, Admin) at the time of invitation.
+- **Secure Onboarding**: New users receive a unique, time-limited (48h) link to set their password and active their account.
+- **Pending Status**: Visual indicators show which team members have not yet accepted their invites.
+
+### 👥 User Lifecycle Management
+
+- **Soft Delete / Archive**: Deleting a user now "deactivates" them, preserving data integrity but revoking access.
+- **Archive View**: Dedicated "Archived" tab in the Team view to manage deactivated users.
+- **Reactivation**: Inviting a deactivated user automatically reactivates their account and resets their status to Pending.
+
+### 🛡️ Security Enhancements
+
+- **Role Refinement**: Removed the ambiguous 'Viewer' role; defaulted new invites to 'Interviewer'.
+- **Access Control**: Strict RBAC enforcement on invite/delete actions.
+- **Audit Logging**: All invitation and status change events are logged.
+
+## 🛠️ Technical Details
+
+- **Backend**:
+  - New `POST /users/invite` endpoint with token generation.
+  - Updates to `GET /users` to support `status=active|archived|all` filtering.
+- **Frontend**:
+  - `InviteUserModal` with dynamic department selection.
+  - E2E Test Suite (`e2e_invite_flow.cy.js`) covering full invite-to-archive lifecycle.
+
+## ✅ Verification
+
+- **E2E Tests**: 100% Pass rate for Invite Flow and Pipeline regressions.
+- **Unit Tests**: Full coverage for `invite_user` logic and permissions.
+
+---
+
 # Release Notes - v1.12.0 (Audit System & Attribution)
 
 ## Summary

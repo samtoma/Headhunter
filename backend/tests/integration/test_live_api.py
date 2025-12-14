@@ -47,6 +47,20 @@ def test_full_recruitment_flow(api_client):
     if reg_response.status_code != 200:
         assert reg_response.status_code == 400
     
+    # MANUAL VERIFICATION FOR E2E TEST
+    # Since we are running inside the container, we can access the DB directly
+    from app.core.database import SessionLocal
+    from app.models.models import User
+    
+    db = SessionLocal()
+    try:
+        user = db.query(User).filter(User.email == email).first()
+        if user:
+            user.is_verified = True
+            db.commit()
+    finally:
+        db.close()
+
     # Login
     login_response = api_client.post("/auth/login", data={
         "username": email,
@@ -122,6 +136,19 @@ def test_bulk_assign_success(api_client):
     
     # Register & Login
     api_client.post("/auth/signup", json={"email": email, "password": password, "full_name": "Bulk Tester", "company_name": "Bulk Corp"})
+
+    # MANUAL VERIFICATION
+    from app.core.database import SessionLocal
+    from app.models.models import User
+    db = SessionLocal()
+    try:
+        user = db.query(User).filter(User.email == email).first()
+        if user:
+            user.is_verified = True
+            db.commit()
+    finally:
+        db.close()
+
     login_res = api_client.post("/auth/login", data={"username": email, "password": password})
     token = login_res.json()["access_token"]
     headers = {"Authorization": f"Bearer {token}"}

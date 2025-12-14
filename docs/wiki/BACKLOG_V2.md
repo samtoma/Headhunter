@@ -291,7 +291,7 @@ Mission control dashboard for platform administrators to monitor all activity.
 
 #### Child Issues
 
-- [ ] [FEAT-006-1] Audit Logging Infrastructure
+- [x] [FEAT-006-1] Audit Logging Infrastructure - COMPLETED
 - [ ] [FEAT-006-2] Real-Time Activity Feed (WebSocket)
 - [ ] [FEAT-006-3] Platform Metrics Dashboard
 - [ ] [FEAT-006-4] Company Analytics View
@@ -307,7 +307,7 @@ Mission control dashboard for platform administrators to monitor all activity.
 
 #### Description
 
-Implement comprehensive audit logging for all user actions.
+✅ **COMPLETED** - Comprehensive audit logging for all user actions has been implemented.
 
 #### Technical Details
 
@@ -318,11 +318,11 @@ Implement comprehensive audit logging for all user actions.
 
 #### Acceptance Criteria
 
-- [ ] All CRUD operations logged
-- [ ] Logs include user and company context
-- [ ] IP address and user-agent captured
-- [ ] Queryable by date range
-- [ ] Performant indexes in place
+- [x] All CRUD operations logged
+- [x] Logs include user and company context
+- [x] IP address and user-agent captured
+- [x] Queryable by date range
+- [x] Performant indexes in place
 
 ---
 
@@ -354,6 +354,84 @@ Unify Kanban pipeline view with interview workflow for seamless experience.
 #### Dependencies: [FEAT-003] Interview Redesign
 
 #### Target: Phase 3 (Weeks 9-12)
+
+---
+
+---
+
+## Epic 8: Role-Based Permissions
+
+### [FEAT-008] Role-Based Permissions Epic
+
+**Labels:** `epic`, `v2.0`, `backend`, `frontend`, `security`
+
+#### Summary
+
+Implement comprehensive role-based access control (RBAC) with department-scoping and granular admin controls.
+
+#### Goals
+
+- [ ] Department-scoped access for Hiring Managers
+- [ ] Interview-only access for Interviewers
+- [ ] Team member invite system
+- [ ] User deactivation/reactivation
+- [ ] granular feature toggles
+
+#### Child Issues
+
+- [ ] [FEAT-008-1] Team member invite system
+- [ ] [FEAT-008-2] Department-scoped access control
+- [ ] [FEAT-008-3] Interviewer view restrictions
+- [ ] [FEAT-008-4] User Account Status (Active/Deactivated)
+- [ ] [FEAT-008-5] Granular Feature Toggles
+
+#### Target: Phase 1 (Foundation)
+
+---
+
+### [FEAT-008-4] User Account Status
+
+**Labels:** `feature`, `v2.0`, `backend`, `security`
+
+#### Description
+
+Allow admins to deactivate and reactivate user accounts. Deactivated users cannot log in.
+
+#### Technical Details
+
+- Add `status` field to users table
+- Update login logic to check status
+- Add admin endpoint to updates status
+- Revoke tokens on deactivation
+
+#### Acceptance Criteria
+
+- [ ] Admin can deactivate user
+- [ ] Deactivated user receives 403 on login
+- [ ] Existing tokens perform check or are revoked
+- [ ] Admin can reactivate user
+
+---
+
+### [FEAT-008-5] Granular Feature Toggles
+
+**Labels:** `feature`, `v2.0`, `backend`
+
+#### Description
+
+Allow admins to toggle specific features for individual users (e.g. Export Data, Beta Features).
+
+#### Technical Details
+
+- Add `feature_flags` (JSONB) column to users
+- Create toggle management UI for Admin
+- Add permission checks in backend/frontend
+
+#### Acceptance Criteria
+
+- [ ] Admin can toggle flags for user
+- [ ] User can use feature if flag is true
+- [ ] User cannot use feature if flag is false
 
 ---
 

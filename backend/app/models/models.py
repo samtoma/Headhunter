@@ -11,6 +11,12 @@ class UserRole(str, enum.Enum):
     HIRING_MANAGER = "hiring_manager"
     SUPER_ADMIN = "super_admin"
 
+class UserStatus(str, enum.Enum):
+    ACTIVE = "active"
+    DEACTIVATED = "deactivated"
+    SUSPENDED = "suspended"
+    PENDING = "pending"
+
 class Company(Base):
     __tablename__ = "companies"
     id = Column(Integer, primary_key=True, index=True)
@@ -57,6 +63,7 @@ class User(Base):
     full_name = Column(String, nullable=True)  # Display name from SSO or user input
     hashed_password = Column(String, nullable=False)
     is_active = Column(Boolean, default=True)
+    status = Column(String, default=UserStatus.ACTIVE, nullable=False) # "active", "deactivated", "suspended", "pending"
     role = Column(String, default=UserRole.RECRUITER) # "admin", "recruiter", "interviewer"
     department = Column(String, nullable=True) # e.g. "Engineering", "Sales"
     company_id = Column(Integer, ForeignKey("companies.id"), nullable=True)
@@ -68,6 +75,7 @@ class User(Base):
     sso_id = Column(String, nullable=True)
     is_verified = Column(Boolean, default=False)
     profile_picture = Column(Text, nullable=True) # Base64 encoded or URL
+    feature_flags = Column(Text, nullable=True) # JSON for granular feature toggles
     
     company = relationship("Company", back_populates="users")
     password_reset_tokens = relationship("PasswordResetToken", back_populates="user", cascade="all, delete-orphan")

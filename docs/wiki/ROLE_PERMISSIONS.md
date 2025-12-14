@@ -118,6 +118,30 @@ This document defines the access control matrix for all user roles in Headhunter
 
 ---
 
+## Admin Advanced Controls
+
+### User Status Management
+
+Admins have the ability to control the access status of any team member:
+
+- **Active**: Normal access based on role.
+- **Deactivated**: User cannot log in. API tokens are revoked. User remains in historical data (audit logs, previous interviews).
+- **Suspended**: Temporary block (e.g., for security review).
+
+### Granular Feature Toggles
+
+On top of the standard Role-Based Access Control, Admins can toggle specific capabilities for individual users. These overrides allow fine-tuning access without creating new roles.
+
+| Toggle | Description | Default |
+|--------|-------------|---------|
+| **Can Export Data** | Allows downloading CSV/Excel reports | Admin Only |
+| **Can Delete Candidates** | Allows permanent deletion of records | Admin Only |
+| **View Sensitive Info** | Unmasks salary and diversity data | Admin & HR |
+| **Beta Features** | Access to features in "Lab" mode | Off |
+| **Bypass Dept Scopes** | Allows a Hiring Manager to see other depts | Off |
+
+---
+
 ## Implementation Status
 
 - [x] Basic role-based routing (sidebar visibility)
@@ -126,6 +150,8 @@ This document defines the access control matrix for all user roles in Headhunter
 - [ ] Add Team Member with auto-department assignment
 - [ ] Recruiter view-only settings restrictions
 - [ ] Interviewer salary masking
+- [ ] **User Deactivation/Reactivation**
+- [ ] **Granular Feature Flags per User**
 
 ---
 
@@ -138,6 +164,8 @@ This document defines the access control matrix for all user roles in Headhunter
 | `PATCH /interviews/{id}` | Admin, Recruiter, Hiring Manager |
 | `GET /interviews/all` | Admin, Recruiter (Hiring Manager = dept only) |
 | `POST /users/invite` | Admin, Recruiter, Hiring Manager |
+| `PATCH /users/{id}/status` | Admin only |
+| `PATCH /users/{id}/features` | Admin only |
 | `PATCH /departments/{id}` | Admin, Hiring Manager (own dept only) |
 | `POST /departments` | Admin only |
 | `PATCH /companies/me` | Admin only |

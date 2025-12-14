@@ -16,7 +16,10 @@ export default defineConfig({
     proxy: {
       '/api': {
         // Use VITE_API_URL for E2E environment, otherwise default to 'backend'
-        target: process.env.VITE_API_URL || 'http://backend:30001',
+        // Use VITE_API_URL for E2E environment if it's a full URL, otherwise default to 'backend' service
+        target: (process.env.VITE_API_URL && process.env.VITE_API_URL.startsWith('http'))
+          ? process.env.VITE_API_URL
+          : 'http://backend:30001',
         changeOrigin: true,
         rewrite: (path) => path.replace(/^\/api/, '')
       }
