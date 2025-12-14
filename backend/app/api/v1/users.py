@@ -196,7 +196,7 @@ def get_users(
         # Default: Active users (includes PENDING and ACTIVE)
         # We check is_active=True OR status=PENDING (because invite logic sets is_active=True for pending, 
         # but let's stick to is_active=True which covers both based on current logic)
-        query = query.filter(User.is_active == True)
+        query = query.filter(User.is_active)
     
     # Filter by Company
     if current_user.company_id:

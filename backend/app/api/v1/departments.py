@@ -88,7 +88,8 @@ def update_department(
     if not dept:
         raise HTTPException(404, "Department not found")
     
-    old_name = dept.name
+    
+
     update_data = data.model_dump(exclude_unset=True)
     for key, value in update_data.items():
         setattr(dept, key, value)
