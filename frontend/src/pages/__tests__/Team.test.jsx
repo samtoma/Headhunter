@@ -29,10 +29,8 @@ describe('Team Component', () => {
         roles: { admin: 1, interviewer: 1, hiring_manager: 0, recruiter: 0 }
     };
 
-    const mockDepartments = [
-        { id: 1, name: 'Engineering' },
-        { id: 2, name: 'Sales' }
-    ];
+    // Team.jsx expects departments as strings, not objects
+    const mockDepartments = ['Engineering', 'Sales'];
 
     beforeEach(() => {
         vi.clearAllMocks();
