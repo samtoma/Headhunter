@@ -2,9 +2,12 @@ import { useState, useEffect } from 'react';
 import axios from 'axios';
 import PageHeader from '../components/layout/PageHeader';
 import { useHeadhunter } from '../context/HeadhunterContext';
-import { Settings as SettingsIcon, Save, Plus, Trash2, ArrowUp, ArrowDown, RotateCcw } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
+import { Settings as SettingsIcon, Save, Plus, Trash2, ArrowUp, ArrowDown, RotateCcw, Lock } from 'lucide-react';
 
 const Settings = ({ onOpenMobileSidebar }) => {
+    const { user } = useAuth();
+    const canEdit = user?.role === 'admin' || user?.role === 'super_admin';
     const { fetchSettings, company: globalCompany, companyStages } = useHeadhunter();
     const [formData, setFormData] = useState({
         name: '',
@@ -147,6 +150,14 @@ const Settings = ({ onOpenMobileSidebar }) => {
                             Pipeline Configuration
                         </button>
                     </div>
+
+                    {/* Read-only banner for non-admins */}
+                    {!canEdit && (
+                        <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 mb-6 flex items-center gap-3">
+                            <Lock size={18} className="text-amber-600" />
+                            <span className="text-sm text-amber-800 font-medium">View Only — Only administrators can modify company settings.</span>
+                        </div>
+                    )}
 
                     <form onSubmit={handleSave} className="space-y-6">
                         {activeTab === 'general' && (
@@ -340,15 +351,17 @@ const Settings = ({ onOpenMobileSidebar }) => {
                             </div>
                         )}
 
-                        <div className="flex justify-end pt-4">
-                            <button
-                                type="submit"
-                                disabled={saving}
-                                className="px-8 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold shadow-lg shadow-indigo-200 transition active:scale-[0.98] disabled:opacity-70 disabled:cursor-not-allowed flex items-center gap-2"
-                            >
-                                {saving ? "Saving..." : <><Save size={20} /> Save Changes</>}
-                            </button>
-                        </div>
+                        {canEdit && (
+                            <div className="flex justify-end pt-4">
+                                <button
+                                    type="submit"
+                                    disabled={saving}
+                                    className="px-8 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold shadow-lg shadow-indigo-200 transition active:scale-[0.98] disabled:opacity-70 disabled:cursor-not-allowed flex items-center gap-2"
+                                >
+                                    {saving ? "Saving..." : <><Save size={20} /> Save Changes</>}
+                                </button>
+                            </div>
+                        )}
                     </form>
                 </div >
             </div >

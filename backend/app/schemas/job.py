@@ -17,6 +17,10 @@ class JobCreate(BaseModel):
     benefits: Optional[List[str]] = []
     
     status: Optional[str] = "Open"
+    
+    # Landing Page fields
+    landing_page_enabled: Optional[bool] = False
+    landing_page_slug: Optional[str] = None
 
     @field_validator('skills_required', 'responsibilities', 'qualifications', 'preferred_qualifications', 'benefits', mode='before')
     @classmethod
@@ -42,6 +46,10 @@ class JobUpdate(BaseModel):
     qualifications: Optional[List[str]] = None
     preferred_qualifications: Optional[List[str]] = None
     benefits: Optional[List[str]] = None
+    
+    # Landing Page fields
+    landing_page_enabled: Optional[bool] = None
+    landing_page_slug: Optional[str] = None
 
 class JobOut(BaseModel):
     id: int
@@ -66,6 +74,11 @@ class JobOut(BaseModel):
     modified_by: Optional[int] = None
     created_by_name: Optional[str] = None
     modified_by_name: Optional[str] = None
+    
+    # Landing Page fields
+    landing_page_enabled: bool = False
+    landing_page_slug: Optional[str] = None
+    landing_page_url: Optional[str] = None  # Computed field for full URL
 
     @field_validator('skills_required', 'responsibilities', 'qualifications', 'preferred_qualifications', 'benefits', mode='before')
     @classmethod

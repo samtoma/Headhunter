@@ -138,6 +138,11 @@ class Job(Base):
     application_process = Column(Text, nullable=True)  # Description of hiring process
     remote_policy = Column(String, nullable=True)  # Remote work policy
     
+    # Landing Page fields
+    landing_page_enabled = Column(Boolean, default=False)  # Enable public landing page
+    landing_page_slug = Column(String, unique=True, index=True, nullable=True)  # Unique URL slug
+    landing_page_config = Column(Text, nullable=True)  # JSON config for customization
+    
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     modified_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
     
@@ -158,6 +163,10 @@ class CV(Base):
     uploaded_at = Column(DateTime(timezone=True), server_default=func.now())
     is_parsed = Column(Boolean, default=False, index=True)
     company_id = Column(Integer, ForeignKey("companies.id"), nullable=True, index=True)
+    
+    # Origin tracking - how did this CV enter the system?
+    # Values: "manual" (user upload), "landing_page" (public apply), "api", "linkedin_import", etc.
+    original_source = Column(String, nullable=True, default="manual")
     
     # Audit field
     uploaded_by = Column(Integer, ForeignKey("users.id"), nullable=True)
@@ -182,6 +191,7 @@ class Application(Base):
     # Audit fields
     assigned_by = Column(Integer, ForeignKey("users.id"), nullable=True)  # Who added to this pipeline
     source = Column(String, nullable=True)  # "manual", "api", "landing_page", "bulk_assign"
+    tracking_data = Column(Text, nullable=True)  # JSON: UTM params, referrer, user agent for analytics
     
     cv = relationship("CV", back_populates="applications")
     job = relationship("Job", back_populates="applications")

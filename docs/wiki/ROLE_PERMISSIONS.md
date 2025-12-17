@@ -146,11 +146,11 @@ On top of the standard Role-Based Access Control, Admins can toggle specific cap
 
 - [x] Basic role-based routing (sidebar visibility)
 - [x] Resume Processing button visibility
-- [ ] Hiring Manager department-scoped data filtering
+- [x] Hiring Manager department-scoped data filtering
+- [x] **User Deactivation/Reactivation** (toggle button in Team page)
+- [x] **Interviewer salary masking** (CandidateDrawer shows lock icon)
+- [x] **Recruiter view-only Settings** (read-only banner, Save hidden)
 - [ ] Add Team Member with auto-department assignment
-- [ ] Recruiter view-only settings restrictions
-- [ ] Interviewer salary masking
-- [ ] **User Deactivation/Reactivation**
 - [ ] **Granular Feature Flags per User**
 
 ---

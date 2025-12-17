@@ -45,6 +45,22 @@ def client(db):
     yield TestClient(app)
 
 @pytest.fixture(scope="function")
+def test_company(db):
+    """Create a test company for use in tests."""
+    company = Company(
+        name="Test Company",
+        domain="testcompany.com",
+        industry="Technology",
+        description="A test company",
+        tagline="Testing made easy",
+        website="https://testcompany.com"
+    )
+    db.add(company)
+    db.commit()
+    db.refresh(company)
+    return company
+
+@pytest.fixture(scope="function")
 def authenticated_client(db):
     """Create a test client with an authenticated user"""
     # Create test company

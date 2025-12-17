@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 // import { useHeadhunter } from '../context/HeadhunterContext'; // Unused
 import { useAuth } from '../context/AuthContext';
-import { Users, Search, Filter, Check, X, Trash2, UserPlus } from 'lucide-react';
+import { Users, Search, Filter, Check, X, Trash2, UserPlus, Power, PowerOff } from 'lucide-react';
 import axios from 'axios';
 
 import PageHeader from '../components/layout/PageHeader';
@@ -94,6 +94,20 @@ const Team = ({ onOpenMobileSidebar }) => {
         } catch (err) {
             console.error("Failed to delete user", err);
             alert(err.response?.data?.detail || "Failed to delete user");
+        }
+    };
+
+    // Toggle user active/deactivated status
+    const handleToggleStatus = async (userId, currentlyActive) => {
+        const action = currentlyActive ? "deactivate" : "reactivate";
+        if (!confirm(`Are you sure you want to ${action} this user?`)) return;
+        try {
+            await axios.patch(`/api/users/${userId}/status`, { is_active: !currentlyActive });
+            await fetchUsers();
+            await fetchStats();
+        } catch (err) {
+            console.error(`Failed to ${action} user`, err);
+            alert(err.response?.data?.detail || `Failed to ${action} user`);
         }
     };
 
@@ -327,6 +341,16 @@ const Team = ({ onOpenMobileSidebar }) => {
                                                                     className="text-xs font-bold text-indigo-600 hover:text-indigo-800 hover:bg-indigo-50 px-3 py-1.5 rounded-lg transition"
                                                                 >
                                                                     Edit
+                                                                </button>
+                                                            )}
+                                                            {/* Deactivate/Reactivate Toggle */}
+                                                            {(role === 'admin' || role === 'super_admin') && user.id !== Number(localStorage.getItem('user_id')) && (
+                                                                <button
+                                                                    onClick={() => handleToggleStatus(user.id, user.is_active)}
+                                                                    className={`p-1.5 rounded-lg transition ${user.is_active ? 'text-amber-500 hover:bg-amber-50' : 'text-emerald-500 hover:bg-emerald-50'}`}
+                                                                    title={user.is_active ? 'Deactivate User' : 'Reactivate User'}
+                                                                >
+                                                                    {user.is_active ? <PowerOff size={16} /> : <Power size={16} />}
                                                                 </button>
                                                             )}
                                                             {(role === 'admin' || role === 'super_admin') && (

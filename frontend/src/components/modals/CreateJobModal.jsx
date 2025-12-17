@@ -4,7 +4,7 @@
 
 import { useState, useEffect } from 'react'
 import axios from 'axios'
-import { Sparkles, X, RefreshCw, Users, CheckSquare, Square, Award, Trash2 } from 'lucide-react'
+import { Sparkles, X, RefreshCw, Users, CheckSquare, Square, Award, Trash2, Globe, Copy, Check } from 'lucide-react'
 import { safeList } from '../../utils/helpers'
 
 const CreateJobModal = ({ onClose, onCreate, initialData = null }) => {
@@ -20,7 +20,9 @@ const CreateJobModal = ({ onClose, onCreate, initialData = null }) => {
         qualifications: typeof initialData.qualifications === 'string' ? JSON.parse(initialData.qualifications) : (initialData.qualifications || []),
         preferred_qualifications: typeof initialData.preferred_qualifications === 'string' ? JSON.parse(initialData.preferred_qualifications) : (initialData.preferred_qualifications || []),
         benefits: typeof initialData.benefits === 'string' ? JSON.parse(initialData.benefits) : (initialData.benefits || []),
-        skills_required: typeof initialData.skills_required === 'string' ? JSON.parse(initialData.skills_required) : (initialData.skills_required || [])
+        skills_required: typeof initialData.skills_required === 'string' ? JSON.parse(initialData.skills_required) : (initialData.skills_required || []),
+        landing_page_enabled: initialData.landing_page_enabled || false,
+        landing_page_slug: initialData.landing_page_slug || ""
     } : {
         title: "",
         department: "",
@@ -30,11 +32,14 @@ const CreateJobModal = ({ onClose, onCreate, initialData = null }) => {
         responsibilities: [], // CFA
         qualifications: [], // Essential
         preferred_qualifications: [], // Desirable
-        benefits: []
+        benefits: [],
+        landing_page_enabled: false,
+        landing_page_slug: ""
     })
 
     const [matches, setMatches] = useState([])
     const [selectedMatches, setSelectedMatches] = useState([])
+    const [slugCopied, setSlugCopied] = useState(false)
 
     // Fetch departments on mount
     useEffect(() => {
@@ -118,6 +123,34 @@ const CreateJobModal = ({ onClose, onCreate, initialData = null }) => {
 
     const removeListItem = (field, index) => {
         setData(prev => ({ ...prev, [field]: prev[field].filter((_, i) => i !== index) }))
+    }
+
+    // Generate a URL-friendly slug from title
+    const generateSlug = (title) => {
+        const base = title.toLowerCase()
+            .replace(/[^a-z0-9\s-]/g, '')
+            .replace(/\s+/g, '-')
+            .substring(0, 40)
+        const suffix = Math.random().toString(36).substring(2, 8)
+        return `${base}-${suffix}`
+    }
+
+    // Handle landing page toggle
+    const handleLandingPageToggle = (enabled) => {
+        if (enabled && !data.landing_page_slug) {
+            // Auto-generate slug when enabling
+            setData({ ...data, landing_page_enabled: true, landing_page_slug: generateSlug(data.title) })
+        } else {
+            setData({ ...data, landing_page_enabled: enabled })
+        }
+    }
+
+    // Copy landing page URL to clipboard
+    const copyLandingPageUrl = () => {
+        const url = `${window.location.origin}/jobs/${data.landing_page_slug}`
+        navigator.clipboard.writeText(url)
+        setSlugCopied(true)
+        setTimeout(() => setSlugCopied(false), 2000)
     }
 
     return (
@@ -288,6 +321,53 @@ const CreateJobModal = ({ onClose, onCreate, initialData = null }) => {
                                 <div>
                                     <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Full Description (Preview)</label>
                                     <textarea className="w-full p-4 border border-slate-200 rounded-xl text-sm leading-relaxed h-32 resize-none focus:ring-2 ring-indigo-500 outline-none" value={data.description} onChange={e => setData({ ...data, description: e.target.value })} />
+                                </div>
+
+                                {/* Landing Page Configuration */}
+                                <div className="bg-slate-50 border border-slate-200 rounded-xl p-4">
+                                    <div className="flex items-center justify-between mb-3">
+                                        <div className="flex items-center gap-3">
+                                            <Globe size={18} className="text-indigo-600" />
+                                            <div>
+                                                <h3 className="text-sm font-bold text-slate-800">Public Landing Page</h3>
+                                                <p className="text-xs text-slate-500">Allow candidates to apply directly via a public URL</p>
+                                            </div>
+                                        </div>
+                                        <button
+                                            type="button"
+                                            onClick={() => handleLandingPageToggle(!data.landing_page_enabled)}
+                                            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${data.landing_page_enabled ? 'bg-indigo-600' : 'bg-slate-300'}`}
+                                        >
+                                            <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${data.landing_page_enabled ? 'translate-x-6' : 'translate-x-1'}`} />
+                                        </button>
+                                    </div>
+
+                                    {data.landing_page_enabled && (
+                                        <div className="mt-3 pt-3 border-t border-slate-200">
+                                            <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Landing Page URL</label>
+                                            <div className="flex gap-2">
+                                                <div className="flex-1 flex items-center bg-white border border-slate-200 rounded-lg px-3 py-2">
+                                                    <span className="text-xs text-slate-400 mr-1">{window.location.origin}/jobs/</span>
+                                                    <input
+                                                        type="text"
+                                                        className="flex-1 text-sm font-medium text-indigo-600 outline-none bg-transparent"
+                                                        value={data.landing_page_slug}
+                                                        onChange={e => setData({ ...data, landing_page_slug: e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '') })}
+                                                        placeholder="job-slug"
+                                                    />
+                                                </div>
+                                                <button
+                                                    type="button"
+                                                    onClick={copyLandingPageUrl}
+                                                    className="px-3 py-2 bg-slate-100 hover:bg-slate-200 rounded-lg transition flex items-center gap-1 text-sm font-medium text-slate-600"
+                                                >
+                                                    {slugCopied ? <Check size={14} className="text-emerald-600" /> : <Copy size={14} />}
+                                                    {slugCopied ? 'Copied!' : 'Copy'}
+                                                </button>
+                                            </div>
+                                            <p className="text-xs text-slate-400 mt-2">Candidates can apply through this link. Their source will be tracked as &quot;Landing Page&quot;.</p>
+                                        </div>
+                                    )}
                                 </div>
 
                                 {/* Candidate Matching Section */}

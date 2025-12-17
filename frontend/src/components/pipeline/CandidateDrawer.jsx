@@ -2,13 +2,16 @@ import { useState, useMemo, useEffect, useCallback } from 'react'
 import {
     MapPin, User, Briefcase, Bug, Pencil, X, ExternalLink, Linkedin, Github,
     FileText, BrainCircuit, GraduationCap, Layers, LayoutGrid, DollarSign, Star,
-    Check, Save, ChevronDown, Heart, Flag, MessageSquare, Clock, Plus
+    Check, Save, ChevronDown, Heart, Flag, MessageSquare, Clock, Plus, Lock
 } from 'lucide-react'
 import axios from 'axios'
+import { useAuth } from '../../context/AuthContext'
 import { safeList } from '../../utils/helpers'
 import UnifiedActivityFeed from './UnifiedActivityFeed'
 
 const CandidateDrawer = ({ cv, onClose, updateApp, updateProfile, jobs, selectedJobId, assignJob, removeJob, companyStages: propCompanyStages }) => {
+    const { user } = useAuth()
+    const canViewSalary = user?.role !== 'interviewer' || (user?.permissions && JSON.parse(user.permissions || '{}').can_view_salary)
     const [view, setView] = useState("parsed")
     const [sidebarTab, setSidebarTab] = useState("overview") // overview, activity
     const [isEditing, setIsEditing] = useState(false)
@@ -462,16 +465,23 @@ const CandidateDrawer = ({ cv, onClose, updateApp, updateProfile, jobs, selected
                                     {/* Compensation */}
                                     <div>
                                         <h4 className="text-xs font-bold text-slate-900 uppercase mb-3 flex items-center gap-2"><DollarSign size={14} /> Compensation</h4>
-                                        <div className="grid gap-3">
-                                            <div className="relative">
-                                                <span className="absolute left-3 top-2.5 text-slate-400 text-xs font-bold">Curr</span>
-                                                <input value={curr} onChange={e => setCurr(e.target.value)} className="w-full pl-12 pr-3 py-2 bg-white border border-slate-200 rounded-lg text-sm font-mono focus:border-indigo-500 outline-none" placeholder="-" />
+                                        {canViewSalary ? (
+                                            <div className="grid gap-3">
+                                                <div className="relative">
+                                                    <span className="absolute left-3 top-2.5 text-slate-400 text-xs font-bold">Curr</span>
+                                                    <input value={curr} onChange={e => setCurr(e.target.value)} className="w-full pl-12 pr-3 py-2 bg-white border border-slate-200 rounded-lg text-sm font-mono focus:border-indigo-500 outline-none" placeholder="-" />
+                                                </div>
+                                                <div className="relative">
+                                                    <span className="absolute left-3 top-2.5 text-emerald-600 text-xs font-bold">Exp</span>
+                                                    <input value={exp} onChange={e => setExp(e.target.value)} className="w-full pl-12 pr-3 py-2 bg-emerald-50 border border-emerald-200 text-emerald-900 rounded-lg text-sm font-mono focus:border-emerald-500 outline-none font-bold" placeholder="-" />
+                                                </div>
                                             </div>
-                                            <div className="relative">
-                                                <span className="absolute left-3 top-2.5 text-emerald-600 text-xs font-bold">Exp</span>
-                                                <input value={exp} onChange={e => setExp(e.target.value)} className="w-full pl-12 pr-3 py-2 bg-emerald-50 border border-emerald-200 text-emerald-900 rounded-lg text-sm font-mono focus:border-emerald-500 outline-none font-bold" placeholder="-" />
+                                        ) : (
+                                            <div className="bg-slate-100 border border-slate-200 rounded-lg p-4 flex items-center gap-3">
+                                                <Lock size={16} className="text-slate-400" />
+                                                <span className="text-sm text-slate-500 font-medium">Salary info restricted to authorized roles</span>
                                             </div>
-                                        </div>
+                                        )}
                                     </div>
 
                                     {/* Rating & Notes */}
