@@ -22,12 +22,6 @@ const Team = ({ onOpenMobileSidebar }) => {
 
     const [activeTab, setActiveTab] = useState('active'); // 'active' or 'archived'
 
-    useEffect(() => {
-        fetchUsers();
-        fetchStats();
-        fetchDepartments();
-    }, [fetchUsers, fetchStats, fetchDepartments]);
-
     // Fetch departments for editing
     const fetchDepartments = useCallback(async () => {
         try {
@@ -61,6 +55,12 @@ const Team = ({ onOpenMobileSidebar }) => {
             setLoading(false);
         }
     }, [activeTab]);
+
+    useEffect(() => {
+        fetchUsers();
+        fetchStats();
+        fetchDepartments();
+    }, [fetchUsers, fetchStats, fetchDepartments]);
 
 
     const startEdit = (user) => {
