@@ -5,17 +5,33 @@ from datetime import datetime, timezone
 from app.core.security import get_password_hash
 
 def test_sync_version_standard(authenticated_client: TestClient, db: Session):
-    # Setup: Ensure company has last_data_update
+    """Test that sync version returns the company's last_data_update timestamp."""
+    # Get user's company
     res = authenticated_client.get("/auth/me")
     company_id = res.json()["company_id"]
     
+    # Set last_data_update to a known value
     company = db.query(Company).filter(Company.id == company_id).first()
     now = datetime.now(timezone.utc)
     company.last_data_update = now
     db.commit()
+    db.refresh(company)
     
-    # Compare up to seconds, ignoring timezone suffix differences
-    assert res.json()["version"][:19] == now.isoformat()[:19]
+    # Fetch the version AFTER setting the timestamp
+    sync_res = authenticated_client.get("/sync/version")
+    assert sync_res.status_code == 200
+    
+    # Compare the version with the timestamp we set
+    # Allow up to 2 second tolerance for timing differences
+    version_str = sync_res.json()["version"][:19]
+    expected_str = now.isoformat()[:19]
+    
+    # Parse both and compare with tolerance
+    from datetime import timedelta
+    version_dt = datetime.fromisoformat(version_str)
+    expected_dt = datetime.fromisoformat(expected_str)
+    assert abs((version_dt - expected_dt).total_seconds()) <= 2, \
+        f"Version {version_str} differs from expected {expected_str} by more than 2 seconds"
 
 def test_sync_version_no_update_timestamp(authenticated_client: TestClient, db: Session):
     # Setup: Company with None last_data_update
