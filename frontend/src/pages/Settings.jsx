@@ -42,7 +42,7 @@ const Settings = ({ onOpenMobileSidebar }) => {
                 // Fallback if companyStages isn't populated yet but raw JSON is
                 try {
                     setStages(JSON.parse(globalCompany.interview_stages));
-                } catch (e) { /* ignore */ }
+                } catch { /* ignore */ }
             } else {
                 // Default stages
                 setStages([

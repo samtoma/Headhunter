@@ -9,7 +9,7 @@ import {
  * TimelineView - Minimalistic timeline visualization for interview progress
  * Clean, aesthetic design with smooth interactions
  */
-const TimelineView = ({ jobId, onSelectCandidate, onScheduleInterview, onViewInterview }) => {
+const TimelineView = ({ jobId, onSelectCandidate, onScheduleInterview }) => {
     const [timelineData, setTimelineData] = useState(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
@@ -27,11 +27,6 @@ const TimelineView = ({ jobId, onSelectCandidate, onScheduleInterview, onViewInt
             setTimelineData(null);
         }
     }, [jobId]);
-
-    const formatDate = (dateString) => {
-        if (!dateString) return "";
-        return new Date(dateString).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
-    };
 
     const isUpcoming = (dateString, status) => {
         if (!dateString || status !== 'Scheduled') return false;

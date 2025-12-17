@@ -265,7 +265,7 @@ const UnifiedActivityFeed = ({
                                 {/* Notes if present */}
                                 {item.data.details?.notes && (
                                     <div className="text-xs text-slate-500 bg-slate-50 rounded px-2 py-1 mt-1 line-clamp-2 italic">
-                                        "{item.data.details.notes}"
+                                        &quot;{item.data.details.notes}&quot;
                                     </div>
                                 )}
                                 <div className="text-xs text-slate-400 mt-0.5">

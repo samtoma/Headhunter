@@ -78,6 +78,14 @@ const CandidateDrawer = ({ cv, onClose, updateApp, updateProfile, jobs, selected
     }, [app])
 
     useEffect(() => {
+        if (newInterview.step === 'Screening') {
+            setNewInterview(prev => ({ ...prev, duration: 30 }));
+        } else if (newInterview.step === 'Technical') {
+            setNewInterview(prev => ({ ...prev, duration: 60 }));
+        }
+    }, [newInterview.step]);
+
+    useEffect(() => {
         if (app && app.id) {
             fetchInterviews()
             fetchTimeline()
@@ -104,7 +112,7 @@ const CandidateDrawer = ({ cv, onClose, updateApp, updateProfile, jobs, selected
         } else {
             fetchCompanySettings()
         }
-    }, [propCompanyStages])
+    }, [propCompanyStages, newInterview.step])
 
     useEffect(() => {
         if (showAddInterview && users.length === 0) {

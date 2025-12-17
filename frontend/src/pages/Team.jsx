@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 // import { useHeadhunter } from '../context/HeadhunterContext'; // Unused
 import { useAuth } from '../context/AuthContext';
 import { Users, Search, Filter, Check, X, Trash2, UserPlus } from 'lucide-react';
@@ -26,20 +26,20 @@ const Team = ({ onOpenMobileSidebar }) => {
         fetchUsers();
         fetchStats();
         fetchDepartments();
-    }, [activeTab]); // Refetch when tab changes
+    }, [fetchUsers, fetchStats, fetchDepartments]);
 
     // Fetch departments for editing
-    const fetchDepartments = async () => {
+    const fetchDepartments = useCallback(async () => {
         try {
             const res = await axios.get('/api/departments/');
             setDepartments(res.data);
         } catch (err) {
             console.error("Failed to fetch departments", err);
         }
-    };
+    }, []);
 
     // Fetch user stats
-    const fetchStats = async () => {
+    const fetchStats = useCallback(async () => {
         try {
             const res = await axios.get('/api/users/stats');
             setStats(res.data);
@@ -47,9 +47,9 @@ const Team = ({ onOpenMobileSidebar }) => {
             console.error("Failed to fetch stats", err);
             // Stats are optional - don't break the page
         }
-    };
+    }, []);
 
-    const fetchUsers = async () => {
+    const fetchUsers = useCallback(async () => {
         try {
             setLoading(true);
             const statusParams = activeTab === 'archived' ? 'archived' : 'active';
@@ -60,7 +60,8 @@ const Team = ({ onOpenMobileSidebar }) => {
         } finally {
             setLoading(false);
         }
-    };
+    }, [activeTab]);
+
 
     const startEdit = (user) => {
         setEditingUser(user.id);

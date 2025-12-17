@@ -17,7 +17,7 @@ const JobInsightCard = ({ job, profiles, onEdit, onNavigate }) => {
         try {
             const perms = JSON.parse(user.permissions || '{}');
             return !!perms.can_view_salary;
-        } catch (e) {
+        } catch {
             return false;
         }
     }, [user]);
