@@ -3,23 +3,36 @@ import App from './App';
 import { describe, it, expect, vi } from 'vitest';
 
 // --- MOCK AXIOS ---
-vi.mock('axios', () => ({
-  default: {
+vi.mock('axios', () => {
+  const mockAxiosInstance = {
     get: vi.fn(() => Promise.resolve({ data: [] })),
     post: vi.fn(() => Promise.resolve({ data: {} })),
     patch: vi.fn(() => Promise.resolve({ data: {} })),
     delete: vi.fn(() => Promise.resolve({ data: {} })),
     interceptors: {
-      request: { use: vi.fn(() => { }) },
-      response: { use: vi.fn(() => { }) }
+      request: { use: vi.fn() },
+      response: { use: vi.fn() },
     },
-    defaults: {
-      headers: {
-        common: {}
+  };
+  return {
+    default: {
+      create: vi.fn(() => mockAxiosInstance),
+      get: vi.fn(() => Promise.resolve({ data: [] })),
+      post: vi.fn(() => Promise.resolve({ data: {} })),
+      patch: vi.fn(() => Promise.resolve({ data: {} })),
+      delete: vi.fn(() => Promise.resolve({ data: {} })),
+      interceptors: {
+        request: { use: vi.fn() },
+        response: { use: vi.fn() },
+      },
+      defaults: {
+        headers: {
+          common: {}
+        }
       }
-    }
-  },
-}));
+    },
+  };
+});
 
 describe('Headhunter App', () => {
   it('renders the login screen when not authenticated', async () => {
