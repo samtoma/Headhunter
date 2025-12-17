@@ -1,7 +1,12 @@
-
+"""
+Tests for the user invitation system.
+These tests mock the email sending to avoid SMTP connection issues in CI/CD.
+"""
+from unittest.mock import patch, AsyncMock
 from app.models.models import User, UserStatus
 
-def test_invite_user_as_admin(authenticated_client, db):
+@patch("app.core.email.send_team_invite_email", new_callable=AsyncMock)
+def test_invite_user_as_admin(mock_email, authenticated_client, db):
     """
     Test Admin inviting a new user.
     """
@@ -26,12 +31,15 @@ def test_invite_user_as_admin(authenticated_client, db):
     assert user.feature_flags is None
 
     # Verify Invite Token created (simulated)
-    # We can't easily check for token without querying DB directly for tokens
     from app.models.models import PasswordResetToken
     token = db.query(PasswordResetToken).filter(PasswordResetToken.user_id == user.id).first()
     assert token is not None
+    
+    # Verify email was called
+    mock_email.assert_called_once()
 
-def test_invite_duplicate_user(authenticated_client):
+@patch("app.core.email.send_team_invite_email", new_callable=AsyncMock)
+def test_invite_duplicate_user(mock_email, authenticated_client):
     """
     Test inviting an existing email should fail.
     """
@@ -57,3 +65,4 @@ def test_invite_permission_denied(client, db):
     }
     response = client.post("/users/invite", json=invite_data)
     assert response.status_code == 401
+
