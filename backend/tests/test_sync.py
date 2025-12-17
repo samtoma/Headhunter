@@ -27,7 +27,6 @@ def test_sync_version_standard(authenticated_client: TestClient, db: Session):
     expected_str = now.isoformat()[:19]
     
     # Parse both and compare with tolerance
-    from datetime import timedelta
     version_dt = datetime.fromisoformat(version_str)
     expected_dt = datetime.fromisoformat(expected_str)
     assert abs((version_dt - expected_dt).total_seconds()) <= 2, \
