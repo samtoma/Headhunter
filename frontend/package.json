@@ -34,7 +34,7 @@
     "@types/react": "^18.2.37",
     "@types/react-dom": "^18.2.15",
     "@vitejs/plugin-react": "^4.2.0",
-    "cypress": "^15.7.0",
+    "cypress": "^15.8.0",
     "@4tw/cypress-drag-drop": "^2.2.5",
     "eslint": "^9.0.0",
     "eslint-plugin-react": "^7.34.0",
@@ -55,6 +55,7 @@
     "glob": "^10.3.0",
     "@humanwhocodes/config-array": "^0.14.0",
     "@humanwhocodes/object-schema": "^2.1.0",
-    "inflight": "npm:lru-cache@^10"
+    "inflight": "npm:lru-cache@^10",
+    "systeminformation": ">=5.27.14"
   }
 }
