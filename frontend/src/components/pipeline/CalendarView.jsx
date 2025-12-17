@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Calendar, momentLocalizer } from 'react-big-calendar';
 import moment from 'moment';
 import 'react-big-calendar/lib/css/react-big-calendar.css';
@@ -7,29 +7,25 @@ import { ChevronLeft, ChevronRight, Loader2 } from 'lucide-react';
 
 const localizer = momentLocalizer(moment);
 
-const CalendarView = ({ jobId, onEventClick, onRangeChange, onSelectSlot }) => {
+const CalendarView = ({ jobId, onEventClick, onSelectSlot }) => {
     const [events, setEvents] = useState([]);
     const [loading, setLoading] = useState(false);
     const [view, setView] = useState('month');
-    const [date, setDate] = useState(new Date());
+    const [currentDate, setCurrentDate] = useState(new Date());
 
-    useEffect(() => {
-        fetchEvents();
-    }, [jobId, date, view]);
-
-    const fetchEvents = async () => {
+    const fetchEvents = useCallback(async () => {
         setLoading(true);
         try {
             // Calculate scale based on view
-            let start = moment(date).startOf('month').toDate();
-            let end = moment(date).endOf('month').toDate();
+            let start = moment(currentDate).startOf('month').toDate();
+            let end = moment(currentDate).endOf('month').toDate();
 
             if (view === 'week') {
-                start = moment(date).startOf('week').toDate();
-                end = moment(date).endOf('week').toDate();
+                start = moment(currentDate).startOf('week').toDate();
+                end = moment(currentDate).endOf('week').toDate();
             } else if (view === 'day') {
-                start = moment(date).startOf('day').toDate();
-                end = moment(date).endOf('day').toDate();
+                start = moment(currentDate).startOf('day').toDate();
+                end = moment(currentDate).endOf('day').toDate();
             }
 
             const res = await axios.get('/api/interviews/calendar', {
@@ -53,10 +49,14 @@ const CalendarView = ({ jobId, onEventClick, onRangeChange, onSelectSlot }) => {
         } finally {
             setLoading(false);
         }
-    };
+    }, [jobId, currentDate, view]);
+
+    useEffect(() => {
+        fetchEvents();
+    }, [fetchEvents]);
 
     const handleNavigate = (newDate) => {
-        setDate(newDate);
+        setCurrentDate(newDate);
     };
 
     const handleViewChange = (newView) => {
@@ -185,7 +185,7 @@ const CalendarView = ({ jobId, onEventClick, onRangeChange, onSelectSlot }) => {
                 onNavigate={handleNavigate}
                 onView={handleViewChange}
                 view={view}
-                date={date}
+                date={currentDate}
                 eventPropGetter={eventStyleGetter}
                 components={{
                     toolbar: CustomToolbar

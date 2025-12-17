@@ -116,6 +116,14 @@ def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(), db:
             headers={"WWW-Authenticate": "Bearer"},
         )
     
+    # Check if user is active (Soft Delete check)
+    if not user.is_active:
+        raise HTTPException(
+            status_code=403,
+            detail="Account is deactivated. Please contact your administrator.",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    
     # Check Verification
     if not user.is_verified:
         raise HTTPException(
@@ -311,6 +319,7 @@ def reset_password(token: str, new_password: str, db: Session = Depends(get_db))
         raise HTTPException(status_code=404, detail="User not found")
     
     user.hashed_password = get_password_hash(new_password)
+    user.is_verified = True # Auto-verify user when they successfully set/reset password
     reset_token.used = True
     db.commit()
     

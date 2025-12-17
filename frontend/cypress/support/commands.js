@@ -35,12 +35,13 @@ Cypress.Commands.add('loginViaAPI', (email, password) => {
         }
     }).then((response) => {
         expect(response.status).to.eq(200);
-        const { access_token, role, company_name } = response.body;
+        const { access_token, role, company_name, is_verified } = response.body;
 
-        // Store in localStorage
+        // Store in localStorage (matching what AuthContext expects)
         window.localStorage.setItem('token', access_token);
         window.localStorage.setItem('role', role);
         window.localStorage.setItem('company_name', company_name);
+        window.localStorage.setItem('is_verified', is_verified ? 'true' : 'false');
 
         return response.body;
     });

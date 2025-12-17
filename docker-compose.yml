@@ -68,7 +68,7 @@ services:
           cpus: '0.25'
           memory: 256M
     environment:
-      - VITE_API_URL=http://backend:30001
+      - VITE_API_URL=/api
     networks:
       - headhunter_net
 

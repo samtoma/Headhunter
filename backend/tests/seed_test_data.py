@@ -16,7 +16,7 @@ from sqlalchemy.orm import sessionmaker
 from app.core.database import Base
 from app.models.models import (
     Company, User, Job, CV, ParsedCV, Application, Interview,
-    UserRole
+    UserRole, Department
 )
 from app.core.security import get_password_hash
 import os
@@ -137,8 +137,17 @@ def seed_database():
         )
         
         session.add_all([admin, recruiter, hiring_manager, interviewer])
+        session.add_all([admin, recruiter, hiring_manager, interviewer])
         session.commit()
         print("✅ Created users: Admin, Recruiter, Hiring Manager, Interviewer")
+
+        # Create Departments
+        dept_engineering = Department(name="Engineering", company_id=company1.id, created_by=admin.id)
+        dept_sales = Department(name="Sales", company_id=company1.id, created_by=admin.id)
+        dept_hr = Department(name="HR", company_id=company1.id, created_by=admin.id)
+        session.add_all([dept_engineering, dept_sales, dept_hr])
+        session.commit()
+        print("✅ Created departments: Engineering, Sales, HR")
         
         # Create Jobs
         job1 = Job(

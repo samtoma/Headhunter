@@ -19,6 +19,7 @@ class UserOut(BaseModel):
     is_active: bool
     role: str
     department: Optional[str] = None
+    status: Optional[str] = None
     permissions: Optional[str] = None # JSON string
     login_count: int = 0
     
@@ -30,6 +31,124 @@ class UserCreate(BaseModel):
     role: str = "interviewer"
     department: Optional[str] = None
     is_verified: Optional[bool] = None  # Allow tests to set this directly
+
+class UserInvite(BaseModel):
+    email: str
+    role: str
+    department: Optional[str] = None
+    feature_flags: Optional[str] = None # JSON string
+
+@router.post("/invite", response_model=UserOut)
+async def invite_user(
+    invite_data: UserInvite,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Invite a new team member.
+    """
+    # 1. Permission Check
+    allowed_roles = [UserRole.ADMIN, UserRole.SUPER_ADMIN, UserRole.RECRUITER, UserRole.HIRING_MANAGER]
+    if current_user.role not in allowed_roles:
+        raise HTTPException(status_code=403, detail="Not authorized to invite users")
+    
+    # Hiring Managers can only invite to their own department (if they have one)
+    if current_user.role == UserRole.HIRING_MANAGER and current_user.department:
+        if invite_data.department != current_user.department:
+            raise HTTPException(status_code=403, detail="Hiring Managers can only invite to their own department")
+
+    # 2. Check if user exists
+    existing_user = db.query(User).filter(User.email == invite_data.email).first()
+    if existing_user:
+        # Check if user is deactivated - if so, we can reactivate/re-invite them
+        from app.models.models import UserStatus
+        if existing_user.status == UserStatus.DEACTIVATED or not existing_user.is_active:
+            # Reactivate logic
+            existing_user.status = UserStatus.PENDING
+            existing_user.is_active = True
+            existing_user.role = invite_data.role
+            existing_user.department = invite_data.department
+            existing_user.is_verified = False # Require re-verification/password set
+            
+            # Reset password (invalidate old one)
+            import uuid
+            # get_password_hash is already imported at module level
+            random_password = str(uuid.uuid4())
+            existing_user.hashed_password = get_password_hash(random_password)
+            
+            db.commit()
+            db.refresh(existing_user)
+            
+            # Reuse existing user for the rest of the flow
+            new_user = existing_user
+            
+            # Skip creation, proceed to token generation
+        else:
+            raise HTTPException(status_code=400, detail="User with this email already exists")
+    else:
+        # 3. Create User (Pending Status)
+        import uuid
+        from app.models.models import UserStatus, PasswordResetToken
+        from app.core.email import send_team_invite_email
+        from datetime import datetime, timedelta, timezone
+
+        random_password = str(uuid.uuid4()) # Unusable password until they set one
+        hashed_password = get_password_hash(random_password)
+        
+        new_user = User(
+            email=invite_data.email,
+            hashed_password=hashed_password,
+            company_id=current_user.company_id,
+            role=invite_data.role,
+            department=invite_data.department,
+            status=UserStatus.PENDING,
+            is_active=True, # Active but pending verification/setup
+            is_verified=False,
+            feature_flags=invite_data.feature_flags
+        )
+        db.add(new_user)
+        db.commit()
+        db.refresh(new_user)
+    
+    # 4. Generate Invite Token (using PasswordResetToken for simplicity)
+    # Note: If reusing user, we should invalidate old tokens first? 
+    # PasswordResetToken relates to user_id, so we can just add a new one.
+    import uuid
+    from app.models.models import PasswordResetToken
+    from datetime import datetime, timedelta, timezone
+    
+    token = str(uuid.uuid4())
+    expires_at = datetime.now(timezone.utc) + timedelta(hours=48)
+    
+    reset_token = PasswordResetToken(
+        token=token,
+        user_id=new_user.id,
+        expires_at=expires_at
+    )
+    db.add(reset_token)
+    db.commit()
+
+    # 5. Send Invite Email
+    from app.core.email import send_team_invite_email
+    company_name = current_user.company.name if current_user.company else "Headhunter"
+    sender_name = current_user.full_name or "A colleague"
+    
+    await send_team_invite_email(
+        email=new_user.email,
+        token=token,
+        sender_name=sender_name,
+        company_name=company_name,
+        role=new_user.role
+    )
+
+    # 6. Audit Log
+    log_system_activity(
+        db, "user_invited" if not existing_user else "user_reinvited", 
+        current_user.id, current_user.company_id,
+        {"invited_email": new_user.email, "role": new_user.role, "department": new_user.department}
+    )
+    
+    return new_user
 
 @router.get("/stats")
 def get_user_stats(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
@@ -57,8 +176,27 @@ def get_user_stats(db: Session = Depends(get_db), current_user: User = Depends(g
     }
 
 @router.get("/", response_model=List[UserOut])
-def get_users(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
-    query = db.query(User).filter(User.is_active.is_(True))
+def get_users(
+    status: Optional[str] = "active",
+    db: Session = Depends(get_db), 
+    current_user: User = Depends(get_current_user)
+):
+    from app.models.models import UserStatus
+    
+    query = db.query(User)
+    
+    # Status Filtering
+    if status == "archived":
+        # Show deactivated users
+        query = query.filter(User.status == UserStatus.DEACTIVATED)
+    elif status == "all":
+        # Show everything (admin might want this?)
+        pass
+    else:
+        # Default: Active users (includes PENDING and ACTIVE)
+        # We check is_active=True OR status=PENDING (because invite logic sets is_active=True for pending, 
+        # but let's stick to is_active=True which covers both based on current logic)
+        query = query.filter(User.is_active)
     
     # Filter by Company
     if current_user.company_id:
@@ -77,8 +215,9 @@ def create_user(user: UserCreate, db: Session = Depends(get_db), current_user: U
         raise HTTPException(status_code=403, detail="Not authorized")
         
     # Check if user exists
-    if db.query(User).filter(User.email == user.email).first():
-        raise HTTPException(status_code=400, detail="Email already registered")
+    existing = db.query(User).filter(User.email == user.email).first()
+    if existing:
+         raise HTTPException(status_code=400, detail="Email already registered")
         
     # Enforce domain check
     if current_user.role == "admin":
@@ -127,7 +266,12 @@ def delete_user(user_id: int, db: Session = Depends(get_db), current_user: User 
         raise HTTPException(status_code=400, detail="Cannot delete yourself")
         
     user_email = user.email
-    db.delete(user)
+    # Soft Delete Implementation
+    from app.models.models import UserStatus
+    user.is_active = False
+    user.status = UserStatus.DEACTIVATED
+    # We DO NOT delete the user record, preserving logs and foreign keys.
+    
     db.commit()
     
     # Audit log: user deleted

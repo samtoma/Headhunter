@@ -7,6 +7,15 @@ import { useAuth } from '../../context/AuthContext';
 // Mock dependencies
 vi.mock('axios');
 vi.mock('../../context/AuthContext');
+// Mock the api module to prevent real axios calls via api.js
+vi.mock('../../services/api', () => ({
+    departmentService: {
+        getAll: vi.fn(() => Promise.resolve([{ id: 1, name: 'Engineering' }, { id: 2, name: 'HR' }])),
+    },
+    userService: {
+        invite: vi.fn(() => Promise.resolve({ data: {} })),
+    },
+}));
 
 describe('Team Component', () => {
     const mockUsers = [
@@ -20,14 +29,21 @@ describe('Team Component', () => {
         roles: { admin: 1, interviewer: 1, hiring_manager: 0, recruiter: 0 }
     };
 
+    // Team.jsx expects departments as strings, not objects
+    const mockDepartments = ['Engineering', 'Sales'];
+
     beforeEach(() => {
         vi.clearAllMocks();
         axios.get.mockImplementation((url) => {
-            if (url === '/api/users/') return Promise.resolve({ data: mockUsers });
+            if (url.includes('/api/users/') && url.includes('status=')) return Promise.resolve({ data: mockUsers });
             if (url === '/api/users/stats') return Promise.resolve({ data: mockStats });
+            if (url === '/api/departments/') return Promise.resolve({ data: mockDepartments });
             if (url === '/api/company/profile') return Promise.resolve({ data: { departments: JSON.stringify(['Engineering', 'Sales']) } });
-            return Promise.reject(new Error('Not found'));
+            return Promise.reject(new Error(`Not found: ${url}`));
         });
+        axios.post.mockResolvedValue({ data: {} });
+        axios.patch.mockResolvedValue({ data: {} });
+        axios.delete.mockResolvedValue({ data: {} });
     });
 
     it('renders users and stats for admin', async () => {
@@ -118,25 +134,25 @@ describe('Team Component', () => {
 
     it('allows admin to invite new user', async () => {
         useAuth.mockReturnValue({ user: { role: 'admin' } });
-        axios.post.mockResolvedValue({});
+        // The InviteUserModal uses userService.invite, not axios.post directly
+        const { userService } = await import('../../services/api');
 
         render(<Team onOpenMobileSidebar={() => { }} />);
 
         fireEvent.click(screen.getByText('Invite Member'));
 
+        // Wait for modal to render
+        await waitFor(() => {
+            expect(screen.getByPlaceholderText('colleague@company.com')).toBeInTheDocument();
+        });
+
         const emailInput = screen.getByPlaceholderText('colleague@company.com');
         fireEvent.change(emailInput, { target: { value: 'new@test.com' } });
-
-        const passwordInput = screen.getByPlaceholderText('••••••••');
-        fireEvent.change(passwordInput, { target: { value: 'password123' } });
 
         fireEvent.click(screen.getByText('Send Invite'));
 
         await waitFor(() => {
-            expect(axios.post).toHaveBeenCalledWith('/api/users/', expect.objectContaining({
-                email: 'new@test.com',
-                password: 'password123'
-            }));
+            expect(userService.invite).toHaveBeenCalled();
         });
     });
 });

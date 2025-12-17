@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import axios from 'axios';
 import PageHeader from '../components/layout/PageHeader';
 import { LayoutDashboard, Users, Briefcase, Trophy, TrendingUp, Target } from 'lucide-react';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Cell } from 'recharts';
 
 const COLORS = ['#6366f1', '#8b5cf6', '#ec4899', '#f43f5e', '#10b981', '#3b82f6'];
 
@@ -94,8 +94,8 @@ const DepartmentDashboard = ({ onOpenMobileSidebar, isEmbedded = false }) => {
     if (!currentStats) return <div className="p-8 text-center text-slate-500">No data available</div>;
 
     const offerRate = currentStats.offered > 0 ? Math.round((currentStats.offered / (currentStats.totalCandidates || 1)) * 100) : 0;
-    const hireRate = currentStats.hired > 0 ? Math.round((currentStats.hired / (currentStats.totalCandidates || 1)) * 100) : 0;
 
+    // Chart Data Preparation (
     return (
         <div className="flex flex-col h-full overflow-hidden bg-slate-50">
             {!isEmbedded && (

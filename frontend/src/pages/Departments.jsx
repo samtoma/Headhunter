@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import axios from 'axios'
-import { Plus, Search, Building2, Trash2, Edit2, LayoutDashboard } from 'lucide-react'
+import { Plus, Search, Building2, Edit2, Trash2 } from 'lucide-react';
 import DepartmentModal from '../components/modals/DepartmentModal'
 import PageHeader from '../components/layout/PageHeader'
 import DepartmentDashboard from './DepartmentDashboard'

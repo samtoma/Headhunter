@@ -3,6 +3,8 @@ from fastapi_mail import FastMail, MessageSchema, ConnectionConfig, MessageType
 from pydantic import EmailStr
 
 # Email Configuration
+is_testing = os.getenv("TESTING", "false").lower() == "true"
+
 conf = ConnectionConfig(
     MAIL_USERNAME=os.getenv("MAIL_USERNAME", ""),
     MAIL_PASSWORD=os.getenv("MAIL_PASSWORD", ""),
@@ -11,8 +13,9 @@ conf = ConnectionConfig(
     MAIL_SERVER=os.getenv("MAIL_SERVER", "smtp.gmail.com"),
     MAIL_STARTTLS=True,
     MAIL_SSL_TLS=False,
-    USE_CREDENTIALS=True,
-    VALIDATE_CERTS=True
+    USE_CREDENTIALS=not is_testing, # Disable credentials check in testing
+    VALIDATE_CERTS=True,
+    SUPPRESS_SEND=1 if is_testing else 0
 )
 
 async def send_verification_email(email: EmailStr, token: str):
@@ -184,6 +187,48 @@ async def send_password_reset_email(email: EmailStr, token: str, user_name: str 
 
     message = MessageSchema(
         subject="Reset Your Password - Headhunter",
+        recipients=[email],
+        body=html,
+        subtype=MessageType.html
+    )
+
+    fm = FastMail(conf)
+    await fm.send_message(message)
+
+
+async def send_team_invite_email(email: EmailStr, token: str, sender_name: str, company_name: str, role: str):
+    """
+    Sends an invitation email to a new team member.
+    """
+    frontend_url = os.getenv("FRONTEND_URL", "http://localhost:30004")
+    # Using /reset-password for now as it sets the password, effectively activating the account
+    # In the future we might want a dedicated /join endpoint
+    invite_url = f"{frontend_url}/reset-password?token={token}&type=invite"
+    
+    html = f"""
+    <div style="font-family: 'Inter', sans-serif; max-width: 600px; margin: 0 auto; background: #ffffff; padding: 40px 20px; border: 1px solid #e2e8f0; border-radius: 12px;">
+        <div style="text-align: center; margin-bottom: 30px;">
+            <h1 style="color: #1e293b; font-size: 24px; margin-bottom: 10px;">You've been invited!</h1>
+            <p style="color: #64748b; font-size: 16px;"><strong>{sender_name}</strong> has invited you to join <strong>{company_name}</strong> on Headhunter.</p>
+        </div>
+        
+        <div style="background: #f8fafc; border-radius: 8px; padding: 20px; margin-bottom: 30px; text-align: center;">
+            <p style="margin: 0; color: #64748b; font-size: 14px; margin-bottom: 8px;">Role</p>
+            <p style="margin: 0; color: #1e293b; font-size: 18px; font-weight: 600;">{role.replace('_', ' ').title()}</p>
+        </div>
+
+        <div style="text-align: center; margin-bottom: 30px;">
+            <a href="{invite_url}" style="display: inline-block; background-color: #4F46E5; color: white; padding: 14px 32px; text-decoration: none; border-radius: 6px; font-weight: 600; font-size: 16px;">Accept Invitation</a>
+        </div>
+        
+        <p style="color: #94a3b8; font-size: 14px; text-align: center;">
+            This link will expire in 48 hours. If you were not expecting this invitation, you can ignore this email.
+        </p>
+    </div>
+    """
+
+    message = MessageSchema(
+        subject=f"Join {company_name} on Headhunter",
         recipients=[email],
         body=html,
         subtype=MessageType.html

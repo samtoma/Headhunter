@@ -10,17 +10,21 @@
   - [x] Sync API <!-- gh: 21 -->
   - [x] Jobs API <!-- gh: 22 -->
   - [x] Users API <!-- gh: 23 -->
+  - [x] Design Alignment (Invite Acceptance) <!-- gh: 89 -->
+    - [x] Update `ResetPassword.jsx` styles to match premium design <!-- gh: 90 -->
+  - [x] Remove 'Viewer' Role <!-- gh: 91 -->
+    - [x] Remove from Backend Enum (`models.py`) <!-- gh: 92 -->
+    - [x] Remove from Frontend Invite Modal (`InviteUserModal.jsx`) <!-- gh: 93 -->
+    - [x] Cleanup Seeds (`seed_test_data.py`) <!-- gh: 94 -->
+  - [ ] User Management Enhancements <!-- gh: 95 -->
+    - [ ] Implement Archive View (Frontend & Backend) <!-- gh: 96 -->
+    - [ ] Validated Pending Status Display <!-- gh: 97 -->
   - [x] Parser Service <!-- gh: 24 -->
 - [x] Debug Frontend Pipeline Assignment <!-- gh: 25 -->
   - [x] Fix "freeze" issue (overflow/layout) <!-- gh: 26 -->
   - [x] Add regression tests for assignment/removal <!-- gh: 27 -->
   - [x] Improve UX (loading states, filtering assigned jobs) <!-- gh: 28 -->
 - [x] Pipeline Components (Board, Column, Card) <!-- gh: 30 -->
-
----
-
-## 🔄 In Progress
-
 - [x] Frontend: Increase Unit Test Coverage <!-- gh: 29 -->
   - [x] Modals (CompanyProfileModal - 16 tests) <!-- gh: 31 -->
   - [x] Shared Components (UploadProgressWidget - 12 tests) <!-- gh: 32 -->
@@ -28,6 +32,17 @@
   - [x] CompanyProfileModal E2E with screenshots (5 tests) <!-- gh: 76 -->
   - [x] UploadProgressWidget E2E with screenshots (5 tests) <!-- gh: 77 -->
   - [x] Critical User Flows (e2e_recruitment_flow.cy.js - 202 lines) <!-- gh: 34 -->
+
+---
+
+## 🔄- **In Progress (Active Sprint)**
+
+    - [FEAT-008] Role-Based Permissions (Phase 1)
+        - [x] [FEAT-008-1] Team member invite system (Backend API & Email) <!-- gh: 98 -->
+        - [ ] [FEAT-008-2] Department-scoped access control <!-- gh: 99 -->
+        - [ ] [FEAT-008-3] Interviewer view restrictions <!-- gh: 100 -->
+        - [/] [FEAT-008-4] User Account Status (Active/Deactivated) (DB & Model only) <!-- gh: 101 -->
+        - [/] [FEAT-008-5] Granular Feature Toggles (DB & Model only) <!-- gh: 83 -->
 
 ---
 
@@ -47,6 +62,7 @@
   - [x] Inline Attribution for Pipelines <!-- gh: 86 -->
   - [x] Inline Attribution for Jobs & Departments <!-- gh: 87 -->
   - [x] Enhanced Activity Log <!-- gh: 88 -->
+- [ ] [FEAT-008] Role-Based Permissions <!-- v2.0 --> <!-- gh: 78 --> (Moved to In Progress)
 
 ### Phase 2: Calendar & Automation (Weeks 5-8)
 
