@@ -6,7 +6,10 @@ import { useAuth } from '../../context/AuthContext';
 
 // Mock dependencies
 vi.mock('axios');
-vi.mock('../../context/AuthContext');
+vi.mock('../../context/AuthContext', () => ({
+    useAuth: vi.fn(),
+    AuthProvider: ({ children }) => children
+}));
 // Mock the api module to prevent real axios calls via api.js
 vi.mock('../../services/api', () => ({
     departmentService: {

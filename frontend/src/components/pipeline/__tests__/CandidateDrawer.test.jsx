@@ -3,8 +3,13 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import CandidateDrawer from '../CandidateDrawer'
 import axios from 'axios'
 
+import { useAuth } from '../../../context/AuthContext'
+
 // Mock axios
 vi.mock('axios')
+vi.mock('../../../context/AuthContext', () => ({
+    useAuth: vi.fn()
+}))
 
 const mockCv = {
     id: 1,
@@ -50,6 +55,10 @@ const mockTimeline = [
 describe('CandidateDrawer', () => {
     beforeEach(() => {
         vi.clearAllMocks()
+        useAuth.mockReturnValue({
+            user: { role: 'recruiter', id: 1 },
+            canViewSalary: true
+        })
         axios.get.mockImplementation((url) => {
             if (url.includes('/timeline')) return Promise.resolve({ data: mockTimeline })
             if (url.includes('/interviews')) return Promise.resolve({ data: [] })
