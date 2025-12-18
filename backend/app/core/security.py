@@ -1,5 +1,7 @@
 from datetime import datetime, timedelta, timezone
 from typing import Optional
+import os
+from cryptography.fernet import Fernet
 from jose import jwt
 from passlib.context import CryptContext
 
@@ -7,9 +9,6 @@ from passlib.context import CryptContext
 SECRET_KEY = "supersecretkey" 
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 30
-
-from cryptography.fernet import Fernet
-import os
 
 # Default DEV key (replace with real one in production env)
 DEV_KEY = "DT5F69b_Al-O81XZnOK5V9WDB8OH21uMfdgZzh3SKpE="

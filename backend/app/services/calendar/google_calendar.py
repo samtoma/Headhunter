@@ -1,6 +1,5 @@
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any
 import os
-import json
 from .base import CalendarProvider
 from google_auth_oauthlib.flow import Flow
 from google.oauth2.credentials import Credentials
