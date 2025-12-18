@@ -1,7 +1,7 @@
 """
 Tests for Public API endpoints (landing page functionality).
 """
-import pytest
+
 from io import BytesIO
 import json
 

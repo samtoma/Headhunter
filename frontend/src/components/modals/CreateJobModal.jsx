@@ -127,7 +127,7 @@ const CreateJobModal = ({ onClose, onCreate, initialData = null }) => {
 
     // Generate a URL-friendly slug from title
     const generateSlug = (title) => {
-        const base = title.toLowerCase()
+        const base = (title || "").toLowerCase()
             .replace(/[^a-z0-9\s-]/g, '')
             .replace(/\s+/g, '-')
             .substring(0, 40)
@@ -137,12 +137,14 @@ const CreateJobModal = ({ onClose, onCreate, initialData = null }) => {
 
     // Handle landing page toggle
     const handleLandingPageToggle = (enabled) => {
-        if (enabled && !data.landing_page_slug) {
-            // Auto-generate slug when enabling
-            setData({ ...data, landing_page_enabled: true, landing_page_slug: generateSlug(data.title) })
-        } else {
-            setData({ ...data, landing_page_enabled: enabled })
-        }
+        setData(prev => {
+            const slug = prev.landing_page_slug || generateSlug(prev.title || "job-" + Date.now())
+            return {
+                ...prev,
+                landing_page_enabled: enabled,
+                landing_page_slug: slug
+            }
+        })
     }
 
     // Copy landing page URL to clipboard
@@ -335,6 +337,7 @@ const CreateJobModal = ({ onClose, onCreate, initialData = null }) => {
                                         </div>
                                         <button
                                             type="button"
+                                            data-cy="landing-page-toggle"
                                             onClick={() => handleLandingPageToggle(!data.landing_page_enabled)}
                                             className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${data.landing_page_enabled ? 'bg-indigo-600' : 'bg-slate-300'}`}
                                         >
