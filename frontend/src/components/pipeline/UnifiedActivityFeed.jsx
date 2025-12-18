@@ -249,6 +249,13 @@ const UnifiedActivityFeed = ({
                             <div className="flex-1 min-w-0">
                                 <div className="text-sm text-slate-700">
                                     <span className="font-semibold capitalize">{item.data.action?.replace(/_/g, ' ')}</span>
+                                    {/* Added to pipeline source */}
+                                    {item.data.action === 'added_to_pipeline' && item.data.details?.source === 'landing_page' && (
+                                        <span className="text-indigo-500 font-medium"> via Landing Page</span>
+                                    )}
+                                    {item.data.action === 'added_to_pipeline' && item.data.details?.job_title && (
+                                        <span className="text-slate-500"> · {item.data.details.job_title}</span>
+                                    )}
                                     {/* Status transition */}
                                     {item.data.details?.old_status && item.data.details?.new_status && (
                                         <span className="text-slate-500">

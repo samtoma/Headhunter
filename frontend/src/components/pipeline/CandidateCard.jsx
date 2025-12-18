@@ -12,6 +12,7 @@ const CandidateCard = ({ cv, onClick, onDelete, onReprocess, status, compact, se
     const skills = safeList(d.skills).slice(0, 3)
     const edu = safeList(d.education)[0]
 
+
     return (
         <div
             draggable
@@ -97,7 +98,12 @@ const CandidateCard = ({ cv, onClick, onDelete, onReprocess, status, compact, se
                 <div className="flex items-center gap-2">
                     <span className="text-[10px] text-slate-400 font-medium">
                         {new Date(cv.uploaded_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
-                        {cv.uploaded_by_name && <> · by {cv.uploaded_by_name}</>}
+                        {/* Show unified origin attribution */}
+                        {cv.original_source === 'landing_page' ? (
+                            <> · via <span className="text-indigo-500">Landing Page</span></>
+                        ) : cv.uploaded_by_name && (
+                            <> · by {cv.uploaded_by_name}</>
+                        )}
                     </span>
                     {status && <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${getStatusColor(status)}`}>{status}</span>}
                 </div>

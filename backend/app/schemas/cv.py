@@ -99,6 +99,9 @@ class CVResponse(BaseModel):
     is_outdated: bool = False
     years_since_upload: float = 0.0
     
+    # Origin tracking - how the CV entered the system
+    original_source: Optional[str] = "manual"  # "manual", "landing_page", "api", etc.
+    
     # Audit fields
     uploaded_by: Optional[int] = None
     uploaded_by_name: Optional[str] = None

@@ -3,7 +3,7 @@ from fastapi import FastAPI, Depends
 from fastapi.middleware.cors import CORSMiddleware
 import asyncio
 from app.core.database import engine, get_db
-from app.api.v1 import cv, profiles, jobs, applications, auth, company, sso, interviews, companies, logs, sync, stats, users, analytics, departments, activity, google_auth
+from app.api.v1 import cv, profiles, jobs, applications, auth, company, sso, interviews, companies, logs, sync, stats, users, analytics, departments, activity, google_auth, public
 from app.api.endpoints import search
 from app.models import models
 from sqlalchemy.orm import Session
@@ -106,6 +106,7 @@ app.include_router(analytics.router) # Register analytics router
 app.include_router(departments.router)
 app.include_router(activity.router)
 app.include_router(search.router, prefix="/search", tags=["Search"])
+app.include_router(public.router)  # Public landing page endpoints (unauthenticated)
 
 @app.get("/api/debug/db_check")
 def debug_db_check(db: Session = Depends(get_db)):

@@ -21,6 +21,7 @@ import Analytics from './pages/Analytics';
 import InterviewsAdmin from './pages/InterviewsAdmin';
 import Departments from './pages/Departments';
 import Timeline from './pages/Timeline';
+import PublicJobPage from './pages/PublicJobPage';
 import Sidebar from './components/layout/Sidebar';
 import ErrorBoundary from './components/ErrorBoundary';
 import React, { useState } from 'react';
@@ -102,6 +103,9 @@ const AppRoutes = () => {
 
             <Route path="/verify" element={<VerifyEmail />} />
             <Route path="/pending-verification" element={<PendingVerification />} />
+
+            {/* Public Landing Page - No Auth Required */}
+            <Route path="/jobs/:slug" element={<PublicJobPage />} />
 
             <Route path="/" element={
                 <ProtectedRoute>

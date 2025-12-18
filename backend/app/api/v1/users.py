@@ -282,6 +282,63 @@ def delete_user(user_id: int, db: Session = Depends(get_db), current_user: User 
     
     return {"status": "deleted"}
 
+
+class UserStatusUpdate(BaseModel):
+    """Schema for toggling user active status"""
+    is_active: bool
+
+
+@router.patch("/{user_id}/status", response_model=UserOut)
+def toggle_user_status(
+    user_id: int,
+    status_update: UserStatusUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Toggle user active/deactivated status.
+    Only admins can activate/deactivate users.
+    """
+    if current_user.role not in ["admin", "super_admin"]:
+        raise HTTPException(status_code=403, detail="Not authorized")
+    
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    # Company check for regular admins
+    if current_user.role == "admin" and user.company_id != current_user.company_id:
+        raise HTTPException(status_code=403, detail="Not authorized")
+    
+    # Prevent self-deactivation
+    if user.id == current_user.id and not status_update.is_active:
+        raise HTTPException(status_code=400, detail="Cannot deactivate yourself")
+    
+    from app.models.models import UserStatus
+    
+    if status_update.is_active:
+        # Reactivate user
+        user.is_active = True
+        user.status = UserStatus.ACTIVE
+        action = "user_reactivated"
+    else:
+        # Deactivate user
+        user.is_active = False
+        user.status = UserStatus.DEACTIVATED
+        action = "user_deactivated"
+    
+    db.commit()
+    db.refresh(user)
+    
+    # Audit log
+    log_system_activity(
+        db, action, current_user.id, current_user.company_id,
+        {"user_id": user.id, "email": user.email}
+    )
+    
+    return user
+
+
 class UserUpdate(BaseModel):
     role: Optional[str] = None
     department: Optional[str] = None

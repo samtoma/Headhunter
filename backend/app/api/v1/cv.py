@@ -40,7 +40,8 @@ async def upload_bulk(
             filename=f.filename, 
             filepath=str(save_path), 
             company_id=current_user.company_id,
-            uploaded_by=current_user.id  # Track who uploaded
+            uploaded_by=current_user.id,  # Track who uploaded
+            original_source="manual"  # Track origin
         )
         db.add(cv)
         db.flush()  # obtain cv.id without committing yet
