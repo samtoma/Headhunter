@@ -3,6 +3,8 @@ import axios from 'axios';
 import PageHeader from '../components/layout/PageHeader';
 import { useHeadhunter } from '../context/HeadhunterContext';
 import { useAuth } from '../context/AuthContext';
+
+import CalendarSettings from '../components/settings/CalendarSettings';
 import { Settings as SettingsIcon, Save, Plus, Trash2, ArrowUp, ArrowDown, RotateCcw, Lock } from 'lucide-react';
 
 const Settings = ({ onOpenMobileSidebar }) => {
@@ -148,6 +150,12 @@ const Settings = ({ onOpenMobileSidebar }) => {
                             className={`px-4 py-2 text-sm font-medium rounded-lg transition ${activeTab === 'pipeline' ? 'bg-white shadow text-indigo-600' : 'text-slate-500 hover:text-slate-700'}`}
                         >
                             Pipeline Configuration
+                        </button>
+                        <button
+                            onClick={() => setActiveTab('calendar')}
+                            className={`px-4 py-2 text-sm font-medium rounded-lg transition ${activeTab === 'calendar' ? 'bg-white shadow text-indigo-600' : 'text-slate-500 hover:text-slate-700'}`}
+                        >
+                            Calendar
                         </button>
                     </div>
 
@@ -349,9 +357,14 @@ const Settings = ({ onOpenMobileSidebar }) => {
                                     </button>
                                 </div>
                             </div>
+
                         )}
 
-                        {canEdit && (
+                        {activeTab === 'calendar' && (
+                            <CalendarSettings />
+                        )}
+
+                        {canEdit && activeTab !== 'calendar' && (
                             <div className="flex justify-end pt-4">
                                 <button
                                     type="submit"

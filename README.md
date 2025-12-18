@@ -1,4 +1,4 @@
-# 🧠 Headhunter AI (v1.11.0)
+# 🧠 Headhunter AI (v1.14.0)
 
 **Headhunter AI** is a production-grade, self-hosted Applicant Tracking System (ATS) engineered for high-performance recruitment teams.
 
@@ -194,6 +194,13 @@ Headhunter AI is built with a "Security First" mindset, ensuring data privacy an
 * **Standardized UI:** Consistent design language across all modals, buttons, and inputs.
 * **Ghost Buttons:** Minimalistic, distraction-free actions for AI features.
 * **Accessibility:** High-contrast text and clear focus states.
+
+### 15. 📅 Calendar Integration (New in v1.12)
+
+* **Two-Way Sync:** Connect Google Calendar and Microsoft Outlook/365.
+* **Smart Availability:** Automatically detect free slots for interview scheduling.
+* **Unified View:** View all scheduled interviews and recruiter availability in one place.
+* **Secure Tokens:** OAuth2 tokens are stored with AES-256 encryption.
 
 ---
 
@@ -471,7 +478,7 @@ The CI/CD pipeline enforces:
 
 ## Roadmap
 
-### Current Status: v1.11.0 (Stable Release)
+### Current Status: v1.14.0 (Stable Release)
 
 The system is a fully functional, enterprise-grade Applicant Tracking System with:
 
@@ -486,6 +493,7 @@ The system is a fully functional, enterprise-grade Applicant Tracking System wit
 * ✅ **Enterprise Security & Multiple SSO Providers** (Microsoft, Google).
 * ✅ **Email Verification & Password Reset** for secure account management.
 * ✅ **AI Search with Auto-Sync** using ChromaDB for semantic candidate search.
+* ✅ **Calendar Integration:** Full two-way sync with Google Calendar and Outlook.
 * ✅ **Mobile-Responsive Interview Mode** with enriched CV parsing.
 
 ---

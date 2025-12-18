@@ -81,6 +81,8 @@ class User(Base):
     password_reset_tokens = relationship("PasswordResetToken", back_populates="user", cascade="all, delete-orphan")
     login_count = Column(Integer, default=0)
     permissions = Column(Text, nullable=True) # JSON permissions e.g. {"view_salary": true}
+    
+    calendar_connections = relationship("CalendarConnection", back_populates="user", cascade="all, delete-orphan")
 
 class Department(Base):
     __tablename__ = "departments"
@@ -255,3 +257,18 @@ class ParsedCV(Base):
     expected_salary = Column(String, nullable=True)
     parsed_at = Column(DateTime(timezone=True), server_default=func.now())
     cv = relationship("CV", back_populates="parsed_data")
+
+class CalendarConnection(Base):
+    __tablename__ = "calendar_connections"
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    provider = Column(String, nullable=False) # "google" or "microsoft"
+    access_token = Column(Text, nullable=False) # Encrypted
+    refresh_token = Column(Text, nullable=False) # Encrypted
+    token_expires_at = Column(DateTime(timezone=True), nullable=True)
+    external_account_email = Column(String, nullable=True)
+    sync_enabled = Column(Boolean, default=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+    user = relationship("User", back_populates="calendar_connections")

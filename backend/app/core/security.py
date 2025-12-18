@@ -8,6 +8,27 @@ SECRET_KEY = "supersecretkey"
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 30
 
+from cryptography.fernet import Fernet
+import os
+
+# Default DEV key (replace with real one in production env)
+DEV_KEY = "DT5F69b_Al-O81XZnOK5V9WDB8OH21uMfdgZzh3SKpE="
+ENCRYPTION_KEY = os.getenv("ENCRYPTION_KEY", DEV_KEY)
+
+try:
+    fernet = Fernet(ENCRYPTION_KEY)
+except Exception as e:
+    print(f"Warning: Invalid ENCRYPTION_KEY, using default dev key. Error: {e}")
+    fernet = Fernet(DEV_KEY)
+
+def encrypt_token(token: str) -> str:
+    """Encrypts a token string."""
+    return fernet.encrypt(token.encode()).decode()
+
+def decrypt_token(encrypted_token: str) -> str:
+    """Decrypts an encrypted token string."""
+    return fernet.decrypt(encrypted_token.encode()).decode()
+
 pwd_context = CryptContext(schemes=["argon2"], deprecated="auto")
 
 def verify_password(plain_password, hashed_password):

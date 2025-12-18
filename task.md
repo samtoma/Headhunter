@@ -32,6 +32,16 @@
   - [x] CompanyProfileModal E2E with screenshots (5 tests) <!-- gh: 76 -->
   - [x] UploadProgressWidget E2E with screenshots (5 tests) <!-- gh: 77 -->
   - [x] Critical User Flows (e2e_recruitment_flow.cy.js - 202 lines) <!-- gh: 34 -->
+  - [x] Critical User Flows (e2e_recruitment_flow.cy.js - 202 lines) <!-- gh: 34 -->
+
+## ✅ Completed (v1.14.0)
+
+- [x] [FEAT-001] Calendar Integration <!-- v1.14.0 --> <!-- gh: 42 -->
+  - [x] [FEAT-001-1] Google Calendar OAuth Setup <!-- gh: 43 -->
+  - [x] [FEAT-001-2] Microsoft Graph API Integration <!-- gh: 44 -->
+  - [x] [FEAT-001-3] Calendar Connection UI <!-- gh: 45 -->
+  - [x] [FEAT-001-4] Availability Detection (via Events API) <!-- gh: 46 -->
+  - [x] [FEAT-001-5] Event Sync Service (Foundation) <!-- gh: 47 -->
 
 ---
 
@@ -66,12 +76,6 @@
 
 ### Phase 2: Calendar & Automation (Weeks 5-8)
 
-- [ ] [FEAT-001] Calendar Integration <!-- v2.0 --> <!-- gh: 42 -->
-  - [ ] [FEAT-001-1] Google Calendar OAuth Setup <!-- gh: 43 -->
-  - [ ] [FEAT-001-2] Microsoft Graph API Integration <!-- gh: 44 -->
-  - [ ] [FEAT-001-3] Calendar Connection UI <!-- gh: 45 -->
-  - [ ] [FEAT-001-4] Availability Detection <!-- gh: 46 -->
-  - [ ] [FEAT-001-5] Event Sync Service <!-- gh: 47 -->
 - [ ] [FEAT-005] Auto Interview Invitations <!-- v2.0 --> <!-- gh: 48 -->
   - [ ] [FEAT-005-1] Invitation Rules Engine <!-- gh: 49 -->
   - [ ] [FEAT-005-2] Event Trigger System <!-- gh: 50 -->

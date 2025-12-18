@@ -1,3 +1,36 @@
+# Release Notes - v1.14.0 (Calendar Integration)
+
+**Release Date:** 2025-12-18
+
+## Summary
+
+This release enables **two-way seamless synchronization** with Google Calendar and Microsoft Outlook. Users can now connect their calendars to check availability and automatically sync interview events.
+
+## 🚀 Key Features
+
+### 📅 Calendar Sync
+
+- **Google Calendar Integration:** Connect via OAuth 2.0.
+- **Microsoft Outlook Integration:** Connect via Microsoft Graph API.
+- **Unified Settings:** New "Calendar" tab in Settings to manage connections.
+- **Secure Storage:** Tokens are encrypted at rest using AES-256.
+
+### 🛠️ Technical Details
+
+- **Backend**:
+  - New `CalendarProvider` abstraction.
+  - Generic `/connect/{provider}` endpoints.
+  - `CalendarConnection` model with encrypted fields.
+- **Frontend**:
+  - `CalendarSettings.jsx` component.
+
+## ✅ Verification
+
+- **Unit Tests**: Added comprehensive tests for encryption and OAuth flows.
+- **Integration**: Validated with real Google and Microsoft accounts.
+
+---
+
 # Release Notes - v1.13.0 (Secure Invitation System)
 
 **Release Date:** 2025-12-14

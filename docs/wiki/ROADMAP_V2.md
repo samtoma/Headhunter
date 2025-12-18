@@ -16,7 +16,7 @@ This document outlines the next major evolution of Headhunter AI, transforming i
 
 | # | Feature | Priority | Complexity | Dependencies |
 |---|---------|----------|------------|--------------|
-| 1 | [Calendar Integration](#1-calendar-integration) | 🔴 High | High | Interview System |
+| 1 | [Calendar Integration](#1-calendar-integration) | ✅ Complete | High | Interview System |
 | 2 | [Google Sign-In](#2-google-sign-in) | ✅ Complete | Medium | Auth System |
 | 3 | [Interview Redesign](#3-interview-redesign) | 🔴 High | High | None |
 | 4 | [GraphRAG & Skills Matrix](#4-graphrag--skills-matrix) | 🟡 Medium | Very High | ChromaDB |
@@ -25,6 +25,7 @@ This document outlines the next major evolution of Headhunter AI, transforming i
 | 7 | [Pipeline-Interview Merge](#7-pipeline-interview-merge) | 🔴 High | High | Interview Redesign |
 | **8** | **[Role-Based Permissions](#8-role-based-permissions)** | **🔄 In Progress** | **Medium** | **User Model** |
 | **2** | **[Google Sign-In](#2-google-sign-in)** | **✅ Complete** | **Medium** | **Auth System** |
+| **1** | **[Calendar Integration](#1-calendar-integration)** | **✅ Complete** | **High** | **Interview System** |
 
 ---
 
@@ -75,10 +76,10 @@ CREATE TABLE calendar_connections (
 
 ### 1.4 User Stories
 
-- [ ] As a recruiter, I can connect my Google Calendar to Headhunter
-- [ ] As a recruiter, I can connect my Microsoft 365 Calendar
-- [ ] As a recruiter, I can see my availability when scheduling interviews
-- [ ] As a recruiter, interview events automatically appear on my calendar
+- [x] As a recruiter, I can connect my Google Calendar to Headhunter
+- [x] As a recruiter, I can connect my Microsoft 365 Calendar
+- [x] As a recruiter, I can see my availability when scheduling interviews
+- [x] As a recruiter, interview events automatically appear on my calendar
 - [ ] As a hiring manager, I receive calendar invitations for interviews
 
 ### 1.5 Security Considerations
@@ -665,8 +666,9 @@ Implement comprehensive role-based access control (RBAC) with department-scoping
 
 ### Phase 2: Calendar & Invitations (Weeks 5-8)
 
-- [ ] Google Calendar Integration
-- [ ] Microsoft Calendar Integration
+- [x] Google Calendar Integration
+- [x] Microsoft Calendar Integration
+- [x] Calendar Settings UI
 - [ ] Auto Interview Invitations
 
 ### Phase 3: Interview Redesign (Weeks 9-12)
