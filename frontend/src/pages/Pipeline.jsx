@@ -49,6 +49,7 @@ const Pipeline = ({ onOpenMobileSidebar }) => {
     const [uploadFiles, setUploadFiles] = useState(null);
     const [selectedDepartment, setSelectedDepartment] = useState("All");
     const [showEditJobModal, setShowEditJobModal] = useState(false);
+    const [refreshKey, setRefreshKey] = useState(0); // For triggering refreshes of timeline/calendar
 
     const handleEditJob = () => {
         if (selectedJob) {
@@ -466,6 +467,7 @@ const Pipeline = ({ onOpenMobileSidebar }) => {
                         {viewMode === 'timeline' && (
                             <TimelineView
                                 jobId={selectedJob?.id}
+                                refreshTrigger={refreshKey}
                                 onSelectCandidate={(candidate) => {
                                     // Find the full CV profile from candidate data
                                     const cv = profiles.find(p =>
@@ -520,6 +522,10 @@ const Pipeline = ({ onOpenMobileSidebar }) => {
                         assignJob={assignJob}
                         removeJob={removeJob}
                         companyStages={companyStages}
+                        onScheduleInterview={({ candidate, stage }) => {
+                            setScheduleData({ candidate, stage });
+                            setShowScheduleModal(true);
+                        }}
                     />
                 )
             }
@@ -537,7 +543,8 @@ const Pipeline = ({ onOpenMobileSidebar }) => {
                     }}
                     onSchedule={(result) => {
                         console.log("Scheduled/Updated:", result);
-                        // Optional: Refresh calendar here if needed
+                        fetchProfiles();
+                        setRefreshKey(prev => prev + 1);
                     }}
                     candidate={scheduleData.candidate}
                     candidates={filteredProfiles} // Pass available candidates

@@ -2,14 +2,14 @@ import { useState, useMemo, useEffect, useCallback } from 'react'
 import {
     MapPin, User, Briefcase, Bug, Pencil, X, ExternalLink, Linkedin, Github,
     FileText, BrainCircuit, GraduationCap, Layers, LayoutGrid, DollarSign, Star,
-    Check, Save, ChevronDown, Heart, Flag, MessageSquare, Clock, Plus, Lock
+    Check, Save, ChevronDown, Heart, Flag, MessageSquare, Clock, Plus, Lock, Globe
 } from 'lucide-react'
 import axios from 'axios'
 import { useAuth } from '../../context/AuthContext'
 import { safeList } from '../../utils/helpers'
 import UnifiedActivityFeed from './UnifiedActivityFeed'
 
-const CandidateDrawer = ({ cv, onClose, updateApp, updateProfile, jobs, selectedJobId, assignJob, removeJob, companyStages: propCompanyStages }) => {
+const CandidateDrawer = ({ cv, onClose, updateApp, updateProfile, jobs, selectedJobId, assignJob, removeJob, companyStages: propCompanyStages, onScheduleInterview }) => {
     const { user } = useAuth()
     const canViewSalary = user?.role !== 'interviewer' || (user?.permissions && JSON.parse(user.permissions || '{}').can_view_salary)
     const [view, setView] = useState("parsed")
@@ -438,9 +438,15 @@ const CandidateDrawer = ({ cv, onClose, updateApp, updateProfile, jobs, selected
                                             <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Active Pipeline</div>
                                             {/* Attribution for active application in top right */}
                                             {app && (app.assigned_by_name || app.source) && (
-                                                <div className="text-[9px] text-slate-400 font-medium">
-                                                    by {app.assigned_by_name || 'System'}
-                                                    {/* Optional: Show source if needed, or keep it simple as "by Name" */}
+                                                <div className="text-[9px] text-slate-400 font-medium flex items-center gap-1">
+                                                    {app.source === 'landing_page' ? (
+                                                        <>
+                                                            <Globe size={10} className="text-indigo-500" />
+                                                            <span className="text-indigo-600 font-bold">via Landing Page</span>
+                                                        </>
+                                                    ) : (
+                                                        <>by {app.assigned_by_name || 'System'}</>
+                                                    )}
                                                 </div>
                                             )}
                                         </div>

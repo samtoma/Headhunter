@@ -1,6 +1,6 @@
 
 import {
-    Briefcase, GraduationCap, Heart, Flag, CheckSquare, Square, RotateCw, Trash2, RefreshCw, Download
+    Briefcase, GraduationCap, Heart, Flag, CheckSquare, Square, RotateCw, Trash2, RefreshCw, Download, Globe
 } from 'lucide-react'
 import { safeList, getStatusColor } from '../../utils/helpers'
 
@@ -100,7 +100,7 @@ const CandidateCard = ({ cv, onClick, onDelete, onReprocess, status, compact, se
                         {new Date(cv.uploaded_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
                         {/* Show unified origin attribution */}
                         {cv.original_source === 'landing_page' ? (
-                            <> · via <span className="text-indigo-500">Landing Page</span></>
+                            <><span className="mx-1">·</span> <Globe size={10} className="text-indigo-500 inline mr-0.5" /> <span className="text-indigo-500 font-medium">Landing Page</span></>
                         ) : cv.uploaded_by_name && (
                             <> · by {cv.uploaded_by_name}</>
                         )}

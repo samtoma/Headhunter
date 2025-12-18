@@ -1,51 +1,64 @@
 import { useState, useEffect } from 'react';
 import axios from 'axios';
 import {
-    GanttChart, Calendar, CheckCircle, XCircle, Clock, AlertCircle,
-    Plus, Star, ChevronRight, X, User, MessageSquare
+    CheckCircle, Calendar, Plus, ChevronRight, User,
+    MessageSquare, Star, Clock, AlertCircle, Sparkles,
+    ChevronDown, ChevronUp, UserPlus, Search, Filter,
+    Briefcase
 } from 'lucide-react';
 
 /**
- * TimelineView - Minimalistic timeline visualization for interview progress
- * Clean, aesthetic design with smooth interactions
+ * Flow Timeline - A Stage-Centric Pipeline Visualization
+ * Organized by company workflow steps with Done, Scheduled, and Next lanes.
  */
-const TimelineView = ({ jobId, onSelectCandidate, onScheduleInterview }) => {
+const TimelineView = ({ jobId, onSelectCandidate, onScheduleInterview, refreshTrigger }) => {
     const [timelineData, setTimelineData] = useState(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
-    const [selectedCell, setSelectedCell] = useState(null); // { candidate, stage, interviews }
+    const [expandedStages, setExpandedStages] = useState({}); // { stageName: boolean }
+    const [searchQuery, setSearchQuery] = useState("");
 
     useEffect(() => {
         if (jobId) {
             setLoading(true);
             setError(null);
             axios.get(`/api/interviews/timeline/${jobId}`)
-                .then(res => setTimelineData(res.data))
-                .catch(() => setError("Failed to load timeline"))
+                .then(res => {
+                    setTimelineData(res.data);
+                    // Expand the first stage by default
+                    if (res.data.stages && res.data.stages.length > 0) {
+                        setExpandedStages({ [res.data.stages[0]]: true });
+                    }
+                })
+                .catch(() => setError("Failed to load flow timeline"))
                 .finally(() => setLoading(false));
         } else {
             setTimelineData(null);
         }
-    }, [jobId]);
+    }, [jobId, refreshTrigger]);
+
+    const toggleStage = (stage) => {
+        setExpandedStages(prev => ({
+            ...prev,
+            [stage]: !prev[stage]
+        }));
+    };
 
     const isUpcoming = (dateString, status) => {
         if (!dateString || status !== 'Scheduled') return false;
         const d = new Date(dateString);
         const now = new Date();
-        return d >= now && d <= new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+        return d >= now;
     };
 
-    const isToday = (dateString) => {
-        if (!dateString) return false;
-        return new Date(dateString).toDateString() === new Date().toDateString();
-    };
-
-    // Empty states
     if (!jobId) {
         return (
-            <div className="h-full flex flex-col items-center justify-center text-slate-300">
-                <GanttChart size={40} strokeWidth={1.5} />
-                <p className="mt-3 text-sm font-medium">Select a job to view timeline</p>
+            <div className="h-full flex flex-col items-center justify-center text-slate-300 animate-in fade-in zoom-in-95">
+                <div className="w-20 h-20 bg-slate-50 rounded-full flex items-center justify-center mb-4">
+                    <Sparkles size={40} className="text-slate-200" />
+                </div>
+                <h3 className="text-lg font-bold text-slate-400">Select a Job</h3>
+                <p className="text-sm">Choose a position to view its flow timeline</p>
             </div>
         );
     }
@@ -53,7 +66,10 @@ const TimelineView = ({ jobId, onSelectCandidate, onScheduleInterview }) => {
     if (loading) {
         return (
             <div className="h-full flex items-center justify-center">
-                <div className="w-8 h-8 border-2 border-indigo-200 border-t-indigo-600 rounded-full animate-spin" />
+                <div className="flex flex-col items-center gap-4">
+                    <div className="w-12 h-12 border-4 border-indigo-100 border-t-indigo-600 rounded-full animate-spin" />
+                    <span className="text-sm font-bold text-slate-400 animate-pulse">Building Timeline...</span>
+                </div>
             </div>
         );
     }
@@ -61,315 +77,264 @@ const TimelineView = ({ jobId, onSelectCandidate, onScheduleInterview }) => {
     if (error || !timelineData) {
         return (
             <div className="h-full flex flex-col items-center justify-center text-slate-400">
-                <AlertCircle size={32} strokeWidth={1.5} />
-                <p className="mt-2 text-sm">{error || "No data available"}</p>
+                <AlertCircle size={40} strokeWidth={1.5} className="text-red-300" />
+                <p className="mt-4 font-bold">{error || "No dynamic data available"}</p>
             </div>
         );
     }
 
-    const { stages, candidates } = timelineData;
+    const { stages, candidates, job_title } = timelineData;
+
+    // Filter candidates by search
+    const filteredCandidates = candidates.filter(c =>
+        c.candidate_name.toLowerCase().includes(searchQuery.toLowerCase())
+    );
 
     return (
-        <div className="h-full p-6 overflow-auto bg-gradient-to-br from-slate-50 to-white">
-            {/* Minimal Stats */}
-            <div className="flex gap-6 mb-6 text-sm">
-                <div className="flex items-center gap-2 text-slate-500">
-                    <span className="font-bold text-slate-900 text-lg">{candidates.length}</span>
-                    candidates
+        <div className="h-full flex flex-col bg-slate-50/30">
+            {/* Top Bar / Stats */}
+            <div className="p-6 pb-0 flex flex-col gap-6">
+                <div className="flex items-center justify-between">
+                    <div>
+                        <div className="flex items-center gap-2 text-slate-400 mb-1">
+                            <Briefcase size={14} />
+                            <span className="text-xs font-bold uppercase tracking-wider">Hiring Pipeline</span>
+                        </div>
+                        <h1 className="text-2xl font-bold text-slate-900">{job_title}</h1>
+                    </div>
+
+                    <div className="flex items-center gap-3">
+                        <div className="relative">
+                            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                            <input
+                                type="text"
+                                placeholder="Search candidates..."
+                                value={searchQuery}
+                                onChange={(e) => setSearchQuery(e.target.value)}
+                                className="pl-9 pr-4 py-2 bg-white border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 outline-none w-64 transition-all"
+                            />
+                        </div>
+                        <button className="p-2 bg-white border border-slate-200 rounded-xl text-slate-500 hover:bg-slate-50 transition">
+                            <Filter size={18} />
+                        </button>
+                    </div>
                 </div>
-                <div className="flex items-center gap-2 text-slate-500">
-                    <span className="font-bold text-emerald-600 text-lg">
-                        {candidates.filter(c => c.interviews.some(i => i.outcome === 'Passed')).length}
-                    </span>
-                    passed
-                </div>
-                <div className="flex items-center gap-2 text-slate-500">
-                    <span className="font-bold text-indigo-600 text-lg">
-                        {candidates.filter(c => c.interviews.some(i => isUpcoming(i.scheduled_at, i.status))).length}
-                    </span>
-                    upcoming
+
+                <div className="flex gap-4 mb-4">
+                    <div className="bg-white px-5 py-3 rounded-2xl border border-slate-100 shadow-sm flex flex-col">
+                        <span className="text-[10px] font-bold text-slate-400 uppercase">Total Candidates</span>
+                        <span className="text-xl font-bold text-slate-900">{candidates.length}</span>
+                    </div>
+                    <div className="bg-white px-5 py-3 rounded-2xl border border-slate-100 shadow-sm flex flex-col">
+                        <span className="text-[10px] font-bold text-slate-400 uppercase">Stages Active</span>
+                        <span className="text-xl font-bold text-indigo-600">{stages.length}</span>
+                    </div>
+                    <div className="bg-white px-5 py-3 rounded-2xl border border-slate-100 shadow-sm flex flex-col">
+                        <span className="text-[10px] font-bold text-slate-400 uppercase">Upcoming Today</span>
+                        <span className="text-xl font-bold text-emerald-600">
+                            {candidates.reduce((count, c) => count + c.interviews.filter(i => {
+                                const d = new Date(i.scheduled_at);
+                                return d.toDateString() === new Date().toDateString() && i.status === 'Scheduled';
+                            }).length, 0)}
+                        </span>
+                    </div>
                 </div>
             </div>
 
-            {/* Timeline Grid */}
-            <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
-                {/* Header */}
-                <div className="grid border-b border-slate-100" style={{ gridTemplateColumns: `220px repeat(${stages.length}, 1fr)` }}>
-                    <div className="p-4 text-xs font-semibold text-slate-400 uppercase tracking-wider">
-                        Candidate
-                    </div>
-                    {stages.map(stage => (
-                        <div key={stage} className="p-4 text-xs font-semibold text-slate-400 uppercase tracking-wider text-center border-l border-slate-50">
-                            {stage}
-                        </div>
-                    ))}
-                </div>
+            {/* Stage List */}
+            <div className="flex-1 overflow-y-auto px-6 pb-12 space-y-6">
+                {stages.map((stage, sIdx) => {
+                    const isExpanded = expandedStages[stage];
 
-                {/* Rows */}
-                <div className="divide-y divide-slate-50">
-                    {candidates.length === 0 ? (
-                        <div className="p-12 text-center text-slate-300 text-sm">
-                            No candidates in pipeline
-                        </div>
-                    ) : (
-                        candidates.map(candidate => {
-                            const hasToday = candidate.interviews.some(i => isToday(i.scheduled_at) && i.status === 'Scheduled');
+                    // Categorize candidates for this stage
+                    const stageCandidates = filteredCandidates.filter(c =>
+                        c.interviews.some(i => i.stage === stage) || c.current_stage === stage
+                    );
 
-                            return (
-                                <div
-                                    key={candidate.application_id}
-                                    className={`grid transition-colors ${hasToday ? 'bg-indigo-50/40' : 'hover:bg-slate-50/50'}`}
-                                    style={{ gridTemplateColumns: `220px repeat(${stages.length}, 1fr)` }}
-                                >
-                                    {/* Candidate Cell */}
-                                    <div
-                                        className="p-4 flex items-center gap-3 cursor-pointer group"
-                                        onClick={() => onSelectCandidate?.(candidate)}
-                                    >
-                                        <div className="w-9 h-9 rounded-full bg-gradient-to-br from-indigo-100 to-indigo-50 flex items-center justify-center text-indigo-600 font-semibold text-sm">
-                                            {candidate.candidate_name?.charAt(0) || "?"}
-                                        </div>
-                                        <div className="flex-1 min-w-0">
-                                            <div className="font-medium text-slate-800 text-sm truncate flex items-center gap-2">
-                                                {candidate.candidate_name}
-                                                {hasToday && (
-                                                    <span className="px-1.5 py-0.5 text-[10px] font-bold bg-indigo-500 text-white rounded">
-                                                        TODAY
-                                                    </span>
-                                                )}
-                                            </div>
-                                            <div className="text-xs text-slate-400 truncate">
-                                                {candidate.current_stage || "New"}
-                                            </div>
-                                        </div>
-                                        <ChevronRight size={14} className="text-slate-200 group-hover:text-slate-400 transition-colors" />
+                    const done = [];
+                    const scheduled = [];
+                    const next = [];
+
+                    stageCandidates.forEach(c => {
+                        const interviewsForStage = c.interviews.filter(i => i.stage === stage);
+                        if (interviewsForStage.length > 0) {
+                            const latest = interviewsForStage[interviewsForStage.length - 1];
+                            if (latest.status === 'Completed') {
+                                done.push({ candidate: c, interview: latest });
+                            } else if (latest.status === 'Scheduled') {
+                                scheduled.push({ candidate: c, interview: latest });
+                            } else {
+                                next.push(c);
+                            }
+                        } else if (c.current_stage === stage) {
+                            next.push(c);
+                        }
+                    });
+
+                    return (
+                        <div key={stage} className={`bg-white rounded-[2rem] border transition-all duration-300 ${isExpanded ? 'border-indigo-100 shadow-xl shadow-indigo-500/5 ring-1 ring-indigo-500/10' : 'border-slate-100 shadow-sm hover:border-slate-200'}`}>
+                            {/* Stage Header */}
+                            <div
+                                className="px-8 py-5 flex items-center justify-between cursor-pointer"
+                                onClick={() => toggleStage(stage)}
+                            >
+                                <div className="flex items-center gap-4">
+                                    <div className={`w-12 h-12 rounded-full flex items-center justify-center transition-colors ${isExpanded ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-200' : 'bg-slate-100 text-slate-500'}`}>
+                                        <span className="font-bold">{sIdx + 1}</span>
                                     </div>
-
-                                    {/* Stage Cells */}
-                                    {stages.map(stage => {
-                                        const interviews = candidate.interviews.filter(i => i.stage === stage);
-                                        if (interviews.length === 0) {
-                                            return (
-                                                <div key={stage} className="p-4 flex items-center justify-center border-l border-slate-50">
-                                                    <button
-                                                        onClick={() => onScheduleInterview?.({ candidate, stage, jobId })}
-                                                        className="w-8 h-8 rounded-lg border border-dashed border-slate-200 flex items-center justify-center text-slate-300 hover:border-indigo-400 hover:text-indigo-400 hover:bg-indigo-50/50 transition-all"
-                                                    >
-                                                        <Plus size={14} />
-                                                    </button>
-                                                </div>
-                                            );
-                                        }
-                                        // Render clickable cell with interview count
-                                        return (
-                                            <div
-                                                key={stage}
-                                                className="p-4 flex items-center justify-center border-l border-slate-50 cursor-pointer hover:bg-indigo-50/30 transition-colors group"
-                                                onClick={() => setSelectedCell({ candidate, stage, interviews })}
-                                            >
-                                                <div className="relative">
-                                                    {/* Primary status icon */}
-                                                    {(() => {
-                                                        const latestInterview = interviews[interviews.length - 1];
-                                                        const isPassed = latestInterview.status === 'Completed' && latestInterview.outcome === 'Passed';
-                                                        const isFailed = latestInterview.status === 'Completed' && latestInterview.outcome === 'Failed';
-                                                        const isScheduled = latestInterview.status === 'Scheduled';
-                                                        const isPending = latestInterview.status === 'Pending Review';
-                                                        const icon = isPassed ? <CheckCircle size={16} /> : isFailed ? <XCircle size={16} /> : isScheduled ? <Calendar size={16} /> : isPending ? <Clock size={16} /> : null;
-                                                        const bg = isPassed ? 'bg-emerald-100' : isFailed ? 'bg-red-100' : isScheduled ? 'bg-indigo-100' : isPending ? 'bg-amber-100' : 'bg-slate-100';
-                                                        const text = isPassed ? 'text-emerald-600' : isFailed ? 'text-red-600' : isScheduled ? 'text-indigo-600' : isPending ? 'text-amber-600' : 'text-gray-600';
-                                                        return (
-                                                            <div className={`w-8 h-8 rounded-lg ${bg} ${text} flex items-center justify-center group-hover:scale-110 transition-transform`}>
-                                                                {icon}
-                                                            </div>
-                                                        );
-                                                    })()}
-                                                    {/* Count badge for multiple interviews */}
-                                                    {interviews.length > 1 && (
-                                                        <div className="absolute -top-1 -right-1 w-4 h-4 bg-indigo-600 text-white text-[9px] font-bold rounded-full flex items-center justify-center">
-                                                            {interviews.length}
-                                                        </div>
-                                                    )}
-                                                </div>
+                                    <div>
+                                        <h3 className="text-lg font-bold text-slate-900">{stage}</h3>
+                                        <div className="flex items-center gap-4 mt-0.5">
+                                            <div className="flex items-center gap-1.5 px-2 py-0.5 bg-emerald-50 text-emerald-600 rounded-lg text-[10px] font-bold border border-emerald-100">
+                                                <CheckCircle size={10} /> {done.length} DONE
                                             </div>
-                                        );
-                                    })}
+                                            <div className="flex items-center gap-1.5 px-2 py-0.5 bg-indigo-50 text-indigo-600 rounded-lg text-[10px] font-bold border border-indigo-100">
+                                                <Calendar size={10} /> {scheduled.length} SCHEDULED
+                                            </div>
+                                            <div className="flex items-center gap-1.5 px-2 py-0.5 bg-amber-50 text-amber-600 rounded-lg text-[10px] font-bold border border-amber-100">
+                                                <UserPlus size={10} /> {next.length} NEXT
+                                            </div>
+                                        </div>
+                                    </div>
                                 </div>
-                            );
-                        })
-                    )}
-                </div >
-            </div >
 
-            {/* Interview Details Popover */}
-            {selectedCell && (
-                <div
-                    className="fixed inset-0 bg-slate-900/20 backdrop-blur-sm flex items-center justify-center z-50 p-6"
-                    onClick={() => setSelectedCell(null)}
-                >
-                    <div
-                        className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[80vh] overflow-hidden"
-                        onClick={(e) => e.stopPropagation()}
-                    >
-                        {/* Header - Ultra-Minimalistic Clean Design */}
-                        <div className="bg-gradient-to-r from-indigo-50/80 to-indigo-50/40 p-6 border-b border-indigo-100">
-                            <div className="flex items-start justify-between">
-                                <div>
-                                    <h3 className="text-xl font-bold mb-1 text-slate-900">{selectedCell.stage}</h3>
-                                    <p className="text-slate-500 text-sm flex items-center gap-2">
-                                        <User size={14} className="text-indigo-400" />
-                                        {selectedCell.candidate.candidate_name}
-                                    </p>
-                                </div>
-                                <button
-                                    onClick={() => setSelectedCell(null)}
-                                    className="text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg p-2 transition-colors"
-                                >
-                                    <X size={20} />
+                                <button className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all ${isExpanded ? 'bg-slate-50 text-slate-800 rotate-180' : 'text-slate-400 hover:bg-slate-50'}`}>
+                                    <ChevronDown size={20} />
                                 </button>
                             </div>
-                        </div>
 
-                        {/* Interview Cards */}
-                        <div className="p-6 overflow-y-auto max-h-[calc(80vh-140px)] space-y-4">
-                            {selectedCell.interviews.map((interview, idx) => {
-                                const isPassed = interview.status === 'Completed' && interview.outcome === 'Passed';
-                                const isFailed = interview.status === 'Completed' && interview.outcome === 'Failed';
-                                const isScheduled = interview.status === 'Scheduled';
-                                const isPending = interview.status === 'Pending Review';
-
-                                return (
-                                    <div
-                                        key={idx}
-                                        className="border border-slate-200 rounded-xl p-5 bg-white hover:shadow-lg transition-all hover:border-slate-300"
-                                    >
-                                        {/* Interview Header */}
-                                        <div className="flex items-start justify-between mb-4">
-                                            <div className="flex-1">
-                                                <div className="flex items-center gap-2 mb-2">
-                                                    <span className={`px-3 py-1 rounded-full text-xs font-semibold ${isPassed ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' :
-                                                        isFailed ? 'bg-red-50 text-red-700 border border-red-200' :
-                                                            isScheduled ? 'bg-indigo-50 text-indigo-700 border border-indigo-200' :
-                                                                isPending ? 'bg-amber-50 text-amber-700 border border-amber-200' :
-                                                                    'bg-slate-50 text-slate-700 border border-slate-200'
-                                                        }`}>
-                                                        {interview.status}
-                                                    </span>
-                                                    {interview.outcome && (
-                                                        <span className={`px-3 py-1 rounded-full text-xs font-semibold ${isPassed ? 'bg-emerald-600 text-white' : 'bg-red-600 text-white'
-                                                            }`}>
-                                                            {interview.outcome}
-                                                        </span>
-                                                    )}
-                                                </div>
-                                                {interview.scheduled_at && (
-                                                    <div className="text-sm text-slate-600 flex items-center gap-2">
-                                                        <Calendar size={14} />
-                                                        {new Date(interview.scheduled_at).toLocaleString(undefined, {
-                                                            month: 'short',
-                                                            day: 'numeric',
-                                                            year: 'numeric',
-                                                            hour: '2-digit',
-                                                            minute: '2-digit'
-                                                        })}
-                                                    </div>
-                                                )}
+                            {/* Stage Body */}
+                            {isExpanded && (
+                                <div className="px-8 pb-8 pt-2 animate-in slide-in-from-top-4 duration-300">
+                                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                                        {/* DONE LANE */}
+                                        <div className="space-y-4">
+                                            <div className="flex items-center justify-between px-2">
+                                                <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Done ({done.length})</span>
                                             </div>
-
-                                            {/* Rating */}
-                                            {interview.rating && (
-                                                <div className="flex items-center gap-1 bg-white rounded-lg px-3 py-2 shadow-sm">
-                                                    {[...Array(5)].map((_, i) => (
-                                                        <Star
-                                                            key={i}
-                                                            size={14}
-                                                            className={i < interview.rating ? 'fill-amber-400 text-amber-400' : 'text-slate-200'}
-                                                        />
-                                                    ))}
-                                                    <span className="ml-1 text-sm font-semibold text-slate-700">{interview.rating}/5</span>
-                                                </div>
-                                            )}
+                                            <div className="bg-slate-50/50 rounded-2xl p-4 space-y-3 min-h-[120px]">
+                                                {done.length === 0 ? (
+                                                    <div className="h-20 flex items-center justify-center text-slate-300 italic text-xs">No completed reviews</div>
+                                                ) : done.map(({ candidate, interview }) => (
+                                                    <CandidateMiniCard
+                                                        key={candidate.application_id}
+                                                        candidate={candidate}
+                                                        interview={interview}
+                                                        variant="done"
+                                                        onClick={() => onSelectCandidate?.(candidate)}
+                                                    />
+                                                ))}
+                                            </div>
                                         </div>
 
-                                        {/* Interviewer */}
-                                        {interview.interviewer && (
-                                            <div className="mb-3 flex items-center gap-2 text-sm text-slate-600">
-                                                <User size={14} className="text-slate-400" />
-                                                <span className="font-medium">Interviewer:</span>
-                                                <span>{interview.interviewer}</span>
+                                        {/* SCHEDULED LANE */}
+                                        <div className="space-y-4">
+                                            <div className="flex items-center justify-between px-2">
+                                                <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Scheduled ({scheduled.length})</span>
                                             </div>
-                                        )}
+                                            <div className="bg-indigo-50/30 rounded-2xl p-4 space-y-3 min-h-[120px]">
+                                                {scheduled.length === 0 ? (
+                                                    <div className="h-20 flex items-center justify-center text-slate-300 italic text-xs">No upcoming interviews</div>
+                                                ) : scheduled.map(({ candidate, interview }) => (
+                                                    <CandidateMiniCard
+                                                        key={candidate.application_id}
+                                                        candidate={candidate}
+                                                        interview={interview}
+                                                        variant="scheduled"
+                                                        onClick={() => onSelectCandidate?.(candidate)}
+                                                    />
+                                                ))}
+                                            </div>
+                                        </div>
 
-                                        {/* Feedback */}
-                                        {interview.feedback && (
-                                            <div className="bg-white rounded-lg p-4 border border-slate-100">
-                                                <div className="flex items-center gap-2 mb-2 text-sm font-semibold text-slate-700">
-                                                    <MessageSquare size={14} className="text-slate-400" />
-                                                    Feedback
-                                                </div>
-                                                <p className="text-sm text-slate-600 leading-relaxed whitespace-pre-wrap">
-                                                    {interview.feedback}
-                                                </p>
+                                        {/* NEXT LANE */}
+                                        <div className="space-y-4">
+                                            <div className="flex items-center justify-between px-2">
+                                                <span className="text-xs font-bold text-slate-400 uppercase tracking-widest text-amber-600/70">Next Step ({next.length})</span>
                                             </div>
-                                        )}
-
-                                        {/* No feedback message */}
-                                        {!interview.feedback && interview.status === 'Completed' && (
-                                            <div className="text-sm text-slate-400 italic">
-                                                No feedback provided
+                                            <div className="bg-amber-50/30 rounded-2xl p-4 space-y-3 min-h-[120px] border border-dashed border-amber-200">
+                                                {next.length === 0 ? (
+                                                    <div className="h-20 flex items-center justify-center text-slate-300 italic text-xs">All candidates scheduled</div>
+                                                ) : next.map((candidate) => (
+                                                    <CandidateMiniCard
+                                                        key={candidate.application_id}
+                                                        candidate={candidate}
+                                                        variant="next"
+                                                        onAction={() => onScheduleInterview?.({ candidate, stage, jobId })}
+                                                        onClick={() => onSelectCandidate?.(candidate)}
+                                                    />
+                                                ))}
                                             </div>
-                                        )}
+                                        </div>
                                     </div>
-                                );
-                            })}
+                                </div>
+                            )}
                         </div>
+                    );
+                })}
+            </div>
 
-                        {/* Footer Actions */}
-                        <div className="border-t border-slate-100 p-4 bg-slate-50 flex gap-3 justify-end">
-                            <button
-                                onClick={() => {
-                                    onSelectCandidate?.(selectedCell.candidate);
-                                    setSelectedCell(null);
-                                }}
-                                className="px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-200 rounded-lg transition-colors"
-                            >
-                                View Candidate
-                            </button>
-                            <button
-                                onClick={() => {
-                                    onScheduleInterview?.({
-                                        candidate: selectedCell.candidate,
-                                        stage: selectedCell.stage,
-                                        jobId
-                                    });
-                                    setSelectedCell(null);
-                                }}
-                                className="px-4 py-2 text-sm font-medium bg-indigo-600 text-white hover:bg-indigo-700 rounded-lg transition-colors flex items-center gap-2"
-                            >
-                                <Plus size={16} />
-                                Schedule New Interview
-                            </button>
-                        </div>
-                    </div>
+            {/* Legend / Info */}
+            <div className="p-4 bg-white border-t border-slate-100 flex items-center justify-center gap-8">
+                <div className="flex items-center gap-2 text-xs font-medium text-slate-400">
+                    <div className="w-2 h-2 rounded-full bg-emerald-500"></div> Passed Review
                 </div>
-            )}
+                <div className="flex items-center gap-2 text-xs font-medium text-slate-400">
+                    <div className="w-2 h-2 rounded-full bg-indigo-500"></div> Properly Scheduled
+                </div>
+                <div className="flex items-center gap-2 text-xs font-medium text-slate-400">
+                    <div className="w-2 h-2 rounded-full bg-amber-500"></div> Awaiting Action
+                </div>
+                <div className="ml-auto flex items-center gap-2 text-[10px] font-bold text-indigo-600 uppercase">
+                    <Sparkles size={12} /> AI-Powered Flow
+                </div>
+            </div>
+        </div>
+    );
+};
 
-            {/* Minimal Legend */}
-            < div className="mt-4 flex items-center gap-6 text-[10px] text-slate-400" >
-                <div className="flex items-center gap-1.5">
-                    <CheckCircle size={12} className="text-emerald-500" /> Passed
+const CandidateMiniCard = ({ candidate, interview, variant, onClick, onAction }) => {
+    return (
+        <div
+            onClick={onClick}
+            className={`group bg-white p-3 rounded-xl border border-slate-200 shadow-sm hover:shadow-md hover:border-indigo-200 transition-all cursor-pointer flex items-center justify-between`}
+        >
+            <div className="flex items-center gap-3 overflow-hidden">
+                <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 font-bold text-xs ${variant === 'done' ? 'bg-emerald-50 text-emerald-600' :
+                    variant === 'scheduled' ? 'bg-indigo-50 text-indigo-600' : 'bg-amber-50 text-amber-600'
+                    }`}>
+                    {candidate.candidate_name?.charAt(0) || "?"}
                 </div>
-                <div className="flex items-center gap-1.5">
-                    <XCircle size={12} className="text-red-400" /> Failed
+                <div className="min-w-0">
+                    <h4 className="text-sm font-bold text-slate-800 truncate">{candidate.candidate_name}</h4>
+                    {variant === 'scheduled' && interview?.scheduled_at && (
+                        <p className="text-[10px] font-medium text-indigo-500 flex items-center gap-1">
+                            <Clock size={10} /> {new Date(interview.scheduled_at).toLocaleDateString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                        </p>
+                    )}
+                    {variant === 'done' && interview?.outcome && (
+                        <p className={`text-[10px] font-bold flex items-center gap-1 ${interview.outcome === 'Passed' ? 'text-emerald-600' : 'text-red-500'}`}>
+                            {interview.outcome === 'Passed' ? <CheckCircle size={10} /> : <AlertCircle size={10} />} {interview.outcome}
+                        </p>
+                    )}
+                    {variant === 'next' && (
+                        <p className="text-[10px] text-amber-600/70 font-medium">Needs Attention</p>
+                    )}
                 </div>
-                <div className="flex items-center gap-1.5">
-                    <Calendar size={12} className="text-indigo-500" /> Scheduled
-                </div>
-                <div className="flex items-center gap-1.5">
-                    <Clock size={12} className="text-amber-500" /> Pending
-                </div>
-            </div >
-        </div >
+            </div>
+
+            <div className="flex items-center gap-1">
+                {variant === 'next' && (
+                    <button
+                        onClick={(e) => { e.stopPropagation(); onAction?.(); }}
+                        className="p-1 px-2.5 bg-indigo-600 text-white rounded-lg text-[10px] font-bold hover:bg-indigo-700 transition"
+                    >
+                        Schedule
+                    </button>
+                )}
+                <ChevronRight size={14} className="text-slate-300 group-hover:text-indigo-400 group-hover:translate-x-0.5 transition-all" />
+            </div>
+        </div>
     );
 };
 

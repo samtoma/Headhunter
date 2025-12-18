@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session, joinedload
 from typing import List, Optional
 from pydantic import BaseModel, ConfigDict
 from datetime import datetime
+import json
 from app.core.database import get_db
 from app.models.models import Interview, Application, User
 from app.api.deps import get_current_user
@@ -449,8 +450,17 @@ def get_interview_timeline(
         if job.department != current_user.department:
             raise HTTPException(status_code=403, detail="You can only access jobs in your department")
     
-    # Predefined interview stages (matching frontend Kanban interview columns)
-    stages = ["Screening", "Technical", "Culture", "Final"]
+    # Fetch company to get dynamic stages
+    company = job.company
+    stages = []
+    if company and company.interview_stages:
+        try:
+            company_stages_data = json.loads(company.interview_stages)
+            stages = [s["name"] for s in company_stages_data]
+        except Exception:
+            stages = ["Screening", "Technical", "Culture", "Final"]
+    else:
+        stages = ["Screening", "Technical", "Culture", "Final"]
     
     # Fetch all applications for this job with their interviews
     applications = db.query(Application)\
@@ -472,7 +482,6 @@ def get_interview_timeline(
         
         # Get all interviews for this application
         interview_items = []
-        current_stage = None
         
         for interview in app.interviews:
             # Get interviewer name
@@ -493,18 +502,12 @@ def get_interview_timeline(
                 feedback=interview.feedback,
                 rating=interview.rating
             ))
-            
-            # Determine current stage (last non-completed or last interview)
-            if interview.status != "Completed" and not current_stage:
-                current_stage = interview.step
-            elif interview.status == "Completed":
-                current_stage = interview.step  # Keep updating for last completed
         
         candidates.append(CandidateTimeline(
             candidate_id=app.cv_id if app.cv_id else 0,
             candidate_name=candidate_name,
             application_id=app.id,
-            current_stage=current_stage,
+            current_stage=app.status, # Use Application status directly for flow logic
             interviews=sorted(interview_items, key=lambda x: stages.index(x.stage) if x.stage in stages else 999)
         ))
     
@@ -557,6 +560,9 @@ def update_interview(
         interview.step = data.step
     if data.outcome is not None:
         interview.outcome = data.outcome
+        # Auto-complete if outcome is provided
+        if data.outcome in ["Passed", "Failed"] and interview.status == "Scheduled":
+            interview.status = "Completed"
     if data.scheduled_at is not None:
         interview.scheduled_at = data.scheduled_at
     if data.status is not None:

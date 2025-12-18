@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react';
 import {
     Calendar, Clock, User, ChevronDown, ChevronUp, MessageSquare,
-    Star, Plus, RefreshCw, ArrowRight
+    Star, Plus, RefreshCw, ArrowRight, Globe
 } from 'lucide-react';
 
 /**
@@ -11,7 +11,8 @@ import {
 const UnifiedActivityFeed = ({
     interviews = [],
     timeline = [],
-    onAddInterview
+    onAddInterview,
+    onScheduleInterview
 }) => {
     const [expandedId, setExpandedId] = useState(null);
     const [showAddForm, setShowAddForm] = useState(false);
@@ -92,7 +93,10 @@ const UnifiedActivityFeed = ({
         }
     };
 
-    const getActivityIcon = (action) => {
+    const getActivityIcon = (action, details) => {
+        if (action === 'added_to_pipeline' && details?.source === 'landing_page') {
+            return <Globe size={12} className="text-indigo-500" />;
+        }
         switch (action) {
             case 'status_change': return <ArrowRight size={12} />;
             case 'note_added': return <MessageSquare size={12} />;
@@ -104,24 +108,33 @@ const UnifiedActivityFeed = ({
     return (
         <div className="space-y-3">
             {/* Header with Add Button */}
-            <div className="flex justify-between items-center">
-                <h4 className="text-xs font-bold text-slate-900 uppercase flex items-center gap-2">
+            <div className="flex justify-between items-center mb-1">
+                <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-2">
                     <Calendar size={14} /> Activity & Interviews
                 </h4>
-                <button
-                    onClick={() => setShowAddForm(!showAddForm)}
-                    className="flex items-center gap-1 px-2 py-1 text-xs font-semibold text-indigo-600 hover:bg-indigo-50 rounded-lg transition"
-                >
-                    <Plus size={14} /> Log Interview
-                </button>
+                <div className="flex items-center gap-1">
+                    {onScheduleInterview && (
+                        <button
+                            onClick={onScheduleInterview}
+                            className="flex items-center gap-1.5 px-2 py-1 text-xs font-bold text-indigo-600 hover:bg-indigo-50 rounded-lg transition"
+                        >
+                            <Calendar size={14} /> Schedule
+                        </button>
+                    )}
+                    <button
+                        onClick={() => setShowAddForm(!showAddForm)}
+                        className="flex items-center gap-1.5 px-2 py-1 text-xs font-bold text-indigo-600 hover:bg-indigo-50 rounded-lg transition"
+                    >
+                        <Plus size={14} /> Log Interview
+                    </button>
+                </div>
             </div>
 
             {/* Add Interview Form (collapsible) */}
             {showAddForm && onAddInterview && (
-                <div className="bg-white p-4 rounded-xl border-2 border-indigo-200 shadow-lg animate-in fade-in slide-in-from-top-2">
-                    {/* The form will be passed in as a render prop or handled externally */}
-                    <div className="text-sm text-slate-600">
-                        Use the form below to log a new interview.
+                <div className="bg-white p-4 rounded-xl border-2 border-indigo-100 shadow-sm animate-in fade-in slide-in-from-top-2 mb-3">
+                    <div className="text-sm text-slate-500 mb-2">
+                        Log a new interview.
                     </div>
                     {onAddInterview(setShowAddForm)}
                 </div>
@@ -129,10 +142,9 @@ const UnifiedActivityFeed = ({
 
             {/* No activity state */}
             {mergedFeed.length === 0 && (
-                <div className="text-center py-8 text-slate-400">
+                <div className="text-center py-8 text-slate-300">
                     <MessageSquare size={24} className="mx-auto mb-2 opacity-50" />
                     <div className="text-sm font-medium">No activity yet</div>
-                    <div className="text-xs">Schedule an interview to get started</div>
                 </div>
             )}
 
@@ -150,33 +162,27 @@ const UnifiedActivityFeed = ({
                                 className="p-3 cursor-pointer flex items-center justify-between hover:bg-slate-50/50 transition"
                                 onClick={() => setExpandedId(expandedId === item.id ? null : item.id)}
                             >
-                                <div className="flex items-center gap-3">
+                                <div className="flex items-center gap-3 min-w-0 flex-1">
                                     {/* Status Indicator */}
-                                    <div className={`w-2 h-10 rounded-full ${getStatusColor(item.data.status)}`}></div>
+                                    <div className={`w-1.5 h-10 rounded-full shrink-0 ${getStatusColor(item.data.status)}`}></div>
 
                                     {/* Main Info */}
-                                    <div>
-                                        <div className="flex items-center gap-2">
-                                            <span className="font-bold text-slate-800">{item.data.step}</span>
-                                            <span className={`text-xs px-2 py-0.5 rounded-full border font-semibold ${getOutcomeColor(item.data.outcome)}`}>
+                                    <div className="min-w-0 flex-1">
+                                        <div className="flex items-center gap-2 flex-wrap">
+                                            <span className="font-bold text-slate-800 text-sm truncate">{item.data.step}</span>
+                                            <span className={`text-[10px] px-2 py-0.5 rounded-full border font-bold ${getOutcomeColor(item.data.outcome)}`}>
                                                 {item.data.outcome || 'Pending'}
                                             </span>
                                         </div>
-                                        <div className="flex items-center gap-3 text-xs text-slate-500 mt-0.5">
-                                            <span className="flex items-center gap-1">
+                                        <div className="flex items-center gap-3 text-xs text-slate-500 mt-1 truncate">
+                                            <span className="flex items-center gap-1 whitespace-nowrap">
                                                 <Calendar size={10} />
                                                 {formatDate(item.data.scheduled_at)}
                                             </span>
-                                            {item.data.scheduled_at && (
-                                                <span className="flex items-center gap-1">
-                                                    <Clock size={10} />
-                                                    {formatTime(item.data.scheduled_at)}
-                                                </span>
-                                            )}
                                             {item.data.interviewer_name && (
-                                                <span className="flex items-center gap-1">
+                                                <span className="flex items-center gap-1 truncate">
                                                     <User size={10} />
-                                                    {item.data.interviewer_name}
+                                                    <span className="truncate max-w-[120px]">{item.data.interviewer_name}</span>
                                                 </span>
                                             )}
                                         </div>
@@ -184,7 +190,7 @@ const UnifiedActivityFeed = ({
                                 </div>
 
                                 {/* Rating & Expand */}
-                                <div className="flex items-center gap-2">
+                                <div className="flex items-center gap-2 shrink-0 ml-2">
                                     {item.data.rating && (
                                         <div className="flex items-center gap-1 text-amber-500">
                                             <Star size={14} fill="currentColor" />
@@ -200,14 +206,14 @@ const UnifiedActivityFeed = ({
                                 <div className="px-4 pb-4 pt-2 border-t border-slate-100 bg-slate-50/30 animate-in fade-in slide-in-from-top-1">
                                     {item.data.feedback ? (
                                         <div>
-                                            <div className="text-xs font-bold text-slate-500 uppercase mb-1">Feedback</div>
-                                            <div className="text-sm text-slate-700 bg-white p-3 rounded-lg border border-slate-100">
+                                            <div className="text-[10px] font-bold text-slate-500 uppercase mb-1">Feedback</div>
+                                            <div className="text-sm text-slate-600 bg-white p-3 rounded-lg border border-slate-100 leading-relaxed">
                                                 {item.data.feedback}
                                             </div>
                                         </div>
                                     ) : (
                                         <div className="text-sm text-slate-400 italic">
-                                            No feedback recorded yet.
+                                            No feedback recorded.
                                         </div>
                                     )}
 
@@ -222,15 +228,15 @@ const UnifiedActivityFeed = ({
                                                     <div className="mt-3 grid grid-cols-2 gap-2">
                                                         {Object.entries(custom).map(([key, value]) => (
                                                             <div key={key} className="bg-white px-2 py-1.5 rounded border border-slate-100">
-                                                                <div className="text-[10px] font-bold text-slate-400 uppercase">{key}</div>
-                                                                <div className="text-sm text-slate-700">{value}</div>
+                                                                <div className="text-[10px] font-bold text-slate-400 uppercase truncate">{key}</div>
+                                                                <div className="text-xs text-slate-600 truncate">{value}</div>
                                                             </div>
                                                         ))}
                                                     </div>
                                                 );
                                             }
                                         } catch {
-                                            // JSON parse error - ignore invalid custom_data
+                                            // ignore
                                         }
                                         return null;
                                     })()}
@@ -241,43 +247,41 @@ const UnifiedActivityFeed = ({
                         // ACTIVITY ITEM - Compact
                         <div
                             key={item.id}
-                            className="flex items-start gap-3 py-2 px-3 rounded-lg hover:bg-white transition"
+                            className="flex items-start gap-3 py-2 px-2 rounded-lg hover:bg-white transition"
                         >
-                            <div className="w-6 h-6 rounded-full bg-slate-100 flex items-center justify-center text-slate-400 shrink-0 mt-0.5">
-                                {getActivityIcon(item.data.action)}
+                            <div className="w-6 h-6 rounded-full bg-slate-50 flex items-center justify-center text-slate-300 shrink-0 mt-0.5">
+                                {getActivityIcon(item.data.action, item.data.details)}
                             </div>
                             <div className="flex-1 min-w-0">
-                                <div className="text-sm text-slate-700">
-                                    <span className="font-semibold capitalize">{item.data.action?.replace(/_/g, ' ')}</span>
+                                <div className="text-xs text-slate-600 leading-snug">
+                                    <span className="font-bold text-slate-800 capitalize">{item.data.action?.replace(/_/g, ' ')}</span>
                                     {/* Added to pipeline source */}
                                     {item.data.action === 'added_to_pipeline' && item.data.details?.source === 'landing_page' && (
-                                        <span className="text-indigo-500 font-medium"> via Landing Page</span>
+                                        <span className="text-indigo-600 font-bold"> · Landing Page</span>
                                     )}
                                     {item.data.action === 'added_to_pipeline' && item.data.details?.job_title && (
-                                        <span className="text-slate-500"> · {item.data.details.job_title}</span>
+                                        <span className="text-slate-400"> · {item.data.details.job_title}</span>
                                     )}
                                     {/* Status transition */}
                                     {item.data.details?.old_status && item.data.details?.new_status && (
-                                        <span className="text-slate-500">
-                                            {' '}· {item.data.details.old_status} → {item.data.details.new_status}
-                                        </span>
-                                    )}
-                                    {/* Rating change */}
-                                    {item.data.details?.new_rating && (
-                                        <span className="text-amber-500">
-                                            {' '}· Rating: {item.data.details.old_rating || '–'} → {item.data.details.new_rating}
+                                        <span className="text-slate-400">
+                                            {' '} {item.data.details.old_status} → {item.data.details.new_status}
                                         </span>
                                     )}
                                 </div>
                                 {/* Notes if present */}
                                 {item.data.details?.notes && (
-                                    <div className="text-xs text-slate-500 bg-slate-50 rounded px-2 py-1 mt-1 line-clamp-2 italic">
+                                    <div className="text-xs text-slate-500 bg-slate-50/50 rounded px-2 py-1 mt-1 border-l-2 border-slate-200 italic line-clamp-2">
                                         &quot;{item.data.details.notes}&quot;
                                     </div>
                                 )}
-                                <div className="text-xs text-slate-400 mt-0.5">
-                                    {new Date(item.data.created_at).toLocaleString()}
-                                    {item.data.user_name && <> · by <span className="text-slate-500">{item.data.user_name}</span></>}
+                                <div className="text-[10px] text-slate-400 mt-1 flex items-center gap-1.5">
+                                    <span>{new Date(item.data.created_at).toLocaleDateString([], { month: 'short', day: 'numeric' })}</span>
+                                    {item.data.user_name && (
+                                        <span className="truncate">
+                                            · <span className="text-slate-500 font-medium truncate max-w-[120px] inline-block align-bottom">{item.data.user_name}</span>
+                                        </span>
+                                    )}
                                 </div>
                             </div>
                         </div>
