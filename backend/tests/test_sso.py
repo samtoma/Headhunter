@@ -15,6 +15,8 @@ def test_microsoft_callback_new_user_new_company(client: TestClient, db: Session
     mock_user = AsyncMock()
     mock_user.email = "newadmin@newcorp.com"
     mock_user.id = "ms_123"
+    mock_user.display_name = "New Admin"
+    mock_user.picture = None
     
     with patch("app.api.v1.sso.sso.verify_and_process", new_callable=AsyncMock) as mock_verify:
         mock_verify.return_value = mock_user
@@ -43,6 +45,8 @@ def test_microsoft_callback_new_user_existing_company(client: TestClient, db: Se
     mock_user = AsyncMock()
     mock_user.email = "recruiter@existing.com"
     mock_user.id = "ms_456"
+    mock_user.display_name = "Recruiter User"
+    mock_user.picture = None
     
     with patch("app.api.v1.sso.sso.verify_and_process", new_callable=AsyncMock) as mock_verify:
         mock_verify.return_value = mock_user
@@ -70,6 +74,8 @@ def test_microsoft_callback_existing_user(client: TestClient, db: Session):
     mock_user = AsyncMock()
     mock_user.email = "user@test.com"
     mock_user.id = "ms_789"
+    mock_user.display_name = "Test User"
+    mock_user.picture = None
     
     with patch("app.api.v1.sso.sso.verify_and_process", new_callable=AsyncMock) as mock_verify:
         mock_verify.return_value = mock_user

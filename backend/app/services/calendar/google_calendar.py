@@ -11,8 +11,10 @@ class GoogleCalendarProvider(CalendarProvider):
     def __init__(self):
         self.client_id = os.getenv("GOOGLE_CLIENT_ID")
         self.client_secret = os.getenv("GOOGLE_CLIENT_SECRET")
-        # Ensure regex match or exact match in Google Console
-        self.redirect_uri = os.getenv("GOOGLE_REDIRECT_URI", "http://localhost:5173/settings/calendar/callback")
+        # Derive redirect URI from FRONTEND_URL for dynamic domain support
+        # Falls back to explicit GOOGLE_REDIRECT_URI if set
+        frontend_url = os.getenv("FRONTEND_URL", "http://localhost:30004")
+        self.redirect_uri = os.getenv("GOOGLE_REDIRECT_URI", f"{frontend_url}/settings/calendar/callback")
         
         # Scopes: Read/Write events
         self.scopes = ['https://www.googleapis.com/auth/calendar']
@@ -53,9 +55,18 @@ class GoogleCalendarProvider(CalendarProvider):
         if not self.client_id or not self.client_secret:
             raise ValueError("GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET must be set")
 
+        # Google may return additional scopes (profile, email, openid) even if we only
+        # requested calendar. We need to include all possible scopes to avoid mismatch errors.
+        all_possible_scopes = [
+            'https://www.googleapis.com/auth/calendar',
+            'https://www.googleapis.com/auth/userinfo.profile',
+            'https://www.googleapis.com/auth/userinfo.email',
+            'openid'
+        ]
+        
         flow = Flow.from_client_config(
             self._get_client_config(),
-            scopes=self.scopes
+            scopes=all_possible_scopes
         )
         flow.redirect_uri = self.redirect_uri
         
