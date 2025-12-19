@@ -195,12 +195,15 @@ Headhunter AI is built with a "Security First" mindset, ensuring data privacy an
 * **Ghost Buttons:** Minimalistic, distraction-free actions for AI features.
 * **Accessibility:** High-contrast text and clear focus states.
 
-### 15. 📅 Calendar Integration (New in v1.12)
+### 15. 📅 Calendar & Auto-Scheduling
 
-* **Two-Way Sync:** Connect Google Calendar and Microsoft Outlook/365.
+* **Two-Way Sync:** Real-time synchronization with Google Calendar and Outlook/Microsoft 365.
+* **Auto-Invitations:** Automatically sends professional calendar invites with CV attachments to interviewers immediately upon scheduling.
+* **Smart Cancellations:** Automatically cancels calendar events and notifies all participants when an interview is cancelled.
+* **Organizer Tracking:** The system acts as the organizer, tracking accept/decline statuses from interviewers.
 * **Smart Availability:** Automatically detect free slots for interview scheduling.
 * **Unified View:** View all scheduled interviews and recruiter availability in one place.
-* **Secure Tokens:** OAuth2 tokens are stored with AES-256 encryption.
+* **Secure Tokens:** OAuth2 tokens are stored securely with AES-256 encryption.
 
 ---
 
@@ -500,49 +503,41 @@ The system is a fully functional, enterprise-grade Applicant Tracking System wit
 ---
 
 ### 🚀 v2.0 Roadmap - Intelligent Recruitment Platform
-
+>
 > **Full Details:** See [ROADMAP_V2.md](docs/wiki/ROADMAP_V2.md) | **Backlog:** See [BACKLOG_V2.md](docs/wiki/BACKLOG_V2.md)
 
-#### Phase 1: Foundation (Weeks 1-4)
+| Phase | Focus | Key Features | Status |
+|-------|-------|--------------|--------|
+| **1** | **Foundation** | ✅ Google Sign-In<br>✅ Audit Infrastructure<br>✅ RBAC Foundations | **Completed** |
+| **2** | **Calendar & Automation** | ✅ Google/Outlook Sync<br>✅ Auto Interview Invitations<br>✅ Cancellation Handling | **Completed** |
+| **3** | **Interview Experience** | 🔲 Visual Timeline<br>🔲 Enhanced Scorecards<br>� Pipeline-Interview Merge | **Planned (Next)** |
+| **4** | **Intelligence** | 🔲 GraphRAG Knowledge Graph<br>🔲 Skills Matrix<br>� Semantic Search | **Planned** |
+| **5** | **Admin & Analytics** | 🔲 Advanced Dashboard<br>🔲 Real-time Activity Feed | **Planned** |
 
-| Feature | Description | Priority |
-|---------|-------------|----------|
-| **Google Sign-In** | OAuth 2.0 authentication with Google accounts | 🔴 High |
-| **Audit Infrastructure** | Comprehensive action logging for admin dashboard | 🔴 High |
+---
 
-#### Phase 2: Calendar & Automation (Weeks 5-8)
+### 🔮 v3.0 Roadmap - Enterprise Storage & Compliance
+>
+> **Full Details:** See [ROADMAP_V3.md](docs/wiki/ROADMAP_V3.md)
 
-| Feature | Description | Priority |
-|---------|-------------|----------|
-| **Google Calendar Integration** | Two-way sync with Google Calendar | 🔴 High |
-| **Microsoft Calendar Integration** | Two-way sync with Outlook/365 | 🔴 High |
-| **Auto Interview Invitations** | Automatic calendar invites to interviewer (mandatory), hiring manager, recruiter, and admin (optional) | 🔴 High |
+This major version focuses on migrating to cloud-native storage and achieving full GDPR compliance.
 
-#### Phase 3: Interview Experience (Weeks 9-12)
+#### 1. ☁️ File Storage Migration
 
-| Feature | Description | Priority |
-|---------|-------------|----------|
-| **Interview Redesign** | Complete visual timeline with enhanced feedback and scorecard system | 🔴 High |
-| **Pipeline-Interview Merge** | Unified Kanban view where interview stages ARE pipeline columns | 🔴 High |
-| **Structured Scorecards** | Competency-based ratings, pros/cons, recommendations | 🟡 Medium |
+Transition from local filesystem to Cloud Object Storage (S3/R2) for enterprise scalability.
 
-#### Phase 4: Intelligence (Weeks 13-16)
+* [ ] Create storage abstraction layer
+* [ ] Implement AWS S3 / Cloudflare R2 adapter
+* [ ] Secure presigned URLs for uploads/downloads
 
-| Feature | Description | Priority |
-|---------|-------------|----------|
-| **GraphRAG Candidate Map** | Knowledge graph mapping candidates, skills, projects, and roles | 🟡 Medium |
-| **Skills Matrix** | Visual comparison of candidate skills vs. job requirements | 🟡 Medium |
-| **Visual Knowledge Graph** | Interactive D3.js visualization for exploring candidate networks | 🟡 Medium |
-| **Semantic Search** | Natural language queries (e.g., "Find React experts with AWS experience") | 🟡 Medium |
-| **Role-Skill Mapping** | Define skill requirements for Project Manager, Product Manager, etc. | 🟡 Medium |
+#### 2. 🔐 GDPR Compliance Suite
 
-#### Phase 5: Admin & Analytics (Weeks 17-20)
+Comprehensive data privacy tools for EU compliance.
 
-| Feature | Description | Priority |
-|---------|-------------|----------|
-| **Advanced Admin Dashboard** | Real-time activity feed, platform metrics, company breakdown | 🟡 Medium |
-| **Complete Audit Logs** | Searchable, exportable logs of every action across all companies | 🟡 Medium |
-| **Advanced Analytics** | Time-to-hire, source tracking, custom report builder | 🟢 Low |
+* [ ] **Consent Management:** Explicit opt-in tracking
+* [ ] **Data Export API:** "Download My Data" for candidates
+* [ ] **Right to Erasure:** Hard-delete workflows
+* [ ] **Retention Policies:** Automated data purging rules
 
 ---
 
