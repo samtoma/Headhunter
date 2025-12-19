@@ -11,7 +11,6 @@ import ForgotPassword from './components/auth/ForgotPassword';
 import ResetPassword from './components/auth/ResetPassword';
 
 import Pipeline from './pages/Pipeline';
-import Settings from './pages/Settings';
 import SuperAdminDashboard from './components/dashboard/SuperAdminDashboard';
 import Team from './pages/Team';
 import InterviewerDashboard from './pages/InterviewerDashboard';
@@ -24,6 +23,13 @@ import Timeline from './pages/Timeline';
 import PublicJobPage from './pages/PublicJobPage';
 import Sidebar from './components/layout/Sidebar';
 import ErrorBoundary from './components/ErrorBoundary';
+
+// Settings Components
+import SettingsLayout from './components/layout/SettingsLayout';
+import GeneralSettings from './components/settings/GeneralSettings';
+import WorkflowSettings from './components/settings/WorkflowSettings';
+import CompanyProfile from './components/settings/CompanyProfile';
+import CalendarSettings from './components/settings/CalendarSettings';
 import React, { useState } from 'react';
 
 // Protected Route Wrapper
@@ -140,23 +146,27 @@ const AppRoutes = () => {
             <Route path="/settings" element={
                 <ProtectedRoute>
                     <AppLayout>
-                        <Settings />
+                        <SettingsLayout />
                     </AppLayout>
                 </ProtectedRoute>
-            } />
+            }>
+                <Route index element={<Navigate to="general" replace />} />
+                <Route path="general" element={<GeneralSettings />} />
+                <Route path="profile" element={<CompanyProfile />} />
+                <Route path="workflow" element={<WorkflowSettings />} />
+                <Route path="team" element={<Team />} />
+                <Route path="departments" element={<Departments />} />
+                <Route path="calendar" element={<CalendarSettings />} />
+            </Route>
+
+            {/* Redirects for legacy routes */}
+            <Route path="/team" element={<Navigate to="/settings/team" replace />} />
+            <Route path="/departments" element={<Navigate to="/settings/departments" replace />} />
 
             <Route path="/timeline" element={
                 <ProtectedRoute>
                     <AppLayout>
                         <Timeline />
-                    </AppLayout>
-                </ProtectedRoute>
-            } />
-
-            <Route path="/team" element={
-                <ProtectedRoute>
-                    <AppLayout>
-                        <Team />
                     </AppLayout>
                 </ProtectedRoute>
             } />
@@ -195,13 +205,6 @@ const AppRoutes = () => {
                 </ProtectedRoute>
             } />
 
-            <Route path="/departments" element={
-                <ProtectedRoute>
-                    <AppLayout>
-                        <Departments />
-                    </AppLayout>
-                </ProtectedRoute>
-            } />
         </Routes>
     );
 };

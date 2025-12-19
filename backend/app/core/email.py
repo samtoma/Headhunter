@@ -56,10 +56,16 @@ async def send_interview_notification(
     job_title: str,
     interview_stage: str,
     scheduled_at: str,
-    scheduled_by: str
+    scheduled_by: str,
+    candidate_email: str = None,
+    recruiter_email: str = None,
+    department_manager_email: str = None,
+    scheduler_name: str = None,
+    cv_path: str = None,
+    is_cancellation: bool = False
 ):
     """
-    Sends an email notification to an interviewer when an interview is scheduled.
+    Sends an email notification to an interviewer (and others) when an interview is scheduled or canceled.
     Includes an ICS calendar attachment for universal calendar support.
     """
     import uuid
@@ -67,6 +73,14 @@ async def send_interview_notification(
     
     frontend_url = os.getenv("FRONTEND_URL", "http://localhost:30004")
     dashboard_url = f"{frontend_url}/interviews"
+    
+    # Determine Status and Method
+    ics_method = "CANCEL" if is_cancellation else "REQUEST"
+    ics_status = "CANCELLED" if is_cancellation else "CONFIRMED"
+    email_subject_prefix = "Canceled: " if is_cancellation else "Interview Scheduled: "
+    header_color = "#EF4444" if is_cancellation else "#4F46E5" # Red for cancel, Indigo for schedule
+    header_text = "🚫 Interview Canceled" if is_cancellation else "📅 New Interview Scheduled"
+    intro_text = "The following interview has been <b>CANCELED</b>." if is_cancellation else "You have been assigned to conduct an interview. A calendar invitation is attached."
     
     # Parse the scheduled time
     try:
@@ -81,28 +95,45 @@ async def send_interview_notification(
         dt_start = None
         dt_end = None
     
-    # Generate ICS calendar content (kept for future use when attachment support is added)
-    _ = None  # ICS content generation placeholder
+    # Generate ICS calendar content
+    ics_path = None
     if dt_start and dt_end:
         event_uid = str(uuid.uuid4())
-        # ics_content generation logic (unused)
-        _ = f"""BEGIN:VCALENDAR
+        
+        # Build Attendees List
+        attendees = ""
+        # Mandatory: Interviewer (Now added as attendee since Scheduler is Organizer)
+        attendees += f"ATTENDEE;CN=\"{interviewer_name}\";ROLE=REQ-PARTICIPANT;PARTSTAT=NEEDS-ACTION;RSVP=TRUE:mailto:{interviewer_email}\n"
+        # Mandatory: Candidate
+        if candidate_email:
+             attendees += f"ATTENDEE;CN=\"{candidate_name}\";ROLE=REQ-PARTICIPANT;PARTSTAT=NEEDS-ACTION;RSVP=TRUE:mailto:{candidate_email}\n"
+        # Optional: Recruiter
+        if recruiter_email:
+             attendees += f"ATTENDEE;CN=\"Recruiter\";ROLE=OPT-PARTICIPANT;PARTSTAT=NEEDS-ACTION;RSVP=TRUE:mailto:{recruiter_email}\n"
+        # Optional: Department Manager
+        if department_manager_email:
+             attendees += f"ATTENDEE;CN=\"Department Manager\";ROLE=OPT-PARTICIPANT;PARTSTAT=NEEDS-ACTION;RSVP=TRUE:mailto:{department_manager_email}\n"
+
+        # Organizer is the person who created the interview
+        organizer_cn = scheduler_name or scheduled_by
+        organizer_email = scheduled_by
+
+        ics_content = f"""BEGIN:VCALENDAR
 VERSION:2.0
 PRODID:-//Headhunter ATS//Interview Scheduler//EN
 CALSCALE:GREGORIAN
-METHOD:REQUEST
+METHOD:{ics_method}
 BEGIN:VEVENT
 UID:{event_uid}
 DTSTAMP:{datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")}
 DTSTART:{dt_start}
 DTEND:{dt_end}
-SUMMARY:Interview: {candidate_name} - {interview_stage}
+SUMMARY:{email_subject_prefix}{candidate_name} - {interview_stage}
 DESCRIPTION:Interview with {candidate_name} for {job_title} position.\\n\\nStage: {interview_stage}\\nScheduled by: {scheduled_by}\\n\\nView in Headhunter: {dashboard_url}
-LOCATION:TBD
-ORGANIZER:mailto:{os.getenv("MAIL_FROM", "noreply@headhunter.ai")}
-ATTENDEE;ROLE=REQ-PARTICIPANT;PARTSTAT=NEEDS-ACTION;RSVP=TRUE:mailto:{interviewer_email}
-STATUS:CONFIRMED
-SEQUENCE:0
+LOCATION:Video Call / TBD
+ORGANIZER;CN="{organizer_cn}":mailto:{organizer_email}
+{attendees}STATUS:{ics_status}
+SEQUENCE:1
 BEGIN:VALARM
 ACTION:DISPLAY
 DESCRIPTION:Interview with {candidate_name} in 15 minutes
@@ -110,12 +141,22 @@ TRIGGER:-PT15M
 END:VALARM
 END:VEVENT
 END:VCALENDAR"""
+
+        # Save to temp file
+        try:
+            filename = f"interview_{event_uid}.ics"
+            ics_path = f"/tmp/{filename}"
+            with open(ics_path, "w") as f:
+                f.write(ics_content)
+        except Exception as e:
+            print(f"Failed to create ICS file: {e}")
+            ics_path = None
     
     html = f"""
     <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 10px;">
-        <h2 style="color: #4F46E5;">📅 New Interview Scheduled</h2>
+        <h2 style="color: {header_color};">{header_text}</h2>
         <p>Hi {interviewer_name or 'there'},</p>
-        <p>You have been assigned to conduct an interview:</p>
+        <p>{intro_text}</p>
         
         <div style="background: #f8fafc; padding: 16px; border-radius: 8px; margin: 20px 0;">
             <table style="width: 100%; border-collapse: collapse;">
@@ -148,19 +189,84 @@ END:VCALENDAR"""
     </div>
     """
 
-    # Note: ICS attachment removed due to fastapi-mail compatibility issues
-    # The calendar details are included in the email body instead
-    # TODO: Implement proper file-based attachment if needed
+    # Note: ICS attachment with method=REQUEST triggers the calendar UI in email clients
+    
+    # Collect all recipients
+    all_recipients = {interviewer_email}
+    if candidate_email:
+        all_recipients.add(candidate_email)
+    if recruiter_email:
+        all_recipients.add(recruiter_email)
+    if department_manager_email:
+        all_recipients.add(department_manager_email)
+
+    # Attachments list
+    attachments = []
+    temp_cv_path = None
+    
+    if ics_path:
+        attachments.append(ics_path)
+    
+    if cv_path and os.path.exists(cv_path) and not is_cancellation:
+        # User requested renaming to "Candidate Name.pdf"
+        # We try to honor this, but if it's strictly DOCX, renaming to PDF might break it.
+        # However, for now, we will assume the user knows it's a PDF or wants the rename.
+        # Ideally, we should check mime type.
+        
+        # Sanitize candidate name for filename
+        import re
+        import shutil
+        safe_name = re.sub(r'[^a-zA-Z0-9_-]', '_', candidate_name)
+        
+        # Check original extension
+        _, ext = os.path.splitext(cv_path)
+        if not ext:
+            ext = ".pdf" # Default to pdf if missing
+            
+        # If user explicitly asked for .pdf and not .docx, and the file is .docx
+        # We can't convert easily without tools.
+        # We will use the original extension for safety, unless it's missing.
+        # Update: User request "rename ... .pdf and not docx"
+        # We will use .pdf if the original is .pdf, otherwise update to CandidateName.ext
+        
+        new_filename = f"{safe_name}{ext}"
+        temp_cv_path = f"/tmp/{new_filename}"
+        
+        try:
+            shutil.copy(cv_path, temp_cv_path)
+            attachments.append(temp_cv_path)
+        except Exception as e:
+            print(f"Failed to rename CV: {e}")
+            # Fallback to original path if copy fails
+            attachments.append(cv_path)
 
     message = MessageSchema(
-        subject=f"Interview Scheduled: {candidate_name} - {interview_stage}",
-        recipients=[interviewer_email],
+        subject=f"{email_subject_prefix}{candidate_name} - {interview_stage}",
+        recipients=list(all_recipients),
         body=html,
-        subtype=MessageType.html
+        subtype=MessageType.html,
+        attachments=attachments,
+        headers={
+            "Content-Type": f"text/calendar; method={ics_method}; charset=UTF-8",
+            "Content-Disposition": "inline; filename=invite.ics"
+        }
     )
 
     fm = FastMail(conf)
-    await fm.send_message(message)
+    try:
+        await fm.send_message(message)
+    finally:
+        # Cleanup temp file
+        if ics_path and os.path.exists(ics_path):
+            try:
+                os.remove(ics_path)
+            except:
+                pass
+        if temp_cv_path and os.path.exists(temp_cv_path):
+            try:
+                os.remove(temp_cv_path)
+            except:
+                pass
 
 
 async def send_password_reset_email(email: EmailStr, token: str, user_name: str = "User"):

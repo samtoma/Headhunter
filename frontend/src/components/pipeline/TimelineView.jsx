@@ -11,7 +11,11 @@ import {
  * Flow Timeline - A Stage-Centric Pipeline Visualization
  * Organized by company workflow steps with Done, Scheduled, and Next lanes.
  */
-const TimelineView = ({ jobId, onSelectCandidate, onScheduleInterview, refreshTrigger }) => {
+/**
+ * Flow Timeline - A Stage-Centric Pipeline Visualization
+ * Organized by company workflow steps with Done, Scheduled, and Next lanes.
+ */
+const TimelineView = ({ jobId, onSelectCandidate, onScheduleInterview, refreshTrigger, selectedDepartment }) => {
     const [timelineData, setTimelineData] = useState(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
@@ -19,23 +23,24 @@ const TimelineView = ({ jobId, onSelectCandidate, onScheduleInterview, refreshTr
     const [searchQuery, setSearchQuery] = useState("");
 
     useEffect(() => {
-        if (jobId) {
-            setLoading(true);
-            setError(null);
-            axios.get(`/api/interviews/timeline/${jobId}`)
-                .then(res => {
-                    setTimelineData(res.data);
-                    // Expand the first stage by default
-                    if (res.data.stages && res.data.stages.length > 0) {
-                        setExpandedStages({ [res.data.stages[0]]: true });
-                    }
-                })
-                .catch(() => setError("Failed to load flow timeline"))
-                .finally(() => setLoading(false));
-        } else {
-            setTimelineData(null);
-        }
-    }, [jobId, refreshTrigger]);
+        setLoading(true);
+        setError(null);
+
+        const url = jobId
+            ? `/api/interviews/timeline/${jobId}`
+            : `/api/interviews/timeline/global${selectedDepartment ? `?department=${selectedDepartment}` : ''}`;
+
+        axios.get(url)
+            .then(res => {
+                setTimelineData(res.data);
+                // Expand the first stage by default
+                if (res.data.stages && res.data.stages.length > 0) {
+                    setExpandedStages({ [res.data.stages[0]]: true });
+                }
+            })
+            .catch(() => setError("Failed to load flow timeline"))
+            .finally(() => setLoading(false));
+    }, [jobId, refreshTrigger, selectedDepartment]);
 
     const toggleStage = (stage) => {
         setExpandedStages(prev => ({
@@ -50,18 +55,6 @@ const TimelineView = ({ jobId, onSelectCandidate, onScheduleInterview, refreshTr
         const now = new Date();
         return d >= now;
     };
-
-    if (!jobId) {
-        return (
-            <div className="h-full flex flex-col items-center justify-center text-slate-300 animate-in fade-in zoom-in-95">
-                <div className="w-20 h-20 bg-slate-50 rounded-full flex items-center justify-center mb-4">
-                    <Sparkles size={40} className="text-slate-200" />
-                </div>
-                <h3 className="text-lg font-bold text-slate-400">Select a Job</h3>
-                <p className="text-sm">Choose a position to view its flow timeline</p>
-            </div>
-        );
-    }
 
     if (loading) {
         return (
@@ -84,6 +77,7 @@ const TimelineView = ({ jobId, onSelectCandidate, onScheduleInterview, refreshTr
     }
 
     const { stages, candidates, job_title } = timelineData;
+    const isGlobal = !jobId;
 
     // Filter candidates by search
     const filteredCandidates = candidates.filter(c =>
@@ -100,7 +94,9 @@ const TimelineView = ({ jobId, onSelectCandidate, onScheduleInterview, refreshTr
                             <Briefcase size={14} />
                             <span className="text-xs font-bold uppercase tracking-wider">Hiring Pipeline</span>
                         </div>
-                        <h1 className="text-2xl font-bold text-slate-900">{job_title}</h1>
+                        <h1 className="text-2xl font-bold text-slate-900">
+                            {isGlobal ? (selectedDepartment && selectedDepartment !== "All" ? `${selectedDepartment} Board` : "Global Interview Schedule") : job_title}
+                        </h1>
                     </div>
 
                     <div className="flex items-center gap-3">
@@ -307,6 +303,9 @@ const CandidateMiniCard = ({ candidate, interview, variant, onClick, onAction })
                 </div>
                 <div className="min-w-0">
                     <h4 className="text-sm font-bold text-slate-800 truncate">{candidate.candidate_name}</h4>
+                    {candidate.job_title && (
+                        <p className="text-[10px] text-slate-500 truncate">{candidate.job_title}</p>
+                    )}
                     {variant === 'scheduled' && interview?.scheduled_at && (
                         <p className="text-[10px] font-medium text-indigo-500 flex items-center gap-1">
                             <Clock size={10} /> {new Date(interview.scheduled_at).toLocaleDateString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}

@@ -1,5 +1,5 @@
 
-import { Search, LayoutGrid, Kanban, Upload, Layers, Briefcase, Calendar, GanttChart } from 'lucide-react'
+import { Search, LayoutGrid, Kanban, Upload, Layers, Briefcase, Calendar, GanttChart, Plus } from 'lucide-react'
 
 import PageHeader from '../layout/PageHeader'
 
@@ -88,16 +88,16 @@ const PipelineHeader = ({
             )}
 
             {/* View Switcher Tabs - Contextual to Job */}
-            {selectedJob && (
-                <div className="flex bg-slate-100 p-1 rounded-lg">
-                    <button
-                        onClick={() => setViewMode("list")}
-                        className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium transition ${viewMode === "list" ? "bg-white shadow text-indigo-600" : "text-slate-500 hover:text-slate-700 hover:bg-slate-200/50"}`}
-                        title="List View"
-                    >
-                        <LayoutGrid size={16} />
-                        <span className="hidden xl:inline">List</span>
-                    </button>
+            <div className="flex bg-slate-100 p-1 rounded-lg">
+                <button
+                    onClick={() => setViewMode("list")}
+                    className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium transition ${viewMode === "list" ? "bg-white shadow text-indigo-600" : "text-slate-500 hover:text-slate-700 hover:bg-slate-200/50"}`}
+                    title="List View"
+                >
+                    <LayoutGrid size={16} />
+                    <span className="hidden xl:inline">List</span>
+                </button>
+                {selectedJob && (
                     <button
                         onClick={() => setViewMode("kanban")}
                         className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium transition ${viewMode === "kanban" ? "bg-white shadow text-indigo-600" : "text-slate-500 hover:text-slate-700 hover:bg-slate-200/50"}`}
@@ -106,6 +106,8 @@ const PipelineHeader = ({
                         <Kanban size={16} />
                         <span className="hidden xl:inline">Board</span>
                     </button>
+                )}
+                {selectedJob && (
                     <button
                         onClick={() => setViewMode("calendar")}
                         className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium transition ${viewMode === "calendar" ? "bg-white shadow text-indigo-600" : "text-slate-500 hover:text-slate-700 hover:bg-slate-200/50"}`}
@@ -114,31 +116,37 @@ const PipelineHeader = ({
                         <Calendar size={16} />
                         <span className="hidden xl:inline">Calendar</span>
                     </button>
-                    <button
-                        onClick={() => setViewMode("timeline")}
-                        className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium transition ${viewMode === "timeline" ? "bg-white shadow text-indigo-600" : "text-slate-500 hover:text-slate-700 hover:bg-slate-200/50"}`}
-                        title="Timeline"
-                    >
-                        <GanttChart size={16} />
-                        <span className="hidden xl:inline">Timeline</span>
-                    </button>
-                </div>
-            )}
+                )}
+                <button
+                    onClick={() => setViewMode("timeline")}
+                    className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium transition ${viewMode === "timeline" ? "bg-white shadow text-indigo-600" : "text-slate-500 hover:text-slate-700 hover:bg-slate-200/50"}`}
+                    title="Timeline"
+                >
+                    <GanttChart size={16} />
+                    <span className="hidden xl:inline">Timeline</span>
+                </button>
+            </div>
 
-            <label className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg cursor-pointer flex items-center gap-2 transition shadow-md active:scale-95">
-                <Upload size={16} />
-                <span className="font-bold text-sm hidden sm:inline">{uploading ? "..." : "Add Candidate"}</span>
-                <input type="file" multiple className="hidden" onChange={(e) => {
-                    if (e.target.files.length > 0) {
-                        if (selectedJob) {
-                            performUpload(e.target.files, selectedJob.id)
-                        } else {
+            {selectedJob ? (
+                <button
+                    onClick={() => setShowUploadModal(true)}
+                    className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg cursor-pointer flex items-center gap-2 transition shadow-md active:scale-95"
+                >
+                    <Plus size={16} />
+                    <span className="font-bold text-sm hidden sm:inline">Add Candidate</span>
+                </button>
+            ) : (
+                <label className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg cursor-pointer flex items-center gap-2 transition shadow-md active:scale-95">
+                    <Upload size={16} />
+                    <span className="font-bold text-sm hidden sm:inline">{uploading ? "..." : "Upload CV"}</span>
+                    <input type="file" multiple className="hidden" onChange={(e) => {
+                        if (e.target.files.length > 0) {
                             setUploadFiles(e.target.files)
                             setShowUploadModal(true)
                         }
-                    }
-                }} disabled={uploading} />
-            </label>
+                    }} disabled={uploading} />
+                </label>
+            )}
         </>
     )
 

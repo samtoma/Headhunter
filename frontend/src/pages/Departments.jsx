@@ -4,6 +4,7 @@ import { Plus, Search, Building2, Edit2, Trash2 } from 'lucide-react';
 import DepartmentModal from '../components/modals/DepartmentModal'
 import PageHeader from '../components/layout/PageHeader'
 import DepartmentDashboard from './DepartmentDashboard'
+import SettingsTabs from '../components/common/SettingsTabs'
 
 const Departments = ({ onOpenMobileSidebar }) => {
     const [activeTab, setActiveTab] = useState("overview"); // overview | manage
@@ -118,22 +119,14 @@ const Departments = ({ onOpenMobileSidebar }) => {
             />
 
             {/* Tabs Toggle */}
-            <div className="px-4 md:px-8 border-b border-slate-200 bg-white">
-                <div className="flex gap-6">
-                    <button
-                        onClick={() => setActiveTab("overview")}
-                        className={`py-4 text-sm font-medium border-b-2 transition ${activeTab === 'overview' ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-slate-500 hover:text-slate-700'}`}
-                    >
-                        Overview
-                    </button>
-                    <button
-                        onClick={() => setActiveTab("manage")}
-                        className={`py-4 text-sm font-medium border-b-2 transition ${activeTab === 'manage' ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-slate-500 hover:text-slate-700'}`}
-                    >
-                        Manage Departments
-                    </button>
-                </div>
-            </div>
+            <SettingsTabs
+                activeTab={activeTab}
+                onTabChange={setActiveTab}
+                tabs={[
+                    { id: "overview", label: "Overview", icon: Building2 },
+                    { id: "manage", label: "Manage Departments", icon: Edit2 }
+                ]}
+            />
 
             {/* Content */}
             <div className="flex-1 overflow-hidden relative">

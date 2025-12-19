@@ -1,11 +1,12 @@
 import { useState, useEffect, useCallback } from 'react';
 // import { useHeadhunter } from '../context/HeadhunterContext'; // Unused
 import { useAuth } from '../context/AuthContext';
-import { Users, Search, Filter, Check, X, Trash2, UserPlus, Power, PowerOff } from 'lucide-react';
+import { Users, Search, Filter, Check, X, Trash2, UserPlus, Power, PowerOff, Archive } from 'lucide-react';
 import axios from 'axios';
 
 import PageHeader from '../components/layout/PageHeader';
 import InviteUserModal from '../components/users/InviteUserModal';
+import SettingsTabs from '../components/common/SettingsTabs';
 
 const Team = ({ onOpenMobileSidebar }) => {
     const { user } = useAuth();
@@ -178,20 +179,14 @@ const Team = ({ onOpenMobileSidebar }) => {
                     {/* Toolbar */}
                     <div className="flex flex-col gap-4">
                         {/* Tabs */}
-                        <div className="flex border-b border-slate-200">
-                            <button
-                                onClick={() => setActiveTab('active')}
-                                className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${activeTab === 'active' ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-slate-500 hover:text-slate-700'}`}
-                            >
-                                Active Members
-                            </button>
-                            <button
-                                onClick={() => setActiveTab('archived')}
-                                className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${activeTab === 'archived' ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-slate-500 hover:text-slate-700'}`}
-                            >
-                                Archived
-                            </button>
-                        </div>
+                        <SettingsTabs
+                            activeTab={activeTab}
+                            onTabChange={setActiveTab}
+                            tabs={[
+                                { id: 'active', label: 'Active Members', icon: Users },
+                                { id: 'archived', label: 'Archived', icon: Archive }
+                            ]}
+                        />
 
                         <div className="flex flex-col md:flex-row gap-4 justify-between items-center bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
                             <div className="relative w-full md:w-96">

@@ -40,6 +40,22 @@ def parse_json_field(v):
             
     return [str(v)]
 
+class InterviewOut(BaseModel):
+    id: int
+    application_id: int
+    step: str
+    status: str
+    outcome: Optional[str] = None
+    feedback: Optional[str] = None
+    rating: Optional[int] = None
+    scheduled_at: Optional[datetime] = None
+    created_at: datetime
+    interviewer_id: Optional[int] = None
+    interviewer_name: Optional[str] = None
+    custom_data: Optional[str] = None
+
+    model_config = ConfigDict(from_attributes=True)
+
 class ApplicationOut(BaseModel):
     id: int
     job_id: int
@@ -54,6 +70,11 @@ class ApplicationOut(BaseModel):
     assigned_by: Optional[int] = None
     assigned_by_name: Optional[str] = None
     source: Optional[str] = None
+    
+    # Enhanced info
+    job_title: Optional[str] = None
+    job_department: Optional[str] = None
+    interviews: List[InterviewOut] = []
     
     model_config = ConfigDict(from_attributes=True)
 

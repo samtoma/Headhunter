@@ -5,9 +5,11 @@ from pydantic import BaseModel, ConfigDict
 from datetime import datetime
 import json
 from app.core.database import get_db
-from app.models.models import Interview, Application, User
+from app.models.models import Interview, Application, User, CV, ParsedCV, UserRole
 from app.api.deps import get_current_user
 from app.api.v1.activity import log_application_activity
+from app.core.email import send_interview_notification
+import asyncio
 
 router = APIRouter(prefix="/interviews", tags=["Interviews"])
 
@@ -67,13 +69,14 @@ class CandidateTimeline(BaseModel):
     """A candidate's full interview timeline"""
     candidate_id: int
     candidate_name: str
+    job_title: Optional[str] = None # Added for global view
     application_id: int
     current_stage: Optional[str] = None
     interviews: List[InterviewTimelineItem]
     
 class InterviewTimelineResponse(BaseModel):
     """Timeline view for all candidates in a job"""
-    job_id: int
+    job_id: Optional[int] = None # Optional for global view
     job_title: str
     stages: List[str]  # Predefined stages for this job
     candidates: List[CandidateTimeline]
@@ -91,8 +94,6 @@ class InterviewDashboardOut(BaseModel):
     outcome: Optional[str] = None
     rating: Optional[int] = None
     interviewer_name: Optional[str] = None  # Added for admin view
-
-    model_config = ConfigDict(from_attributes=True)
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -327,7 +328,11 @@ def create_interview(
     current_user: User = Depends(get_current_user)
 ):
     # Verify application exists
-    app = db.query(Application).filter(Application.id == interview.application_id).first()
+    app = db.query(Application).options(
+        joinedload(Application.cv).joinedload(CV.parsed_data),
+        joinedload(Application.job),
+        joinedload(Application.assigner)
+    ).filter(Application.id == interview.application_id).first()
     if not app:
         raise HTTPException(404, "Application not found")
 
@@ -358,7 +363,49 @@ def create_interview(
         assigned_user = db.query(User).filter(User.id == interviewer_id).first()
         new_interview.interviewer_name = assigned_user.email if assigned_user else "Unknown"
     
-    # Log Activity
+    # --- Prepare Notifications Data ---
+    candidate_name = "Candidate"
+    job_title = app.job.title if app.job else 'Unknown Position'
+    
+    if app.cv:
+        if hasattr(app.cv, 'parsed_data') and app.cv.parsed_data and hasattr(app.cv.parsed_data, 'name'):
+            candidate_name = app.cv.parsed_data.name or app.cv.filename or 'Candidate'
+        else:
+            candidate_name = app.cv.filename or 'Candidate'
+            
+    # Fetch emails
+    candidate_email = None
+    if app.cv and app.cv.parsed_data and app.cv.parsed_data.email:
+        e = app.cv.parsed_data.email
+        if isinstance(e, list): candidate_email = e[0]
+        elif isinstance(e, str) and "[" in e:
+            try: candidate_email = json.loads(e)[0]
+            except: candidate_email = e
+        else: candidate_email = e
+    
+    recruiter_email = app.assigner.email if app.assigner else None
+    
+    department_manager_email = None
+    if app.job and app.job.department:
+        dept_manager = db.query(User).filter(
+            User.role == UserRole.HIRING_MANAGER, 
+            User.department == app.job.department
+        ).first()
+        if dept_manager:
+            department_manager_email = dept_manager.email
+
+    interviewer_email = None
+    assigned_user_obj = None
+    if interviewer_id:
+        if interviewer_id == current_user.id:
+             interviewer_email = current_user.email
+             assigned_user_obj = current_user
+        else:
+             assigned_user_obj = db.query(User).filter(User.id == interviewer_id).first()
+             if assigned_user_obj:
+                 interviewer_email = assigned_user_obj.email
+
+    # Log Activity with recipients
     log_application_activity(
         db,
         interview.application_id,
@@ -368,55 +415,155 @@ def create_interview(
         {
             "step": interview.step,
             "scheduled_at": str(interview.scheduled_at) if interview.scheduled_at else None,
-            "interviewer_id": interviewer_id
+            "interviewer_id": interviewer_id,
+            "notifications": {
+                "interviewer": interviewer_email,
+                "candidate": candidate_email,
+                "recruiter": recruiter_email,
+                "hiring_manager": department_manager_email
+            }
         }
     )
     
-    # Send email notification to assigned interviewer (if different from scheduler)
-    if interviewer_id and interview.scheduled_at:
-        assigned_user = db.query(User).filter(User.id == interviewer_id).first()
-        if assigned_user and assigned_user.email:
-            # Get candidate name from CV (parsed_data is a SQLAlchemy model), fallback to filename
-            candidate_name = "Candidate"
-            if app.cv:
-                if hasattr(app.cv, 'parsed_data') and app.cv.parsed_data and hasattr(app.cv.parsed_data, 'name'):
-                    candidate_name = app.cv.parsed_data.name or app.cv.filename or 'Candidate'
-                else:
-                    candidate_name = app.cv.filename or 'Candidate'
-            
-            job_title = app.job.title if app.job else 'Unknown Position'
-            
-            # Queue email in background (silently skip if SMTP not configured for tests)
+    # Send email notification
+    if interviewer_email and interview.scheduled_at:
+        # Queue email in background (silently skip if SMTP not configured for tests)
+        try:
             try:
-                from app.core.email import send_interview_notification
-                import asyncio
-                try:
-                    loop = asyncio.get_event_loop()
-                    loop.create_task(send_interview_notification(
-                        interviewer_email=assigned_user.email,
-                        interviewer_name=assigned_user.full_name or assigned_user.email.split('@')[0],
-                        candidate_name=candidate_name,
-                        job_title=job_title,
-                        interview_stage=interview.step,
-                        scheduled_at=str(interview.scheduled_at),
-                        scheduled_by=current_user.email
-                    ))
-                except RuntimeError:
-                    # If no event loop, run synchronously (shouldn't happen in FastAPI)
-                    asyncio.run(send_interview_notification(
-                        interviewer_email=assigned_user.email,
-                        interviewer_name=assigned_user.full_name or assigned_user.email.split('@')[0],
-                        candidate_name=candidate_name,
-                        job_title=job_title,
-                        interview_stage=interview.step,
-                        scheduled_at=str(interview.scheduled_at),
-                        scheduled_by=current_user.email
+                loop = asyncio.get_event_loop()
+                loop.create_task(send_interview_notification(
+                    interviewer_email=interviewer_email,
+                    interviewer_name=assigned_user_obj.full_name or assigned_user_obj.email.split('@')[0],
+                    candidate_name=candidate_name,
+                    job_title=job_title,
+                    interview_stage=interview.step,
+                    scheduled_at=str(interview.scheduled_at),
+                    scheduled_by=current_user.email,
+                    candidate_email=candidate_email,
+                    recruiter_email=recruiter_email,
+                    department_manager_email=department_manager_email,
+                    scheduler_name=current_user.full_name or current_user.email.split('@')[0],
+                    cv_path=app.cv.filepath if app.cv else None
                 ))
-            except Exception:
-                # Silently fail if email service is not available (test environment)
-                pass
+            except RuntimeError:
+                # If no event loop, run synchronously (shouldn't happen in FastAPI)
+                asyncio.run(send_interview_notification(
+                    interviewer_email=interviewer_email,
+                    interviewer_name=assigned_user_obj.full_name or assigned_user_obj.email.split('@')[0],
+                    candidate_name=candidate_name,
+                    job_title=job_title,
+                    interview_stage=interview.step,
+                    scheduled_at=str(interview.scheduled_at),
+                    scheduled_by=current_user.email,
+                    candidate_email=candidate_email,
+                    recruiter_email=recruiter_email,
+                    department_manager_email=department_manager_email,
+                    scheduler_name=current_user.full_name or current_user.email.split('@')[0],
+                    cv_path=app.cv.filepath if app.cv else None
+                ))
+        except Exception:
+            # Silently fail if email service is not available (test environment)
+            pass
 
     return new_interview
+
+@router.get("/timeline/global", response_model=InterviewTimelineResponse)
+def get_global_interview_timeline(
+    department: Optional[str] = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Get aggregated interview timeline view for ALL jobs (optionally filtered by department).
+    """
+    from app.models.models import Job, CV, UserRole
+    
+    # Base query for Jobs in company
+    job_query = db.query(Job).filter(Job.company_id == current_user.company_id, Job.is_active == True)
+    
+    # Department Filter
+    if department and department != "All":
+        job_query = job_query.filter(Job.department == department)
+        
+    # Permission / Role Filter logic
+    if current_user.role == UserRole.INTERVIEWER:
+        raise HTTPException(status_code=403, detail="Interviewers cannot access timeline view")
+    
+    if current_user.role == UserRole.HIRING_MANAGER:
+         # Restrict to their department, or if department is specified, check if it matches
+         if current_user.department:
+             if department and department != "All" and department != current_user.department:
+                  raise HTTPException(status_code=403, detail="You can only access jobs in your department")
+             job_query = job_query.filter(Job.department == current_user.department)
+
+    jobs = job_query.all()
+    job_ids = [j.id for j in jobs]
+    
+    # Fetch stages from company settings (global)
+    # We use the company's default configured stages for the global view to maintain consistency
+    stages = ["Screening", "Technical", "Culture", "Final"]
+    if current_user.company and current_user.company.interview_stages:
+        try:
+             company_stages_data = json.loads(current_user.company.interview_stages)
+             stages = [s["name"] for s in company_stages_data]
+        except:
+             pass
+
+    # Fetch all applications for these jobs
+    applications = db.query(Application)\
+        .filter(Application.job_id.in_(job_ids))\
+        .options(joinedload(Application.cv).joinedload(CV.parsed_data))\
+        .options(joinedload(Application.interviews))\
+        .options(joinedload(Application.job))\
+        .all()
+        
+    # Build candidate timelines
+    candidates = []
+    for app in applications:
+        # Get candidate name
+        candidate_name = "Unknown"
+        if app.cv:
+            if hasattr(app.cv, 'parsed_data') and app.cv.parsed_data and hasattr(app.cv.parsed_data, 'name'):
+                candidate_name = app.cv.parsed_data.name or app.cv.filename or "Unknown"
+            else:
+                candidate_name = app.cv.filename or "Unknown"
+        
+        # Get all interviews for this application
+        interview_items = []
+        for interview in app.interviews:
+            interviewer_name = None
+            if interview.interviewer_id:
+                interviewer = db.query(User).filter(User.id == interview.interviewer_id).first()
+                if interviewer:
+                    interviewer_name = interviewer.full_name or interviewer.email.split('@')[0]
+            
+            interview_items.append(InterviewTimelineItem(
+                id=interview.id,
+                stage=interview.step,
+                status=interview.status,
+                outcome=interview.outcome,
+                interviewer=interviewer_name,
+                interviewer_id=interview.interviewer_id,
+                scheduled_at=interview.scheduled_at,
+                feedback=interview.feedback,
+                rating=interview.rating
+            ))
+            
+        candidates.append(CandidateTimeline(
+            candidate_id=app.cv_id if app.cv_id else 0,
+            candidate_name=candidate_name,
+            job_title=app.job.title if app.job else "Unknown",
+            application_id=app.id,
+            current_stage=app.status, 
+            interviews=sorted(interview_items, key=lambda x: stages.index(x.stage) if x.stage in stages else 999)
+        ))
+        
+    return InterviewTimelineResponse(
+        job_id=0, # 0 indicates global
+        job_title="All Jobs",
+        stages=stages,
+        candidates=candidates
+    )
 
 @router.get("/timeline/{job_id}", response_model=InterviewTimelineResponse)
 def get_interview_timeline(
@@ -538,8 +685,9 @@ def update_interview(
 ):
     """Update interview with support for reschedule, reassign, cancel, etc."""
     interview = db.query(Interview).options(
-        joinedload(Interview.application).joinedload(Application.cv),
+        joinedload(Interview.application).joinedload(Application.cv).joinedload(CV.parsed_data),
         joinedload(Interview.application).joinedload(Application.job),
+        joinedload(Interview.application).joinedload(Application.assigner),
         joinedload(Interview.interviewer)
     ).filter(Interview.id == interview_id).first()
     
@@ -587,10 +735,35 @@ def update_interview(
         if interview.application.job:
             job_title = interview.application.job.title
     
-    # Handle interviewer change - notify both old and new
-    from app.core.email import send_interview_notification
-    import asyncio
+    # Fetch emails for calendar invite
+    candidate_email = None
+    recruiter_email = None
+    department_manager_email = None
     
+    app = interview.application
+    if app:
+        # Candidate Email
+        if app.cv and app.cv.parsed_data and app.cv.parsed_data.email:
+            e = app.cv.parsed_data.email
+            if isinstance(e, list): candidate_email = e[0]
+            elif isinstance(e, str) and "[" in e:
+                try: candidate_email = json.loads(e)[0]
+                except: candidate_email = e
+            else: candidate_email = e
+        
+        # Recruiter Email
+        recruiter_email = app.assigner.email if app.assigner else None
+        
+        # Dept Manager
+        if app.job and app.job.department:
+            dept_manager = db.query(User).filter(
+                User.role == UserRole.HIRING_MANAGER, 
+                User.department == app.job.department
+            ).first()
+            if dept_manager:
+                department_manager_email = dept_manager.email
+
+    # Handle interviewer change - notify both old and new
     if data.interviewer_id is not None and data.interviewer_id != old_interviewer_id:
         # Notify new interviewer
         new_interviewer = db.query(User).filter(User.id == data.interviewer_id).first()
@@ -604,7 +777,12 @@ def update_interview(
                     job_title=job_title,
                     interview_stage=interview.step,
                     scheduled_at=str(interview.scheduled_at),
-                    scheduled_by=current_user.email
+                    scheduled_by=current_user.email,
+                    candidate_email=candidate_email,
+                    recruiter_email=recruiter_email,
+                    department_manager_email=department_manager_email,
+                    scheduler_name=current_user.full_name or current_user.email.split('@')[0],
+                    cv_path=interview.application.cv.filepath if interview.application.cv else None
                 ))
             except RuntimeError:
                 asyncio.run(send_interview_notification(
@@ -614,7 +792,12 @@ def update_interview(
                     job_title=job_title,
                     interview_stage=interview.step,
                     scheduled_at=str(interview.scheduled_at),
-                    scheduled_by=current_user.email
+                    scheduled_by=current_user.email,
+                    candidate_email=candidate_email,
+                    recruiter_email=recruiter_email,
+                    department_manager_email=department_manager_email,
+                    scheduler_name=current_user.full_name or current_user.email.split('@')[0],
+                    cv_path=interview.application.cv.filepath if interview.application.cv else None
                 ))
     
     # Handle reschedule - notify current interviewer of new time
@@ -630,7 +813,12 @@ def update_interview(
                     job_title=job_title,
                     interview_stage=f"{interview.step} (Rescheduled)",
                     scheduled_at=str(interview.scheduled_at),
-                    scheduled_by=current_user.email
+                    scheduled_by=current_user.email,
+                    candidate_email=candidate_email,
+                    recruiter_email=recruiter_email,
+                    department_manager_email=department_manager_email,
+                    scheduler_name=current_user.full_name or current_user.email.split('@')[0],
+                    cv_path=interview.application.cv.filepath if interview.application.cv else None
                 ))
             except RuntimeError:
                 asyncio.run(send_interview_notification(
@@ -640,7 +828,12 @@ def update_interview(
                     job_title=job_title,
                     interview_stage=f"{interview.step} (Rescheduled)",
                     scheduled_at=str(interview.scheduled_at),
-                    scheduled_by=current_user.email
+                    scheduled_by=current_user.email,
+                    candidate_email=candidate_email,
+                    recruiter_email=recruiter_email,
+                    department_manager_email=department_manager_email,
+                    scheduler_name=current_user.full_name or current_user.email.split('@')[0],
+                    cv_path=interview.application.cv.filepath if interview.application.cv else None
                 ))
     
     # Log Activity if outcome or rating changed
@@ -654,7 +847,13 @@ def update_interview(
             {
                 "step": interview.step,
                 "outcome": data.outcome,
-                "rating": data.rating
+                "rating": data.rating,
+                "notifications": {
+                    "interviewer": interview.interviewer.email if interview.interviewer else None,
+                    "candidate": candidate_email,
+                    "recruiter": recruiter_email,
+                    "hiring_manager": department_manager_email
+                }
             }
         )
     
@@ -669,9 +868,53 @@ def update_interview(
             {
                 "step": interview.step,
                 "old_status": old_status,
-                "new_status": data.status
+                "new_status": data.status,
+                "notifications": {
+                    "interviewer": interview.interviewer.email if interview.interviewer else None,
+                    "candidate": candidate_email,
+                    "recruiter": recruiter_email,
+                    "hiring_manager": department_manager_email
+                }
             }
         )
+        
+        # Send Cancellation Email
+        if data.status == "Cancelled" and interview.interviewer_id:
+            interviewer = db.query(User).filter(User.id == interview.interviewer_id).first()
+            if interviewer and interviewer.email:
+                try:
+                    loop = asyncio.get_event_loop()
+                    loop.create_task(send_interview_notification(
+                        interviewer_email=interviewer.email,
+                        interviewer_name=interviewer.full_name or interviewer.email.split('@')[0],
+                        candidate_name=candidate_name,
+                        job_title=job_title,
+                        interview_stage=f"{interview.step} (Canceled)",
+                        scheduled_at=str(interview.scheduled_at),
+                        scheduled_by=current_user.email,
+                        candidate_email=candidate_email,
+                        recruiter_email=recruiter_email,
+                        department_manager_email=department_manager_email,
+                        scheduler_name=current_user.full_name or current_user.email.split('@')[0],
+                        cv_path=None,
+                        is_cancellation=True
+                    ))
+                except RuntimeError:
+                    asyncio.run(send_interview_notification(
+                        interviewer_email=interviewer.email,
+                        interviewer_name=interviewer.full_name or interviewer.email.split('@')[0],
+                        candidate_name=candidate_name,
+                        job_title=job_title,
+                        interview_stage=f"{interview.step} (Canceled)",
+                        scheduled_at=str(interview.scheduled_at),
+                        scheduled_by=current_user.email,
+                        candidate_email=candidate_email,
+                        recruiter_email=recruiter_email,
+                        department_manager_email=department_manager_email,
+                        scheduler_name=current_user.full_name or current_user.email.split('@')[0],
+                        cv_path=None,
+                        is_cancellation=True
+                    ))
         
     return interview
 

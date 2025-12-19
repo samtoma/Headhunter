@@ -24,7 +24,8 @@ def get_all_profiles(
         joinedload(CV.parsed_data),
         joinedload(CV.uploader),  # Load who uploaded the CV
         joinedload(CV.applications).joinedload(Application.interviews),
-        joinedload(CV.applications).joinedload(Application.assigner)  # Load who assigned to pipeline
+        joinedload(CV.applications).joinedload(Application.assigner),  # Load who assigned to pipeline
+        joinedload(CV.applications).joinedload(Application.job)  # Load job details
     ).filter(CV.company_id == current_user.company_id)
     
     # Track joins to avoid duplicates
@@ -139,6 +140,9 @@ def get_all_profiles(
         for app in cv.applications:
             if app.assigner:
                 app.assigned_by_name = app.assigner.full_name or app.assigner.email
+            if app.job:
+                app.job_title = app.job.title
+                app.job_department = app.job.department
 
     import math
     return {
@@ -153,7 +157,11 @@ def get_all_profiles(
 def get_profile(cv_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     query = db.query(CV).options(
         joinedload(CV.parsed_data),
-        joinedload(CV.applications).joinedload(Application.interviews)
+        joinedload(CV.parsed_data),
+        joinedload(CV.uploader),
+        joinedload(CV.applications).joinedload(Application.interviews),
+        joinedload(CV.applications).joinedload(Application.assigner),
+        joinedload(CV.applications).joinedload(Application.job)
     ).filter(CV.id == cv_id, CV.company_id == current_user.company_id)
     
     # --- INTERVIEWER RESTRICTIONS ---
@@ -172,6 +180,17 @@ def get_profile(cv_id: int, db: Session = Depends(get_db), current_user: User = 
     if not cv:
         raise HTTPException(404, "Profile not found or access denied")
         
+    # --- PREPARE EXTENDED DATA ---
+    if cv.uploader:
+        cv.uploaded_by_name = cv.uploader.full_name or cv.uploader.email
+
+    for app in cv.applications:
+        if app.assigner:
+            app.assigned_by_name = app.assigner.full_name or app.assigner.email
+        if app.job:
+            app.job_title = app.job.title
+            app.job_department = app.job.department
+            
     # --- MASK SALARY FOR INTERVIEWERS ---
     if current_user.role == UserRole.INTERVIEWER:
         if cv.parsed_data:

@@ -15,6 +15,7 @@ import CreateJobModal from '../components/modals/CreateJobModal';
 import ScheduleInterviewModal from '../components/modals/ScheduleInterviewModal';
 import CalendarView from '../components/pipeline/CalendarView';
 import TimelineView from '../components/pipeline/TimelineView';
+import AddCandidateModal from '../components/pipeline/AddCandidateModal';
 import axios from 'axios';
 
 const Pipeline = ({ onOpenMobileSidebar }) => {
@@ -22,7 +23,7 @@ const Pipeline = ({ onOpenMobileSidebar }) => {
         jobs, profiles, setProfiles, fetchJobs, fetchProfiles,
         loadMoreProfiles, hasMore, isFetchingMore,
         search, setSearch, sortBy, setSortBy,
-        selectedJobId, // Added setSelectedJobId
+        selectedJobId,
         updateApp, updateProfile, assignJob, removeJob,
         loading, jobsLoading,
         pipelineStages, companyStages
@@ -41,9 +42,10 @@ const Pipeline = ({ onOpenMobileSidebar }) => {
 
     // Modals
     const [showUploadModal, setShowUploadModal] = useState(false);
+    const [showAddCandidateModal, setShowAddCandidateModal] = useState(false);
     const [showBulkAssignModal, setShowBulkAssignModal] = useState(false);
     const [showScheduleModal, setShowScheduleModal] = useState(false);
-    const [scheduleData, setScheduleData] = useState(null); // {candidate, stage} - Replaced pendingSchedule
+    const [scheduleData, setScheduleData] = useState(null); // {candidate, stage}
 
     // Local file selection state (before upload starts)
     const [uploadFiles, setUploadFiles] = useState(null);
@@ -137,6 +139,21 @@ const Pipeline = ({ onOpenMobileSidebar }) => {
         }
     };
 
+    const handleAddCandidates = async (cvIds) => {
+        if (!selectedJob) return;
+        try {
+            await axios.post('/api/jobs/bulk_assign', {
+                job_id: selectedJob.id,
+                cv_ids: cvIds
+            });
+            fetchProfiles(); // Refresh to show new candidates
+            fetchJobs(); // Update counts
+        } catch (err) {
+            console.error(err);
+            alert("Failed to add candidates");
+        }
+    };
+
     // Kanban Logic: Sync with interview stages
     const getStatus = (cv) => {
         if (!selectedJob) return "New";
@@ -152,19 +169,16 @@ const Pipeline = ({ onOpenMobileSidebar }) => {
                 return dateB - dateA; // Most recent first
             });
             const stage = sortedInterviews[0].step;
-            // console.log(`Candidate ${cv.name}: Found ${app.interviews.length} interviews, using stage: ${stage}`);
             return stage; // Return the latest interview stage
         }
 
         // Handle legacy "Interview" status - if app status is "Interview" but no interviews,
         // default to "Screening" (first interview stage)
         if (app.status === "Interview") {
-            // console.log(`Candidate ${cv.name}: Legacy Interview status, defaulting to Screening`);
             return "Screening";
         }
 
         // Otherwise, fall back to application status
-        // console.log(`Candidate ${cv.name}: No interviews, using app status: ${app.status}`);
         return app.status;
     };
     // Pipeline-Interview Merge: Interview stages are now columns
@@ -261,10 +275,6 @@ const Pipeline = ({ onOpenMobileSidebar }) => {
         }
     };
 
-    /**
-     * Handles the bulk deletion of selected candidates.
-     * Prompts for confirmation before sending a request to the backend.
-     */
     const handleBulkDelete = async () => {
         if (!confirm(`Delete ${selectedIds.length} candidates? This cannot be undone.`)) return;
         try {
@@ -278,10 +288,6 @@ const Pipeline = ({ onOpenMobileSidebar }) => {
         }
     };
 
-    /**
-     * Handles the bulk assignment of selected candidates to a specific job.
-     * @param {number} jobId - The ID of the job to assign candidates to.
-     */
     const handleBulkAssign = async (jobId) => {
         try {
             await axios.post('/api/jobs/bulk_assign', {
@@ -300,262 +306,280 @@ const Pipeline = ({ onOpenMobileSidebar }) => {
     };
 
     return (
-        <>
-            <PipelineHeader
-                onOpenMobileSidebar={onOpenMobileSidebar}
-                selectedJob={selectedJob}
-                handleToggleArchive={async (job, newStatus) => {
-                    try {
-                        const isActive = newStatus === 'Open';
-                        await axios.patch(`/api/jobs/${job.id}`, { status: newStatus, is_active: isActive });
-                        fetchJobs();
-                    } catch (err) {
-                        console.error("Failed to update job status", err);
-                        alert("Failed to update job status");
-                    }
-                }}
-                viewMode={viewMode}
-                setViewMode={setViewMode}
-                handleSelectAll={handleSelectAll}
-                selectedIds={selectedIds}
-                filteredProfiles={filteredProfiles}
-                searchTerm={search}
-                setSearchTerm={setSearch}
-                uploading={uploading}
-                performUpload={performUpload}
-                setUploadFiles={setUploadFiles}
-                setShowUploadModal={setShowUploadModal}
-                sortBy={sortBy}
-                setSortBy={setSortBy}
-                selectedDepartment={selectedDepartment}
-                setSelectedDepartment={setSelectedDepartment}
-                departments={["All", ...new Set((jobs || []).map(j => j.department).filter(Boolean))]}
-                onEditJob={handleEditJob}
-                user={useAuth().user}
-            />
+        <div className="flex h-screen w-full bg-[#FAFAFA] overflow-hidden relative">
+            <div className="flex-1 flex flex-col min-w-0 h-full relative z-0">
+                <PipelineHeader
+                    onOpenMobileSidebar={onOpenMobileSidebar}
+                    selectedJob={selectedJob}
+                    handleToggleArchive={async (job, newStatus) => {
+                        try {
+                            const isActive = newStatus === 'Open';
+                            await axios.patch(`/api/jobs/${job.id}`, { status: newStatus, is_active: isActive });
+                            fetchJobs();
+                        } catch (err) {
+                            console.error("Failed to update job status", err);
+                            alert("Failed to update job status");
+                        }
+                    }}
+                    viewMode={viewMode}
+                    setViewMode={setViewMode}
+                    handleSelectAll={handleSelectAll}
+                    selectedIds={selectedIds}
+                    filteredProfiles={filteredProfiles}
+                    searchTerm={search}
+                    setSearchTerm={setSearch}
+                    uploading={uploading}
+                    performUpload={performUpload}
+                    setUploadFiles={setUploadFiles}
+                    setShowUploadModal={() => {
+                        if (selectedJob) setShowAddCandidateModal(true);
+                        else setShowUploadModal(true);
+                    }}
+                    sortBy={sortBy}
+                    setSortBy={setSortBy}
+                    selectedDepartment={selectedDepartment}
+                    setSelectedDepartment={setSelectedDepartment}
+                    departments={["All", ...new Set((jobs || []).map(j => j.department).filter(Boolean))]}
+                    onEditJob={handleEditJob}
+                    user={useAuth().user}
+                />
 
-            <div className="flex-1 overflow-hidden p-4 md:p-8 relative flex flex-col">
-                {(loading || jobsLoading) && (
-                    <div className="absolute inset-0 bg-white/50 backdrop-blur-sm z-10 flex items-center justify-center">
-                        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
-                    </div>
-                )}
+                <div className="flex-1 overflow-hidden p-4 md:p-8 relative flex flex-col">
+                    {(loading || jobsLoading) && (
+                        <div className="absolute inset-0 bg-white/50 backdrop-blur-sm z-10 flex items-center justify-center">
+                            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
+                        </div>
+                    )}
 
-                {!loading && filteredProfiles.length === 0 && viewMode !== 'calendar' ? (
-                    <div className="h-full flex flex-col items-center justify-center text-slate-400">
-                        <div className="text-lg font-medium">No candidates found</div>
-                        <div className="text-sm">Upload CVs to get started</div>
-                    </div>
-                ) : (
-                    <>
-                        {/* LIST VIEW */}
-                        {viewMode === 'list' && (
-                            <div className="h-full w-full">
-                                <AutoSizer>
-                                    {({ height, width }) => {
-                                        const COLUMN_WIDTH = 320;
-                                        const GAP = 16;
-                                        const columnCount = Math.floor(width / (COLUMN_WIDTH + GAP)) || 1;
-                                        const rowCount = Math.ceil(filteredProfiles.length / columnCount);
+                    {!loading && filteredProfiles.length === 0 && viewMode !== 'calendar' && viewMode !== 'timeline' ? (
+                        <div className="h-full flex flex-col items-center justify-center text-slate-400">
+                            <div className="text-lg font-medium">No candidates found</div>
+                            <div className="text-sm">Upload CVs to get started</div>
+                        </div>
+                    ) : (
+                        <>
+                            {/* LIST VIEW */}
+                            {viewMode === 'list' && (
+                                <div className="h-full w-full">
+                                    <AutoSizer>
+                                        {({ height, width }) => {
+                                            const COLUMN_WIDTH = 320;
+                                            const GAP = 16;
+                                            const columnCount = Math.floor(width / (COLUMN_WIDTH + GAP)) || 1;
+                                            const rowCount = Math.ceil(filteredProfiles.length / columnCount);
 
-                                        const Cell = ({ columnIndex, rowIndex, style }) => {
-                                            const index = rowIndex * columnCount + columnIndex;
-                                            if (index >= filteredProfiles.length) return null;
-                                            const cv = filteredProfiles[index];
+                                            const Cell = ({ columnIndex, rowIndex, style }) => {
+                                                const index = rowIndex * columnCount + columnIndex;
+                                                if (index >= filteredProfiles.length) return null;
+                                                const cv = filteredProfiles[index];
 
-                                            const adjustedStyle = {
-                                                ...style,
-                                                left: style.left + GAP,
-                                                top: style.top + GAP,
-                                                width: style.width - GAP,
-                                                height: style.height - GAP
+                                                const adjustedStyle = {
+                                                    ...style,
+                                                    left: style.left + GAP,
+                                                    top: style.top + GAP,
+                                                    width: style.width - GAP,
+                                                    height: style.height - GAP
+                                                };
+
+                                                return (
+                                                    <div style={adjustedStyle}>
+                                                        <CandidateCard
+                                                            cv={cv}
+                                                            onClick={() => setSelectedCv(cv)}
+                                                            onDelete={handleDeleteCV}
+                                                            onReprocess={handleReprocess}
+                                                            status={selectedJob ? getStatus(cv) : null}
+                                                            jobs={jobs}
+                                                            selectable={!selectedJob}
+                                                            selected={selectedIds.includes(cv.id)}
+                                                            onSelect={() => toggleSelect(cv.id)}
+                                                        />
+                                                    </div>
+                                                );
                                             };
 
                                             return (
-                                                <div style={adjustedStyle}>
-                                                    <CandidateCard
-                                                        cv={cv}
-                                                        onClick={() => setSelectedCv(cv)}
-                                                        onDelete={handleDeleteCV}
-                                                        onReprocess={handleReprocess}
-                                                        status={selectedJob ? getStatus(cv) : null}
-                                                        jobs={jobs}
-                                                        selectable={!selectedJob}
-                                                        selected={selectedIds.includes(cv.id)}
-                                                        onSelect={() => toggleSelect(cv.id)}
-                                                    />
-                                                </div>
+                                                <Grid
+                                                    columnCount={columnCount}
+                                                    columnWidth={(width - GAP) / columnCount}
+                                                    height={height}
+                                                    rowCount={rowCount}
+                                                    rowHeight={220}
+                                                    width={width}
+                                                    onItemsRendered={({ visibleRowStopIndex }) => {
+                                                        if (visibleRowStopIndex >= rowCount - 2 && hasMore && !isFetchingMore) {
+                                                            loadMoreProfiles();
+                                                        }
+                                                    }}
+                                                >
+                                                    {Cell}
+                                                </Grid>
                                             );
-                                        };
+                                        }}
+                                    </AutoSizer>
+                                </div>
+                            )}
 
-                                        return (
-                                            <Grid
-                                                columnCount={columnCount}
-                                                columnWidth={(width - GAP) / columnCount}
-                                                height={height}
-                                                rowCount={rowCount}
-                                                rowHeight={220}
-                                                width={width}
-                                                onItemsRendered={({ visibleRowStopIndex }) => {
-                                                    if (visibleRowStopIndex >= rowCount - 2 && hasMore && !isFetchingMore) {
-                                                        loadMoreProfiles();
-                                                    }
-                                                }}
-                                            >
-                                                {Cell}
-                                            </Grid>
+                            {/* KANBAN VIEW */}
+                            {viewMode === 'kanban' && (
+                                <PipelineBoard
+                                    columns={COLUMNS}
+                                    profiles={filteredProfiles}
+                                    getStatus={getStatus}
+                                    onDrop={onDrop}
+                                    onDragStart={onDragStart}
+                                    onSelectCv={setSelectedCv}
+                                    onDeleteCv={handleDeleteCV}
+                                    onReprocessCv={handleReprocess}
+                                    jobs={jobs}
+                                />
+                            )}
+
+                            {/* CALENDAR VIEW */}
+                            {viewMode === 'calendar' && (
+                                <div className="h-full overflow-y-auto">
+                                    {selectedJob ? (
+                                        <CalendarView
+                                            jobId={selectedJob.id}
+                                            onEventClick={(event) => {
+                                                const interviewData = {
+                                                    id: event.id,
+                                                    candidate_name: event.resource?.candidate_name,
+                                                    job_title: event.resource?.job_title,
+                                                    step: event.resource?.step,
+                                                    scheduled_at: event.start,
+                                                    status: event.status,
+                                                    interviewer_id: event.resource?.interviewer_id
+                                                };
+
+                                                setScheduleData({
+                                                    interview: interviewData,
+                                                });
+                                                setShowScheduleModal(true);
+                                            }}
+                                            onSelectSlot={(slotInfo) => {
+                                                // Handle click on free slot
+                                                setScheduleData({
+                                                    preselectedDate: slotInfo.start,
+                                                });
+                                                setShowScheduleModal(true);
+                                            }}
+                                        />
+                                    ) : (
+                                        <div className="h-full flex flex-col items-center justify-center text-slate-400">
+                                            <div className="text-lg font-medium">Select a job to view calendar</div>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+
+                            {/* TIMELINE VIEW */}
+                            {viewMode === 'timeline' && (
+                                <TimelineView
+                                    jobId={selectedJob?.id}
+                                    selectedDepartment={selectedDepartment}
+                                    refreshTrigger={refreshKey}
+                                    onSelectCandidate={(candidate) => {
+                                        // Find the full CV profile from candidate data
+                                        const cv = profiles.find(p =>
+                                            p.applications?.some(a => a.id === candidate.application_id)
                                         );
+                                        if (cv) setSelectedCv(cv);
                                     }}
-                                </AutoSizer>
-                            </div>
-                        )}
-
-                        {/* KANBAN VIEW */}
-                        {viewMode === 'kanban' && (
-                            <PipelineBoard
-                                columns={COLUMNS}
-                                profiles={filteredProfiles}
-                                getStatus={getStatus}
-                                onDrop={onDrop}
-                                onDragStart={onDragStart}
-                                onSelectCv={setSelectedCv}
-                                onDeleteCv={handleDeleteCV}
-                                onReprocessCv={handleReprocess}
-                                jobs={jobs}
-                            />
-                        )}
-
-                        {/* CALENDAR VIEW */}
-                        {viewMode === 'calendar' && (
-                            <div className="h-full overflow-y-auto">
-                                {selectedJob ? (
-                                    <CalendarView
-                                        jobId={selectedJob.id}
-                                        onEventClick={(event) => {
-                                            const interviewData = {
-                                                id: event.id,
-                                                candidate_name: event.resource?.candidate_name,
-                                                job_title: event.resource?.job_title,
-                                                step: event.resource?.step,
-                                                scheduled_at: event.start,
-                                                status: event.status,
-                                                interviewer_id: event.resource?.interviewer_id
-                                            };
-
+                                    onScheduleInterview={({ candidate, stage }) => {
+                                        // Find the full CV profile
+                                        const cv = profiles.find(p =>
+                                            p.applications?.some(a => a.id === candidate.application_id)
+                                        );
+                                        if (cv) {
                                             setScheduleData({
-                                                interview: interviewData,
+                                                candidate: cv,
+                                                stage: stage,
+                                                mode: 'interview'
                                             });
                                             setShowScheduleModal(true);
-                                        }}
-                                        onSelectSlot={(slotInfo) => {
-                                            // Handle click on free slot
-                                            setScheduleData({
-                                                preselectedDate: slotInfo.start,
-                                            });
-                                            setShowScheduleModal(true);
-                                        }}
-                                    />
-                                ) : (
-                                    <div className="h-full flex flex-col items-center justify-center text-slate-400">
-                                        <div className="text-lg font-medium">Select a job to view calendar</div>
-                                    </div>
-                                )}
-                            </div>
-                        )}
+                                        }
+                                    }}
+                                    onViewInterview={({ candidate }) => {
+                                        // Find the full CV profile and open drawer
+                                        const cv = profiles.find(p =>
+                                            p.applications?.some(a => a.id === candidate.application_id)
+                                        );
+                                        if (cv) setSelectedCv(cv);
+                                    }}
+                                />
+                            )}
+                        </>
+                    )}
+                </div>
 
-                        {/* TIMELINE VIEW */}
-                        {viewMode === 'timeline' && (
-                            <TimelineView
-                                jobId={selectedJob?.id}
-                                refreshTrigger={refreshKey}
-                                onSelectCandidate={(candidate) => {
-                                    // Find the full CV profile from candidate data
-                                    const cv = profiles.find(p =>
-                                        p.applications?.some(a => a.id === candidate.application_id)
-                                    );
-                                    if (cv) setSelectedCv(cv);
-                                }}
-                                onScheduleInterview={({ candidate, stage }) => {
-                                    // Find the full CV profile
-                                    const cv = profiles.find(p =>
-                                        p.applications?.some(a => a.id === candidate.application_id)
-                                    );
-                                    if (cv) {
-                                        setScheduleData({
-                                            candidate: cv,
-                                            stage: stage,
-                                            mode: 'interview'
-                                        });
-                                        setShowScheduleModal(true);
-                                    }
-                                }}
-                                onViewInterview={({ candidate }) => {
-                                    // Find the full CV profile and open drawer
-                                    const cv = profiles.find(p =>
-                                        p.applications?.some(a => a.id === candidate.application_id)
-                                    );
-                                    if (cv) setSelectedCv(cv);
-                                }}
-                            />
-                        )}
-                    </>
-                )}
-            </div>
+                <BulkActionBar
+                    selectedIds={selectedIds}
+                    setShowBulkAssignModal={setShowBulkAssignModal}
+                    performBulkReprocess={handleBulkReprocess}
+                    performBulkDelete={handleBulkDelete}
+                    clearSelection={() => setSelectedIds([])}
+                />
 
-            <BulkActionBar
-                selectedIds={selectedIds}
-                setShowBulkAssignModal={setShowBulkAssignModal}
-                performBulkReprocess={handleBulkReprocess}
-                performBulkDelete={handleBulkDelete}
-                clearSelection={() => setSelectedIds([])}
-            />
+                {
+                    selectedCv && (
+                        <CandidateDrawer
+                            cv={selectedCv}
+                            onClose={() => setSelectedCv(null)}
+                            jobs={jobs}
+                            updateApp={updateApp}
+                            updateProfile={updateProfile}
+                            selectedJobId={selectedJobId}
+                            assignJob={assignJob}
+                            removeJob={removeJob}
+                            companyStages={companyStages}
+                            onScheduleInterview={({ candidate, stage }) => {
+                                setScheduleData({ candidate, stage });
+                                setShowScheduleModal(true);
+                            }}
+                        />
+                    )
+                }
 
-            {
-                selectedCv && (
-                    <CandidateDrawer
-                        cv={selectedCv}
-                        onClose={() => setSelectedCv(null)}
-                        jobs={jobs}
-                        updateApp={updateApp}
-                        updateProfile={updateProfile}
-                        selectedJobId={selectedJobId}
-                        assignJob={assignJob}
-                        removeJob={removeJob}
-                        companyStages={companyStages}
-                        onScheduleInterview={({ candidate, stage }) => {
-                            setScheduleData({ candidate, stage });
-                            setShowScheduleModal(true);
+                {showUploadModal && <UploadModal jobs={jobs} uploadFiles={uploadFiles} performUpload={performUpload} onClose={() => setShowUploadModal(false)} />}
+                {showBulkAssignModal && <BulkAssignModal jobs={jobs} selectedCount={selectedIds.length} performBulkAssign={handleBulkAssign} onClose={() => setShowBulkAssignModal(false)} />}
+                {showEditJobModal && <CreateJobModal onClose={() => setShowEditJobModal(false)} onCreate={handleUpdateJob} initialData={selectedJob} />}
+
+                {showAddCandidateModal && (
+                    <AddCandidateModal
+                        isOpen={showAddCandidateModal}
+                        onClose={() => setShowAddCandidateModal(false)}
+                        job={selectedJob}
+                        onAddCandidates={handleAddCandidates}
+                        onUpload={(files) => {
+                            setShowAddCandidateModal(false);
+                            performUpload(files, selectedJob.id);
                         }}
                     />
-                )
-            }
+                )}
 
-            {showUploadModal && <UploadModal jobs={jobs} uploadFiles={uploadFiles} performUpload={performUpload} onClose={() => setShowUploadModal(false)} />}
-            {showBulkAssignModal && <BulkAssignModal jobs={jobs} selectedCount={selectedIds.length} performBulkAssign={handleBulkAssign} onClose={() => setShowBulkAssignModal(false)} />}
-            {showEditJobModal && <CreateJobModal onClose={() => setShowEditJobModal(false)} onCreate={handleUpdateJob} initialData={selectedJob} />}
-
-            {showScheduleModal && scheduleData && (
-                <ScheduleInterviewModal
-                    show={showScheduleModal}
-                    onClose={() => {
-                        setShowScheduleModal(false);
-                        setScheduleData(null);
-                    }}
-                    onSchedule={(result) => {
-                        console.log("Scheduled/Updated:", result);
-                        fetchProfiles();
-                        setRefreshKey(prev => prev + 1);
-                    }}
-                    candidate={scheduleData.candidate}
-                    candidates={filteredProfiles} // Pass available candidates
-                    job={selectedJob}
-                    initialStep={scheduleData.stage}
-                    interviewToEdit={scheduleData.interview}
-                    preselectedDate={scheduleData.preselectedDate}
-                    mode={scheduleData.mode}
-                />
-            )}
-        </>
+                {showScheduleModal && scheduleData && (
+                    <ScheduleInterviewModal
+                        show={showScheduleModal}
+                        onClose={() => {
+                            setShowScheduleModal(false);
+                            setScheduleData(null);
+                        }}
+                        onSchedule={(result) => {
+                            fetchProfiles();
+                            setRefreshKey(prev => prev + 1);
+                        }}
+                        candidate={scheduleData.candidate}
+                        candidates={filteredProfiles}
+                        job={selectedJob}
+                        initialStep={scheduleData.stage}
+                        interviewToEdit={scheduleData.interview}
+                        preselectedDate={scheduleData.preselectedDate}
+                        mode={scheduleData.mode}
+                    />
+                )}
+            </div>
+        </div>
     );
 };
 

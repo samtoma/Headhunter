@@ -432,41 +432,92 @@ const CandidateDrawer = ({ cv, onClose, updateApp, updateProfile, jobs, selected
                             {/* OVERVIEW TAB */}
                             {sidebarTab === "overview" && (
                                 <div className="space-y-6">
-                                    {/* Active Pipeline */}
-                                    <div className={`p-4 rounded-xl ${selectedJobId ? 'bg-indigo-50 border border-indigo-100' : 'bg-white border border-slate-200'}`}>
-                                        <div className="flex justify-between items-center mb-1">
-                                            <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Active Pipeline</div>
-                                            {/* Attribution for active application in top right */}
-                                            {app && (app.assigned_by_name || app.source) && (
-                                                <div className="text-[9px] text-slate-400 font-medium flex items-center gap-1">
-                                                    {app.source === 'landing_page' ? (
-                                                        <>
-                                                            <Globe size={10} className="text-indigo-500" />
-                                                            <span className="text-indigo-600 font-bold">via Landing Page</span>
-                                                        </>
-                                                    ) : (
-                                                        <>by {app.assigned_by_name || 'System'}</>
-                                                    )}
+                                    {/* Pipelines List & Selector */}
+                                    <div>
+                                        <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-2.5">Pipelines ({safeList(cv.applications).length})</div>
+                                        <div className="space-y-2">
+                                            {/* General Pool Item */}
+                                            <div
+                                                onClick={() => setActiveJobId(null)}
+                                                className={`p-3 rounded-xl border cursor-pointer transition relative group ${!activeJobId ? 'bg-indigo-50 border-indigo-200 ring-1 ring-indigo-200' : 'bg-white border-slate-200 hover:border-indigo-300'}`}
+                                            >
+                                                <div className="font-bold text-slate-900 text-sm flex items-center gap-2">
+                                                    <LayoutGrid size={16} className={!activeJobId ? "text-indigo-600" : "text-slate-400"} />
+                                                    General Pool
                                                 </div>
-                                            )}
-                                        </div>
-                                        <div className="font-bold text-slate-900 flex items-center gap-2">
-                                            {activeJobId ? <><Layers size={16} className="text-indigo-600" /> {(jobs || []).find(j => j.id === activeJobId)?.title}</> : <><LayoutGrid size={16} /> General Pool</>}
-                                            {activeJobId && !selectedJobId && (
-                                                <button onClick={() => setActiveJobId(null)} className="ml-auto p-1 text-slate-400 hover:text-slate-600 hover:bg-slate-200 rounded transition" title="Back to General Pool">
-                                                    <X size={14} />
-                                                </button>
-                                            )}
-                                        </div>
+                                                {/* Selection Check */}
+                                                {!activeJobId && <div className="absolute right-3 top-3 w-2 h-2 rounded-full bg-indigo-600 shadow-sm"></div>}
+                                            </div>
 
-                                        {activeJobId && (
-                                            <div className="mt-3 pt-3 border-t border-indigo-200/50">
-                                                <select value={status} onChange={e => setStatus(e.target.value)} className="w-full mt-1 bg-white border border-indigo-200 text-indigo-900 text-sm rounded-lg p-2 font-medium focus:ring-2 focus:ring-indigo-500 outline-none">
+                                            {/* Application Items */}
+                                            {safeList(cv.applications).map(application => {
+                                                const job = (jobs || []).find(j => j.id === application.job_id);
+                                                const isActive = application.job_id === activeJobId;
+                                                const scheduledInterviews = (application.interviews || []).filter(i => i.status === 'Scheduled');
+
+                                                return (
+                                                    <div
+                                                        key={application.id}
+                                                        onClick={() => setActiveJobId(application.job_id)}
+                                                        className={`p-3 rounded-xl border cursor-pointer transition relative ${isActive ? 'bg-indigo-50 border-indigo-200 ring-1 ring-indigo-200 shadow-sm' : 'bg-white border-slate-200 hover:border-indigo-300 hover:shadow-sm'}`}
+                                                    >
+                                                        <div className="flex justify-between items-start mb-2">
+                                                            <div>
+                                                                <div className={`text-sm font-bold ${isActive ? 'text-indigo-900' : 'text-slate-700'}`}>{job?.title || "Unknown Job"}</div>
+                                                                {(application.assigned_by_name || application.source) && (
+                                                                    <div className="text-[10px] text-slate-400 font-medium mt-0.5">
+                                                                        {application.source === 'landing_page' ? 'Applied via Landing Page' : `Added by ${application.assigned_by_name || 'Team'}`}
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                            {/* Active Indicator */}
+                                                            {isActive && <div className="w-2 h-2 rounded-full bg-indigo-600 shadow-sm mt-1.5"></div>}
+                                                        </div>
+
+                                                        {/* Status & Interviews Summary */}
+                                                        <div className="space-y-2">
+                                                            <div className="flex items-center justify-between text-xs bg-white/60 rounded-lg p-1.5 border border-slate-100">
+                                                                <span className="font-bold text-slate-500">Current Stage</span>
+                                                                <span className="font-bold text-slate-900">{application.status}</span>
+                                                            </div>
+
+                                                            {scheduledInterviews.length > 0 && (
+                                                                <div className="bg-amber-50 border border-amber-100 rounded-lg p-2">
+                                                                    <div className="text-[10px] font-bold text-amber-700 uppercase mb-1 flex items-center gap-1"><Clock size={10} /> Upcoming</div>
+                                                                    <div className="space-y-1">
+                                                                        {scheduledInterviews.map(int => (
+                                                                            <div key={int.id} className="text-xs font-medium text-amber-900">
+                                                                                {int.step} <span className="text-amber-600 text-[10px]">• {new Date(int.scheduled_at).toLocaleDateString()}</span>
+                                                                            </div>
+                                                                        ))}
+                                                                    </div>
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                )
+                                            })}
+                                        </div>
+                                    </div>
+
+                                    {/* Selected Pipeline Actions */}
+                                    {activeJobId && (
+                                        <div className="p-4 bg-indigo-50/50 rounded-xl border border-indigo-100">
+                                            <label className="text-xs font-bold text-indigo-900 uppercase mb-1.5 block flex items-center gap-2">
+                                                Move Stage <span className="font-normal text-indigo-400 normal-case">- {(jobs || []).find(j => j.id === activeJobId)?.title}</span>
+                                            </label>
+                                            <div className="relative">
+                                                <select
+                                                    value={status}
+                                                    onChange={e => setStatus(e.target.value)}
+                                                    className="w-full appearance-none bg-white border border-indigo-200 text-slate-900 text-sm rounded-xl px-4 py-2.5 font-bold focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none shadow-sm"
+                                                >
                                                     {[...new Set(["New", ...(companyStages.map(s => s.name)), "Offer", "Hired", "Silver Medalist", "Rejected"])].map(s => <option key={s} value={s}>{s}</option>)}
                                                 </select>
+                                                <ChevronDown size={16} className="absolute right-3 top-3 text-indigo-400 pointer-events-none" />
                                             </div>
-                                        )}
-                                    </div>
+                                        </div>
+                                    )}
 
                                     {/* Compensation */}
                                     <div>
@@ -492,20 +543,10 @@ const CandidateDrawer = ({ cv, onClose, updateApp, updateProfile, jobs, selected
 
                                     {/* Rating & Notes */}
                                     {activeJobId && (
-                                        <>
-                                            <div>
-                                                <h4 className="text-xs font-bold text-slate-900 uppercase mb-3 flex items-center gap-2"><Star size={14} /> Rating</h4>
-                                                <div className="flex items-center gap-2 bg-white border border-slate-200 rounded-lg p-2">
-                                                    <input type="range" min="0" max="10" value={rating || 0} onChange={e => setRating(e.target.value)} className="flex-1 accent-indigo-600 h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer" />
-                                                    <span className="font-bold text-indigo-600 w-8 text-center bg-slate-50 py-0.5 rounded border border-slate-200 text-xs">{rating || "-"}</span>
-                                                </div>
-                                            </div>
-
-                                            <div className="flex-1 flex flex-col">
-                                                <h4 className="text-xs font-bold text-slate-900 uppercase mb-3 flex items-center gap-2"><FileText size={14} /> Quick Notes</h4>
-                                                <textarea value={notes} onChange={e => setNotes(e.target.value)} className="flex-1 w-full p-3 bg-yellow-50 border border-yellow-200 rounded-xl text-sm text-slate-700 resize-none focus:bg-white focus:border-yellow-400 outline-none transition h-32" placeholder="Add a note..."></textarea>
-                                            </div>
-                                        </>
+                                        <div className="flex-1 flex flex-col">
+                                            <h4 className="text-xs font-bold text-slate-900 uppercase mb-3 flex items-center gap-2"><FileText size={14} /> Quick Notes</h4>
+                                            <textarea value={notes} onChange={e => setNotes(e.target.value)} className="flex-1 w-full p-3 bg-yellow-50 border border-yellow-200 rounded-xl text-sm text-slate-700 resize-none focus:bg-white focus:border-yellow-400 outline-none transition h-32" placeholder="Add a note..."></textarea>
+                                        </div>
                                     )}
                                 </div>
                             )}
@@ -706,6 +747,16 @@ const CandidateDrawer = ({ cv, onClose, updateApp, updateProfile, jobs, selected
                         </div>
 
                         <div className="p-6 border-t border-slate-100 bg-white z-10 space-y-3">
+
+                            {onScheduleInterview && (
+                                <button
+                                    onClick={() => onScheduleInterview({ candidate: cv, stage: status })}
+                                    className="w-full py-2.5 text-indigo-600 hover:bg-indigo-50 rounded-lg font-bold text-sm flex items-center justify-center gap-2 transition"
+                                >
+                                    <Plus size={18} /> Schedule Interview
+                                </button>
+                            )}
+
                             <button onClick={save} className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-bold text-sm flex items-center justify-center gap-2 shadow-sm transition active:scale-[0.98]">
                                 {saved ? <Check size={18} /> : <Save size={18} />} {saved ? "Saved!" : "Save Changes"}
                             </button>

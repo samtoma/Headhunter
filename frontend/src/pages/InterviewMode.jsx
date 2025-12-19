@@ -5,7 +5,8 @@ import {
     ArrowLeft, User, Briefcase, Star, Check,
     Save, MapPin, FileText, GraduationCap, Award,
     Linkedin, Github, ExternalLink, FileCode, Eye, MoreVertical,
-    X, UserPlus, CalendarClock, XCircle, AlertTriangle
+    X, UserPlus, CalendarClock, XCircle, AlertTriangle, History,
+    ChevronDown, ChevronRight
 } from 'lucide-react';
 
 /**
@@ -38,6 +39,13 @@ const InterviewMode = () => {
     const [outcome, setOutcome] = useState('Pending');
     const [rating, setRating] = useState(5);
     const [notes, setNotes] = useState('');
+    const [expandedHistoryIds, setExpandedHistoryIds] = useState([]);
+
+    const toggleHistoryItem = (id) => {
+        setExpandedHistoryIds(prev =>
+            prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]
+        );
+    };
 
     const fetchInterview = useCallback(async () => {
         try {
@@ -201,7 +209,7 @@ const InterviewMode = () => {
     }
 
     return (
-        <div className="min-h-screen bg-slate-100 flex flex-col">
+        <div className="h-screen bg-slate-100 flex flex-col overflow-hidden">
             {/* Header */}
             <div className="bg-white border-b border-slate-200 px-6 py-4 shadow-sm">
                 <div className="flex items-center justify-between max-w-screen-2xl mx-auto">
@@ -332,6 +340,12 @@ const InterviewMode = () => {
                             >
                                 <Eye size={14} /> Original PDF
                             </button>
+                            <button
+                                onClick={() => setView('history')}
+                                className={`flex-1 py-3 px-4 text-xs font-bold uppercase tracking-wider transition flex items-center justify-center gap-2 ${view === 'history' ? 'text-indigo-600 border-b-2 border-indigo-600 bg-white' : 'text-slate-400 hover:text-slate-600'}`}
+                            >
+                                <History size={14} /> History
+                            </button>
                         </div>
 
                         {/* PDF View */}
@@ -441,6 +455,93 @@ const InterviewMode = () => {
                                         {(!d.job_history || d.job_history.length === 0) && <div className="pl-8 text-slate-400 italic">No experience detected.</div>}
                                     </div>
                                 </section>
+                            </div>
+                        )}
+
+                        {/* History View */}
+                        {view === 'history' && (
+                            <div className="flex-1 p-8 space-y-6 overflow-y-auto bg-slate-50">
+                                <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-2 flex items-center gap-2">
+                                    <History size={14} /> Application History
+                                </h3>
+
+                                {(!candidate?.applications || candidate.applications.length === 0) ? (
+                                    <div className="text-center py-12 text-slate-400 italic">No history found.</div>
+                                ) : (
+                                    (candidate.applications || []).map(app => {
+                                        const isExpanded = expandedHistoryIds.includes(app.id);
+                                        return (
+                                            <div key={app.id} className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden transition-all duration-200">
+                                                {/* Header */}
+                                                <div
+                                                    onClick={() => toggleHistoryItem(app.id)}
+                                                    className={`p-4 border-b border-slate-100 flex justify-between items-start cursor-pointer hover:bg-slate-50 transition ${isExpanded ? 'bg-slate-50/80' : 'bg-white'}`}
+                                                >
+                                                    <div className="flex items-start gap-3">
+                                                        <div className="pt-1 text-slate-400">
+                                                            {isExpanded ? <ChevronDown size={18} /> : <ChevronRight size={18} />}
+                                                        </div>
+                                                        <div>
+                                                            <div className="font-bold text-slate-900 text-base">{app.job_title || "Unknown Position"}</div>
+                                                            <div className="text-xs text-slate-500 mt-1 flex items-center gap-2">
+                                                                <span className="font-medium text-indigo-600">{app.status}</span>
+                                                                <span>•</span>
+                                                                <span>{new Date(app.applied_at).toLocaleDateString()}</span>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                    {/* Source Badge */}
+                                                    <div className="text-[10px] font-bold px-2 py-1 bg-slate-100 text-slate-500 rounded uppercase tracking-wider">
+                                                        {app.source === 'landing_page' ? 'Applied Online' : (app.assigned_by_name ? `Added by ${app.assigned_by_name}` : 'Manually Added')}
+                                                    </div>
+                                                </div>
+
+                                                {isExpanded && (
+                                                    <div className="p-4 space-y-4 animate-in slide-in-from-top-2 duration-200">
+                                                        {/* Notes */}
+                                                        {app.notes && (
+                                                            <div className="bg-yellow-50 border border-yellow-100 p-3 rounded-lg text-sm text-slate-700">
+                                                                <div className="text-[10px] font-bold text-yellow-700 uppercase mb-1 flex items-center gap-1"><FileText size={10} /> Notes</div>
+                                                                {app.notes}
+                                                            </div>
+                                                        )}
+
+                                                        {/* Interviews */}
+                                                        <div>
+                                                            <div className="text-xs font-bold text-slate-400 uppercase mb-2">Interviews</div>
+                                                            {(app.interviews && app.interviews.length > 0) ? (
+                                                                <div className="space-y-2">
+                                                                    {app.interviews.map(int => (
+                                                                        <div key={int.id} className="text-sm border border-slate-100 rounded-lg p-3 hover:bg-slate-50 transition">
+                                                                            <div className="flex justify-between items-center mb-1">
+                                                                                <span className="font-bold text-slate-700">{int.step}</span>
+                                                                                <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${int.outcome === 'Passed' ? 'bg-emerald-100 text-emerald-700' : int.outcome === 'Failed' ? 'bg-red-100 text-red-700' : 'bg-slate-100 text-slate-500'}`}>
+                                                                                    {int.outcome || int.status}
+                                                                                </span>
+                                                                            </div>
+                                                                            <div className="flex items-center gap-2 text-xs text-slate-400 mb-2">
+                                                                                <span>{new Date(int.created_at).toLocaleDateString()}</span>
+                                                                                {int.rating && <span>• Rating: {int.rating}/10</span>}
+                                                                                {int.interviewer_name && <span>• by {int.interviewer_name}</span>}
+                                                                            </div>
+                                                                            {int.feedback && (
+                                                                                <div className="text-slate-600 text-xs italic bg-slate-50 p-2 rounded">
+                                                                                    "{int.feedback}"
+                                                                                </div>
+                                                                            )}
+                                                                        </div>
+                                                                    ))}
+                                                                </div>
+                                                            ) : (
+                                                                <div className="text-xs text-slate-400 italic">No interviews logged.</div>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        )
+                                    })
+                                )}
                             </div>
                         )}
                     </div>
