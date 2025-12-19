@@ -91,7 +91,24 @@ async def extract_company_info(
                 if "found" in property_name.lower() or "establish" in property_name.lower():
                     metadata["founded_hint"] = content
             
-            # Look for structured data (JSON-LD)
+            # Helper function to make absolute URLs
+            def make_absolute_url(href, base_url):
+                if not href:
+                    return None
+                if href.startswith("http"):
+                    return href
+                if href.startswith("//"):
+                    return "https:" + href
+                if href.startswith("/"):
+                    from urllib.parse import urlparse
+                    parsed = urlparse(base_url)
+                    return f"{parsed.scheme}://{parsed.netloc}{href}"
+                return None
+            
+            # Extract logo URL - prioritize high-quality sources
+            logo_url = None
+            
+            # 1. First check structured data (JSON-LD) - often has the best quality logo
             for script in soup.find_all("script", type="application/ld+json"):
                 try:
                     data = json.loads(script.string)
@@ -100,22 +117,70 @@ async def extract_company_info(
                             metadata["founding_date"] = data["foundingDate"]
                         if "numberOfEmployees" in data:
                             metadata["employee_count"] = str(data["numberOfEmployees"])
+                        # Extract logo from structured data (higher priority than og:image)
+                        if "logo" in data:
+                            if isinstance(data["logo"], str):
+                                logo_url = make_absolute_url(data["logo"], url)
+                            elif isinstance(data["logo"], dict) and "url" in data["logo"]:
+                                logo_url = make_absolute_url(data["logo"]["url"], url)
+                        # Extract company name from structured data
+                        if "name" in data and data.get("@type") in ["Organization", "Corporation", "LocalBusiness"]:
+                            metadata["company_name"] = data["name"]
                 except Exception:
                     pass
             
-            # Try to scrape About and Careers pages for more info
+            # 2. Look for explicit logo images in page content (img with logo in class/id/alt/src)
+            if not logo_url:
+                for img in soup.find_all("img", src=True):
+                    img_src = img.get("src", "")
+                    img_class = " ".join(img.get("class", []))
+                    img_id = img.get("id", "")
+                    img_alt = img.get("alt", "")
+                    # Check if this is likely a logo
+                    indicators = [img_src.lower(), img_class.lower(), img_id.lower(), img_alt.lower()]
+                    if any("logo" in ind for ind in indicators):
+                        # Skip tiny icons and favicons
+                        if "favicon" not in img_src.lower() and "icon" not in img_src.lower():
+                            logo_url = make_absolute_url(img_src, url)
+                            if logo_url:
+                                break
+            
+            # 3. Try og:image (often used for social sharing, may be banner not logo)
+            if not logo_url:
+                og_image = soup.find("meta", property="og:image")
+                if og_image and og_image.get("content"):
+                    logo_url = make_absolute_url(og_image.get("content"), url)
+            
+            # 4. Last resort: apple-touch-icon (usually 180x180, better than favicon)
+            if not logo_url:
+                for link in soup.find_all("link", rel=True):
+                    rel = " ".join(link.get("rel", []))
+                    # Prefer apple-touch-icon (larger) over regular icon
+                    if "apple-touch-icon" in rel:
+                        href = link.get("href")
+                        logo_url = make_absolute_url(href, url)
+                        break
+            
+            # 5. Skip favicons - they're too small for logos
+            
+            # Try to scrape About, Careers, and Team pages for more info
             additional_text = ""
-            for path in ["/about", "/about-us", "/company", "/careers", "/jobs"]:
+            team_text = ""  # Separate variable for team/leadership content
+            for path in ["/about", "/about-us", "/company", "/careers", "/jobs", "/team", "/our-team", "/leadership"]:
                 try:
-                    about_url = url.rstrip("/") + path
-                    about_resp = await http_client.get(about_url, headers=headers, timeout=10.0)
-                    if about_resp.status_code == 200:
-                        about_soup = BeautifulSoup(about_resp.text, "html.parser")
-                        for script in about_soup(["script", "style", "nav", "footer", "header"]):
+                    page_url = url.rstrip("/") + path
+                    page_resp = await http_client.get(page_url, headers=headers, timeout=10.0)
+                    if page_resp.status_code == 200:
+                        page_soup = BeautifulSoup(page_resp.text, "html.parser")
+                        for script in page_soup(["script", "style", "nav", "footer", "header"]):
                             script.decompose()
-                        about_text = about_soup.get_text(separator=" ", strip=True)[:5000]
-                        additional_text += f"\n\n--- {path.upper()} PAGE ---\n{about_text}"
-                        break  # Just use first successful page
+                        page_text = page_soup.get_text(separator=" ", strip=True)[:5000]
+                        
+                        # Capture team/leadership pages separately for department inference
+                        if path in ["/team", "/our-team", "/leadership", "/about", "/about-us", "/company"]:
+                            team_text += f"\n{page_text}"
+                        
+                        additional_text += f"\n\n--- {path.upper()} PAGE ---\n{page_text}"
                 except Exception:
                     continue
             
@@ -182,7 +247,11 @@ async def extract_company_info(
         13. **culture**: Description of company culture and work environment
         14. **products_services**: Detailed description of main products and services
         15. **target_market**: Description of target customers/market
-        16. **competitive_advantage**: What makes this company unique or better than competitors{fine_tuning_instruction}
+        16. **competitive_advantage**: What makes this company unique or better than competitors
+        17. **departments**: Array of department names found or inferred from the website
+            - Look for team pages, leadership sections, career listings, job categories
+            - Common departments: "Engineering", "Product", "Sales", "Marketing", "Customer Success", "Operations", "Finance", "HR", "Legal"
+            - Infer from job titles, team member titles, or organizational structure mentioned{fine_tuning_instruction}
         
         Return ONLY valid JSON in this exact format:
         {{
@@ -201,7 +270,8 @@ async def extract_company_info(
             "culture": "...",
             "products_services": "...",
             "target_market": "...",
-            "competitive_advantage": "..."
+            "competitive_advantage": "...",
+            "departments": ["Engineering", "Sales", "Marketing", "..."]
         }}
         
         Website Text:
@@ -228,11 +298,20 @@ async def extract_company_info(
             if social_links["facebook"]:
                 result["social_facebook"] = social_links["facebook"]
             
+            # Add logo URL if found
+            if logo_url:
+                result["logo_url"] = logo_url
+            
+            # Add the original website URL to preserve it
+            result["website"] = url
+            
             # Convert arrays to JSON strings for database storage
             if "specialties" in result and isinstance(result["specialties"], list):
                 result["specialties"] = json.dumps(result["specialties"])
             if "values" in result and isinstance(result["values"], list):
                 result["values"] = json.dumps(result["values"])
+            if "departments" in result and isinstance(result["departments"], list):
+                result["departments"] = json.dumps(result["departments"])
             
             return result
             
