@@ -13,7 +13,8 @@ vi.mock('lucide-react', () => ({
     Layers: () => <span data-testid="icon-layers" />,
     Calendar: () => <span data-testid="icon-calendar" />,
     GanttChart: () => <span data-testid="icon-gantt-chart" />,
-    X: () => <span data-testid="icon-x" />
+    X: () => <span data-testid="icon-x" />,
+    Plus: () => <span data-testid="icon-plus" />
 }))
 
 describe('PipelineHeader', () => {
@@ -118,12 +119,13 @@ describe('PipelineHeader', () => {
     it('handles file upload for general pool', () => {
         // This test is covered by 'handles file upload selection' test below
         render(<PipelineHeader {...defaultProps} />)
-        expect(screen.getByText('Add Candidate')).toBeInTheDocument()
+        expect(screen.getByText('Upload CV')).toBeInTheDocument()
     })
 
     // Rewrite upload test to be cleaner
     it('handles file upload selection', () => {
         const { container } = render(<PipelineHeader {...defaultProps} />)
+        // In general pool, we have a label acting as button with nested input
         const input = container.querySelector('input[type="file"]')
         const file = new File(['dummy'], 'resume.pdf', { type: 'application/pdf' })
 
@@ -135,12 +137,11 @@ describe('PipelineHeader', () => {
 
     it('handles file upload for specific job', () => {
         const job = { id: 1, title: 'Software Engineer' }
-        const { container } = render(<PipelineHeader {...defaultProps} selectedJob={job} />)
-        const input = container.querySelector('input[type="file"]')
-        const file = new File(['dummy'], 'resume.pdf', { type: 'application/pdf' })
+        render(<PipelineHeader {...defaultProps} selectedJob={job} />)
 
-        fireEvent.change(input, { target: { files: [file] } })
+        // In specific job, we have a button that opens the modal
+        fireEvent.click(screen.getByText('Add Candidate'))
 
-        expect(defaultProps.performUpload).toHaveBeenCalled()
+        expect(defaultProps.setShowUploadModal).toHaveBeenCalledWith(true)
     })
 })

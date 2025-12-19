@@ -5,7 +5,7 @@ from pydantic import BaseModel, ConfigDict
 from datetime import datetime
 import json
 from app.core.database import get_db
-from app.models.models import Interview, Application, User, CV, ParsedCV, UserRole
+from app.models.models import Interview, Application, User, CV, UserRole
 from app.api.deps import get_current_user
 from app.api.v1.activity import log_application_activity
 from app.core.email import send_interview_notification
@@ -377,11 +377,15 @@ def create_interview(
     candidate_email = None
     if app.cv and app.cv.parsed_data and app.cv.parsed_data.email:
         e = app.cv.parsed_data.email
-        if isinstance(e, list): candidate_email = e[0]
+        if isinstance(e, list):
+            candidate_email = e[0]
         elif isinstance(e, str) and "[" in e:
-            try: candidate_email = json.loads(e)[0]
-            except: candidate_email = e
-        else: candidate_email = e
+            try:
+                candidate_email = json.loads(e)[0]
+            except Exception:
+                candidate_email = e
+        else:
+            candidate_email = e
     
     recruiter_email = app.assigner.email if app.assigner else None
     
@@ -479,7 +483,7 @@ def get_global_interview_timeline(
     from app.models.models import Job, CV, UserRole
     
     # Base query for Jobs in company
-    job_query = db.query(Job).filter(Job.company_id == current_user.company_id, Job.is_active == True)
+    job_query = db.query(Job).filter(Job.company_id == current_user.company_id, Job.is_active)
     
     # Department Filter
     if department and department != "All":
@@ -506,7 +510,7 @@ def get_global_interview_timeline(
         try:
              company_stages_data = json.loads(current_user.company.interview_stages)
              stages = [s["name"] for s in company_stages_data]
-        except:
+        except Exception:
              pass
 
     # Fetch all applications for these jobs
@@ -745,11 +749,15 @@ def update_interview(
         # Candidate Email
         if app.cv and app.cv.parsed_data and app.cv.parsed_data.email:
             e = app.cv.parsed_data.email
-            if isinstance(e, list): candidate_email = e[0]
+            if isinstance(e, list):
+                candidate_email = e[0]
             elif isinstance(e, str) and "[" in e:
-                try: candidate_email = json.loads(e)[0]
-                except: candidate_email = e
-            else: candidate_email = e
+                try:
+                    candidate_email = json.loads(e)[0]
+                except Exception:
+                    candidate_email = e
+            else:
+                candidate_email = e
         
         # Recruiter Email
         recruiter_email = app.assigner.email if app.assigner else None

@@ -254,7 +254,7 @@ describe('Pipeline Integration', () => {
         renderPipeline({ selectedJobId: null })
 
         // Find Add button (it's a label acting as button)
-        const addBtn = screen.getByText('Add Candidate')
+        const addBtn = screen.getByText('Upload CV')
 
         // We can't easily click the file input label to trigger modal without file selection
         // But the code says: onChange of input triggers modal if no selectedJob

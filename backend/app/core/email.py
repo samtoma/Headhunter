@@ -260,12 +260,12 @@ END:VCALENDAR"""
         if ics_path and os.path.exists(ics_path):
             try:
                 os.remove(ics_path)
-            except:
+            except OSError:
                 pass
         if temp_cv_path and os.path.exists(temp_cv_path):
             try:
                 os.remove(temp_cv_path)
-            except:
+            except OSError:
                 pass
 
 

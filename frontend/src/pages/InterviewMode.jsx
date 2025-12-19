@@ -526,7 +526,7 @@ const InterviewMode = () => {
                                                                             </div>
                                                                             {int.feedback && (
                                                                                 <div className="text-slate-600 text-xs italic bg-slate-50 p-2 rounded">
-                                                                                    "{int.feedback}"
+                                                                                    &quot;{int.feedback}&quot;
                                                                                 </div>
                                                                             )}
                                                                         </div>
