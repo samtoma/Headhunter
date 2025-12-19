@@ -19,6 +19,8 @@ const AuthCallback = () => {
         const email = searchParams.get('email')
         const full_name = searchParams.get('full_name') // Google Name
         const picture = searchParams.get('picture')
+        const sso_provider = searchParams.get('sso_provider') // google, microsoft
+        const is_verified = searchParams.get('is_verified') // SSO users are always verified
 
         if (error) {
             navigate(`/login?error=${error}`)
@@ -32,9 +34,20 @@ const AuthCallback = () => {
             if (email) localStorage.setItem('email', email)
             if (full_name) localStorage.setItem('full_name', full_name)
             if (picture) localStorage.setItem('picture', picture)
+            if (sso_provider) localStorage.setItem('sso_provider', sso_provider)
+            // SSO users are always verified
+            localStorage.setItem('is_verified', is_verified === 'true' ? 'true' : 'false')
 
-            // Call context login
-            login(token, { role, company_name, email, full_name, picture })
+            // Call context login with all user data including SSO info
+            login(token, {
+                role,
+                company_name,
+                email,
+                full_name,
+                picture,
+                sso_provider,
+                is_verified: is_verified === 'true'
+            })
 
             navigate('/')
         } else {

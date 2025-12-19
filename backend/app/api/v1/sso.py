@@ -99,8 +99,33 @@ async def microsoft_callback(request: Request, db: Session = Depends(get_db)):
         data={"sub": db_user.email}, expires_delta=access_token_expires
     )
     
-    # Redirect to frontend with token
-    # Assuming frontend is at localhost:3000 (or whatever origin)
-    # Ideally this URL is configurable
+    # Get company name and user details
+    company_name = db_user.company.name if db_user.company else ""
+    full_name = user.display_name or db_user.email.split('@')[0]
+    picture = db_user.profile_picture or user.picture or ""
+    
+    # Update profile picture from Microsoft if we don't have one and Microsoft provides one
+    if not db_user.profile_picture and user.picture:
+        db_user.profile_picture = user.picture
+        db.commit()
+        picture = user.picture
+    
+    # URL-encode values to handle special characters
+    from urllib.parse import quote
+    encoded_company = quote(company_name, safe='')
+    encoded_name = quote(full_name, safe='')
+    encoded_picture = quote(picture, safe='')
+    
+    # Redirect to frontend with token and user info (matching Google SSO format)
     FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:3000")
-    return RedirectResponse(url=f"{FRONTEND_URL}/auth/callback?token={access_token}")
+    return RedirectResponse(
+        url=f"{FRONTEND_URL}/auth/callback"
+        f"?token={access_token}"
+        f"&role={db_user.role}"
+        f"&company_name={encoded_company}"
+        f"&email={db_user.email}"
+        f"&full_name={encoded_name}"
+        f"&picture={encoded_picture}"
+        f"&sso_provider=microsoft"
+        f"&is_verified=true"
+    )

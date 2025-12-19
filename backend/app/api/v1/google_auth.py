@@ -143,4 +143,6 @@ async def google_callback(request: Request, db: Session = Depends(get_db)):
         f"&email={user.email}"
         f"&full_name={encoded_name}"
         f"&picture={encoded_picture}"
+        f"&sso_provider=google"
+        f"&is_verified=true"
     )
