@@ -8,7 +8,10 @@ class MicrosoftCalendarProvider(CalendarProvider):
     def __init__(self):
         self.client_id = os.getenv("MICROSOFT_CLIENT_ID")
         self.client_secret = os.getenv("MICROSOFT_CLIENT_SECRET")
-        self.redirect_uri = os.getenv("MICROSOFT_REDIRECT_URI", "http://localhost:5173/settings/calendar/callback-microsoft") 
+        # Derive redirect URI from FRONTEND_URL for dynamic domain support
+        # Falls back to explicit MICROSOFT_REDIRECT_URI if set
+        frontend_url = os.getenv("FRONTEND_URL", "http://localhost:30004")
+        self.redirect_uri = os.getenv("MICROSOFT_REDIRECT_URI", f"{frontend_url}/settings/calendar/callback-microsoft")
         self.tenant_id = os.getenv("MICROSOFT_TENANT_ID", "common")
         
         self.authority = f"https://login.microsoftonline.com/{self.tenant_id}"

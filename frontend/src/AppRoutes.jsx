@@ -30,6 +30,7 @@ import GeneralSettings from './components/settings/GeneralSettings';
 import WorkflowSettings from './components/settings/WorkflowSettings';
 import CompanyProfile from './components/settings/CompanyProfile';
 import CalendarSettings from './components/settings/CalendarSettings';
+import CalendarCallback from './components/settings/CalendarCallback';
 import React, { useState } from 'react';
 
 // Protected Route Wrapper
@@ -157,6 +158,8 @@ const AppRoutes = () => {
                 <Route path="team" element={<Team />} />
                 <Route path="departments" element={<Departments />} />
                 <Route path="calendar" element={<CalendarSettings />} />
+                <Route path="calendar/callback" element={<CalendarCallback provider="google" />} />
+                <Route path="calendar/callback-microsoft" element={<CalendarCallback provider="microsoft" />} />
             </Route>
 
             {/* Redirects for legacy routes */}
