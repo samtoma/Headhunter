@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect, useCallback } from 'react'
+import { createPortal } from 'react-dom'
 import {
     MapPin, User, Briefcase, Bug, Pencil, X, ExternalLink, Linkedin, Github,
     FileText, BrainCircuit, GraduationCap, Layers, LayoutGrid, DollarSign, Star,
@@ -256,8 +257,8 @@ const CandidateDrawer = ({ cv, onClose, updateApp, updateProfile, jobs, selected
 
     if (!cv) return null
 
-    return (
-        <div className="fixed inset-0 z-50 flex justify-end isolate">
+    return createPortal(
+        <div className="fixed inset-0 z-[60] flex justify-end isolate">
             <div className="absolute inset-0 bg-slate-900/30 backdrop-blur-[2px] transition-opacity" onClick={onClose}></div>
 
             <div className="relative w-full md:max-w-[90rem] bg-[#F8FAFC] h-full shadow-2xl flex flex-col animate-slide-in-right overflow-hidden md:border-l border-slate-200">
@@ -814,7 +815,8 @@ const CandidateDrawer = ({ cv, onClose, updateApp, updateProfile, jobs, selected
                     </div>
                 </div>
             </div>
-        </div>
+        </div>,
+        document.body
     )
 }
 

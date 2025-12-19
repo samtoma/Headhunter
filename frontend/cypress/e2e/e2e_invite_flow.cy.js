@@ -19,9 +19,13 @@ describe('User Invite Flow', () => {
     });
 
     it('should allow an admin to invite a new team member', () => {
-        // Navigate to Team page
-        cy.contains('Team').click();
-        cy.url().should('include', '/team');
+        // Navigate to Settings > Team Management page
+        cy.contains('Settings').click();
+        cy.url().should('include', '/settings');
+
+        // Click on Team Management tab
+        cy.contains('Team Management').click();
+        cy.url().should('include', '/settings/team');
 
         // Open Invite Modal
         cy.contains('button', 'Invite Member').click();
