@@ -32,10 +32,13 @@ const MyInterviewsWidget = ({ limit = 5, onViewCandidate }) => {
         }
     };
 
-    // Filter to upcoming only
+    // Filter to upcoming only - exclude completed, cancelled, and no-show interviews
     const upcoming = interviews.filter(i => {
         if (!i.scheduled_at) return false;
-        return new Date(i.scheduled_at) >= new Date() && i.status !== 'Completed';
+        // Only show if date is in future AND status is Scheduled (or null for backwards compat)
+        const isFutureDate = new Date(i.scheduled_at) >= new Date();
+        const isActiveStatus = !i.status || i.status === 'Scheduled';
+        return isFutureDate && isActiveStatus;
     });
 
     const displayList = expanded ? upcoming : upcoming.slice(0, limit);

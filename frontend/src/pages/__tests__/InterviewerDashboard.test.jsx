@@ -28,7 +28,7 @@ describe('InterviewerDashboard Component', () => {
             cv_id: 101,
             application_id: 201,
             step: 'Technical Interview',
-            status: null
+            status: 'Scheduled' // Updated to realistic status value
         },
         {
             id: 2,
@@ -38,8 +38,19 @@ describe('InterviewerDashboard Component', () => {
             cv_id: 102,
             application_id: 202,
             step: 'Manager Interview',
-            status: 'Passed',
+            status: 'Completed', // Completed status shows in past
+            outcome: 'Passed',
             rating: 9
+        },
+        {
+            id: 3,
+            candidate_name: 'Bob Wilson',
+            job_title: 'DevOps Engineer',
+            scheduled_at: new Date(Date.now() + 86400000 * 2).toISOString(), // Day after tomorrow
+            cv_id: 103,
+            application_id: 203,
+            step: 'Screening',
+            status: 'Cancelled' // Cancelled interview - should NOT appear in upcoming
         }
     ];
 
@@ -69,6 +80,18 @@ describe('InterviewerDashboard Component', () => {
         expect(screen.getByText('Frontend Dev')).toBeInTheDocument();
     });
 
+    it('excludes cancelled interviews from upcoming', async () => {
+        render(<InterviewerDashboard onOpenMobileSidebar={() => { }} />);
+
+        await waitFor(() => {
+            expect(screen.getByText('John Doe')).toBeInTheDocument();
+        });
+
+        // Bob Wilson's interview is cancelled - should NOT appear in upcoming
+        expect(screen.queryByText('Bob Wilson')).not.toBeInTheDocument();
+        expect(screen.queryByText('DevOps Engineer')).not.toBeInTheDocument();
+    });
+
     it('switches to past interviews tab', async () => {
         render(<InterviewerDashboard onOpenMobileSidebar={() => { }} />);
 
@@ -80,8 +103,23 @@ describe('InterviewerDashboard Component', () => {
             expect(screen.getByText('Jane Smith')).toBeInTheDocument();
         });
         expect(screen.queryByText('John Doe')).not.toBeInTheDocument();
-        expect(screen.getByText('Outcome:')).toBeInTheDocument();
-        expect(screen.getByText('Passed')).toBeInTheDocument();
+        // Multiple past interviews (Completed + Cancelled) so use getAllByText
+        expect(screen.getAllByText('Outcome:').length).toBeGreaterThan(0);
+        expect(screen.getByText('Completed')).toBeInTheDocument();
+    });
+
+    it('shows cancelled interviews in past tab', async () => {
+        render(<InterviewerDashboard onOpenMobileSidebar={() => { }} />);
+
+        await waitFor(() => screen.getByText('John Doe'));
+
+        fireEvent.click(screen.getByText(/Past/));
+
+        await waitFor(() => {
+            // Cancelled interview should appear in past tab
+            expect(screen.getByText('Bob Wilson')).toBeInTheDocument();
+            expect(screen.getByText('DevOps Engineer')).toBeInTheDocument();
+        });
     });
 
     it('opens candidate drawer when clicking View Profile', async () => {

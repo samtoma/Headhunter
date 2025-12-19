@@ -31,8 +31,16 @@ const InterviewerDashboard = ({ onOpenMobileSidebar }) => {
         }
     };
 
-    const upcomingInterviews = interviews.filter(i => !i.status && (!i.scheduled_at || new Date(i.scheduled_at) > new Date()));
-    const pastInterviews = interviews.filter(i => i.status || (i.scheduled_at && new Date(i.scheduled_at) <= new Date()));
+    // Upcoming: status is "Scheduled" (or null for backwards compat) AND date is in future
+    const upcomingInterviews = interviews.filter(i =>
+        (!i.status || i.status === 'Scheduled') &&
+        (!i.scheduled_at || new Date(i.scheduled_at) > new Date())
+    );
+    // Past: status is Completed/Cancelled/No-Show OR date is in the past
+    const pastInterviews = interviews.filter(i =>
+        (i.status && i.status !== 'Scheduled') ||
+        (i.scheduled_at && new Date(i.scheduled_at) <= new Date())
+    );
 
     const displayedInterviews = activeTab === 'upcoming' ? upcomingInterviews : pastInterviews;
 
