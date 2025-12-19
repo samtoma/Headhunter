@@ -1,3 +1,40 @@
+# Release Notes - v1.15.0 (Auto Invitations & Cancellations)
+
+**Release Date:** 2025-12-19
+
+## Summary
+
+This release completes the calendar integration by introducing **Auto Interview Invitations** and **Cancellation Management**. Calendar events are now automatically created and sent to all participants, including the candidate (with CV attached) and interviewers, ensuring seamless scheduling.
+
+## 🚀 Key Features
+
+### 📅 Auto-Invitations
+
+- **Automatic Sending:** Invitations are triggered immediately upon interview creation or scheduling.
+- **Smart Attachments:** The candidate's CV is automatically renamed and attached to the calendar invite for interviewers.
+- **Rich Event Details:** Calendar events include the interview type, candidate details, and direct links to the Headhunter dashboard.
+- **Organizer Tracking:** The scheduler is set as the event organizer to track accept/decline responses.
+
+### ❌ Cancellation Handling
+
+- **Automated Cancellations:** Updating an interview status to "Cancelled" automatically sends a cancellation email.
+- **Calendar Cleanup:** Sends `METHOD:CANCEL` to remove the event from all participants' calendars.
+- **Smart Cleanup:** Ensures attachments are handled correctly during the cancellation process.
+
+## 🛠️ Technical Details
+
+- **Backend**:
+  - Enhanced `send_interview_notification` in `email.py` to handle both `REQUEST` and `CANCEL` ICS methods.
+  - Implemented secure temporary file handling for CV renaming/attachment using `shutil` and `/tmp/` directory.
+  - Updated `create_interview` and `update_interview` logic to trigger notifications on status changes.
+
+## ✅ Verification
+
+- **Manual Verification**: Verified end-to-end flow with real Google Calendar and Outlook accounts (Invite & Cancel).
+- **Unit Tests**: Added test cases for ICS generation, file renaming, and cancellation logic.
+
+---
+
 # Release Notes - v1.14.0 (Calendar Integration)
 
 **Release Date:** 2025-12-18
