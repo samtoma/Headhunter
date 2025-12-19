@@ -243,27 +243,27 @@ Use GPT-4o to extract structured entities from parsed CVs.
 
 ## Epic 5: Auto Interview Invitations
 
-### [FEAT-005] Auto Interview Invitations Epic
+### [FEAT-005] Auto Interview Invitations Epic ✅ COMPLETED
 
 **Labels:** `epic`, `v2.0`, `backend`, `integration`
 
 #### Summary
 
-Automatically send calendar invitations when interviews are scheduled.
+✅ **COMPLETED** - Automatically send calendar invitations when interviews are scheduled.
 
 #### Goals
 
-- [ ] Auto-send invites on interview creation
-- [ ] Configurable invitation rules
-- [ ] Rich event content with candidate info
-- [ ] Attach relevant documents
+- [x] Auto-send invites on interview creation
+- [x] Configurable invitation rules
+- [x] Rich event content with candidate info
+- [x] Attach relevant documents
 
 #### Child Issues
 
-- [ ] [FEAT-005-1] Invitation Rules Engine
-- [ ] [FEAT-005-2] Event Trigger System
-- [ ] [FEAT-005-3] Invitation Template System
-- [ ] [FEAT-005-4] Invitation Status Tracking
+- [x] [FEAT-005-1] Invitation Rules Engine
+- [x] [FEAT-005-2] Event Trigger System
+- [x] [FEAT-005-3] Invitation Template System
+- [x] [FEAT-005-4] Invitation Status Tracking
 
 #### Dependencies: [FEAT-001] Calendar Integration
 

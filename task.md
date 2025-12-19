@@ -34,6 +34,13 @@
   - [x] Critical User Flows (e2e_recruitment_flow.cy.js - 202 lines) <!-- gh: 34 -->
   - [x] Critical User Flows (e2e_recruitment_flow.cy.js - 202 lines) <!-- gh: 34 -->
 
+## ✅ Completed (v1.15.0)
+
+- [x] [FEAT-005] Auto Interview Invitations <!-- v1.15.0 --> <!-- gh: 48 -->
+  - [x] [FEAT-005-1] Invitation Rules Engine <!-- gh: 49 -->
+  - [x] [FEAT-005-2] Event Trigger System <!-- gh: 50 -->
+  - [x] [FEAT-005-3] Invitation Template System <!-- gh: 51 -->
+
 ## ✅ Completed (v1.14.0)
 
 - [x] [FEAT-001] Calendar Integration <!-- v1.14.0 --> <!-- gh: 42 -->
@@ -75,11 +82,6 @@
 - [ ] [FEAT-008] Role-Based Permissions <!-- v2.0 --> <!-- gh: 78 --> (Moved to In Progress)
 
 ### Phase 2: Calendar & Automation (Weeks 5-8)
-
-- [ ] [FEAT-005] Auto Interview Invitations <!-- v2.0 --> <!-- gh: 48 -->
-  - [ ] [FEAT-005-1] Invitation Rules Engine <!-- gh: 49 -->
-  - [ ] [FEAT-005-2] Event Trigger System <!-- gh: 50 -->
-  - [ ] [FEAT-005-3] Invitation Template System <!-- gh: 51 -->
 
 ### Phase 3: Interview Experience (Weeks 9-12)
 

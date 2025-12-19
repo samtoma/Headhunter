@@ -20,7 +20,7 @@ This document outlines the next major evolution of Headhunter AI, transforming i
 | 2 | [Google Sign-In](#2-google-sign-in) | ✅ Complete | Medium | Auth System |
 | 3 | [Interview Redesign](#3-interview-redesign) | 🔴 High | High | None |
 | 4 | [GraphRAG & Skills Matrix](#4-graphrag--skills-matrix) | 🟡 Medium | Very High | ChromaDB |
-| 5 | [Auto Interview Invitations](#5-auto-interview-invitations) | 🔴 High | Medium | Calendar, Interview |
+| 5 | [Auto Interview Invitations](#5-auto-interview-invitations) | ✅ Complete | Medium | Calendar, Interview |
 | 6 | [Advanced Admin Dashboard](#6-advanced-admin-dashboard) | 🟡 Medium | High | Analytics |
 | 7 | [Pipeline-Interview Merge](#7-pipeline-interview-merge) | 🔴 High | High | Interview Redesign |
 | **8** | **[Role-Based Permissions](#8-role-based-permissions)** | **🔄 In Progress** | **Medium** | **User Model** |
@@ -386,10 +386,10 @@ Quick Links:
 
 ### 5.5 User Stories
 
-- [ ] As an interviewer, I receive a calendar invite when assigned
-- [ ] As a hiring manager, I get optional invites for my department's interviews
-- [ ] As a recruiter, I can customize invitation templates
-- [ ] As an admin, I can configure default invitation settings
+- [x] As an interviewer, I receive a calendar invite when assigned
+- [x] As a hiring manager, I get optional invites for my department's interviews
+- [x] As a recruiter, I can customize invitation templates
+- [x] As an admin, I can configure default invitation settings
 
 ---
 
