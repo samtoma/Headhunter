@@ -1,3 +1,81 @@
+# Release Notes - v1.17.0 (Enhanced Monitoring Dashboard with WebSocket & Higher Granularity)
+
+**Release Date:** 2025-12-21
+
+## Summary
+
+This release significantly enhances the monitoring dashboard with **real-time WebSocket updates**, **higher granularity historical data**, **threshold visualization**, and **improved UX**. The dashboard now provides Datadog-style monitoring capabilities with event-based updates that reduce system overhead.
+
+## 🚀 Key Features
+
+### 🖥️ Enhanced Admin Dashboard
+
+- **Dashboard Description Section:** Informative banner explaining what the dashboard monitors and how to test it, with close button for better UX.
+- **Health History Tab:** New tab with Datadog-style time-series graphs showing:
+  - Response time by service over time
+  - Health status trends (stacked area chart)
+  - Response time percentiles (p50, p95, p99)
+  - Error rate over time
+- **WebSocket Real-Time Updates:** Event-based monitoring replaces polling, reducing system overhead:
+  - Live connection status indicator
+  - Configurable refresh rate (1s, 5s, 10s, 30s, 60s)
+  - Automatic reconnection on disconnect
+  - Real-time metrics and health updates
+- **Threshold Visualization:** Visual threshold lines on all charts:
+  - Yellow warning thresholds
+  - Red critical thresholds
+  - Configurable via API endpoints
+  - Threshold values displayed in chart headers
+- **Higher Granularity Support:** 
+  - Intervals from 30 seconds to 1 hour
+  - Smart auto-scaling (max 1000 data points)
+  - Timestamp formatting adapts to granularity
+  - "Last 1 hour" time range option
+
+### 📊 New API Endpoints (Super Admin Only)
+
+| Endpoint | Description |
+|----------|-------------|
+| `GET /admin/health/history` | Historical health data with configurable granularity |
+| `GET /admin/ws/monitoring` | WebSocket endpoint for real-time monitoring updates |
+| `GET /admin/thresholds` | Get threshold configuration |
+| `POST /admin/thresholds` | Update threshold configuration |
+
+### 🐛 Bug Fixes
+
+- **Health Services Display:** Fixed issue where only Database service was showing - now all 4 services (Database, Redis, Celery, ChromaDB) display consistently.
+- **Database Resource Leaks:** Fixed generator resource leaks in WebSocket handlers that could exhaust connection pool.
+- **WebSocket Reconnection:** Fixed reconnection logic to properly trigger reconnects after disconnections.
+- **Time Bucket Calculation:** Fixed boundary issue where logs at the end timestamp were excluded.
+- **Duplicate API Calls:** Fixed duplicate `fetchHealthHistory` calls when changing time range.
+
+## 🛠️ Technical Details
+
+- **Backend:**
+  - WebSocket endpoint with proper authentication and connection management
+  - Health history endpoint with support for fractional minute intervals (0.5 = 30 seconds)
+  - Auto-scaling interval adjustment to prevent performance issues
+  - Proper database generator consumption to prevent resource leaks
+  - Threshold configuration API endpoints
+- **Frontend:**
+  - WebSocket connection management with automatic reconnection
+  - Health History tab with 4 interactive charts
+  - Threshold reference lines on all charts
+  - Configurable refresh rate selector
+  - Connection status indicator (Live Updates / Polling Mode)
+  - About section with close functionality
+  - Smart timestamp formatting based on granularity
+
+## ✅ Verification
+
+- **WebSocket:** Verified connection, authentication, and real-time updates
+- **Health Services:** Verified all 4 services display correctly
+- **Granularity:** Tested various intervals (30s, 1m, 5m, 15m, 1h)
+- **Thresholds:** Verified threshold lines display on all charts
+- **Performance:** Verified auto-scaling prevents excessive data points
+
+---
+
 # Release Notes - v1.16.0 (Developer Dashboard & Monitoring)
 
 **Release Date:** 2025-12-21
