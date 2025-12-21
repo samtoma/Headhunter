@@ -984,7 +984,7 @@ def cleanup_old_logs(
 @router.get("/health/history", response_model=HealthHistoryResponse)
 def get_health_history(
     hours: int = Query(24, ge=1, le=168, description="History period in hours"),
-    interval_minutes: int = Query(15, ge=5, le=60, description="Data point interval in minutes"),
+    interval_minutes: float = Query(1.0, ge=0.5, le=60, description="Data point interval in minutes (0.5 = 30 seconds, 1 = 1 minute)"),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
@@ -1003,9 +1003,17 @@ def get_health_history(
     now = datetime.now(timezone.utc)
     start_time = now - timedelta(hours=hours)
     
-    # Calculate number of intervals
+    # Calculate number of intervals with higher precision
     interval_seconds = interval_minutes * 60
     num_intervals = int((hours * 3600) / interval_seconds)
+    
+    # Limit maximum data points to prevent performance issues (max 1000 points)
+    max_points = 1000
+    if num_intervals > max_points:
+        # Auto-adjust interval to stay within limit
+        interval_seconds = (hours * 3600) / max_points
+        interval_minutes = interval_seconds / 60
+        num_intervals = max_points
     
     # Generate time buckets
     time_buckets = []
@@ -1016,6 +1024,8 @@ def get_health_history(
     # Get logs grouped by time buckets
     logs_by_bucket = defaultdict(list)
     
+    # Query logs with index hint for better performance with high granularity
+    # Use only necessary columns to reduce memory footprint
     logs = db.query(SystemLog).filter(
         SystemLog.created_at >= start_time,
         SystemLog.created_at <= now

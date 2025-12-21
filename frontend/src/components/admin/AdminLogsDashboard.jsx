@@ -23,6 +23,7 @@ const AdminLogsDashboard = () => {
     const [isCleaningUp, setIsCleaningUp] = useState(false)
     const [healthHistory, setHealthHistory] = useState(null)
     const [historyHours, setHistoryHours] = useState(24)
+    const [historyInterval, setHistoryInterval] = useState(1) // minutes, default 1 minute for higher granularity
     const [refreshRate, setRefreshRate] = useState(5) // seconds
     const [thresholds, setThresholds] = useState({
         response_time_warning_ms: 200,
@@ -200,7 +201,7 @@ const AdminLogsDashboard = () => {
         } else if (activeTab === "health-history") {
             fetchHealthHistory()
         }
-    }, [activeTab, filters, pagination.offset, historyHours])
+    }, [activeTab, filters, pagination.offset, historyHours, historyInterval])
 
     const fetchThresholds = async () => {
         try {
@@ -313,7 +314,7 @@ const AdminLogsDashboard = () => {
 
     const fetchHealthHistory = async () => {
         try {
-            const res = await axios.get(`/api/api/v1/admin/health/history?hours=${historyHours}`)
+            const res = await axios.get(`/api/api/v1/admin/health/history?hours=${historyHours}&interval_minutes=${historyInterval}`)
             setHealthHistory(res.data)
         } catch (err) {
             console.error("Failed to fetch health history", err)
@@ -555,6 +556,8 @@ const AdminLogsDashboard = () => {
                         healthHistory={healthHistory}
                         historyHours={historyHours}
                         setHistoryHours={setHistoryHours}
+                        historyInterval={historyInterval}
+                        setHistoryInterval={setHistoryInterval}
                         fetchHealthHistory={fetchHealthHistory}
                         thresholds={thresholds}
                     />
@@ -1181,7 +1184,7 @@ const ErrorsTab = ({ errors, expandedLogs, toggleLogExpand, formatDate }) => {
 }
 
 // Health History Tab Component - Datadog Style
-const HealthHistoryTab = ({ healthHistory, historyHours, setHistoryHours, fetchHealthHistory, thresholds }) => {
+const HealthHistoryTab = ({ healthHistory, historyHours, setHistoryHours, historyInterval, setHistoryInterval, fetchHealthHistory, thresholds }) => {
     const getStatusValue = (status) => {
         switch (status) {
             case 'healthy': return 1
@@ -1212,9 +1215,29 @@ const HealthHistoryTab = ({ healthHistory, historyHours, setHistoryHours, fetchH
         )
     }
 
+    // Format timestamp based on granularity (show seconds for high granularity)
+    const formatTimestamp = (timestamp) => {
+        const date = new Date(timestamp)
+        // If interval is less than 5 minutes, show seconds
+        if (historyInterval < 5) {
+            return date.toLocaleTimeString('en-US', { 
+                hour: '2-digit', 
+                minute: '2-digit', 
+                second: '2-digit',
+                hour12: false 
+            })
+        }
+        // Otherwise show just hours and minutes
+        return date.toLocaleTimeString('en-US', { 
+            hour: '2-digit', 
+            minute: '2-digit',
+            hour12: false 
+        })
+    }
+
     // Prepare data for charts
     const responseTimeData = healthHistory.time_series?.map(point => ({
-        timestamp: new Date(point.timestamp).toLocaleTimeString(),
+        timestamp: formatTimestamp(point.timestamp),
         Database: point.services?.find(s => s.name === 'Database')?.response_time_ms || 0,
         Redis: point.services?.find(s => s.name === 'Redis')?.response_time_ms || 0,
         Celery: point.services?.find(s => s.name === 'Celery')?.response_time_ms || 0,
@@ -1222,7 +1245,7 @@ const HealthHistoryTab = ({ healthHistory, historyHours, setHistoryHours, fetchH
     })) || []
 
     const healthStatusData = healthHistory.time_series?.map(point => ({
-        timestamp: new Date(point.timestamp).toLocaleTimeString(),
+        timestamp: formatTimestamp(point.timestamp),
         Database: getStatusValue(point.services?.find(s => s.name === 'Database')?.status),
         Redis: getStatusValue(point.services?.find(s => s.name === 'Redis')?.status),
         Celery: getStatusValue(point.services?.find(s => s.name === 'Celery')?.status),
@@ -1230,12 +1253,12 @@ const HealthHistoryTab = ({ healthHistory, historyHours, setHistoryHours, fetchH
     })) || []
 
     const errorRateData = healthHistory.time_series?.map(point => ({
-        timestamp: new Date(point.timestamp).toLocaleTimeString(),
+        timestamp: formatTimestamp(point.timestamp),
         error_rate: point.error_rate_percent || 0,
     })) || []
 
     const responseTimePercentilesData = healthHistory.time_series?.map(point => ({
-        timestamp: new Date(point.timestamp).toLocaleTimeString(),
+        timestamp: formatTimestamp(point.timestamp),
         p50: point.response_time_p50_ms || 0,
         p95: point.response_time_p95_ms || 0,
         p99: point.response_time_p99_ms || 0,
@@ -1243,24 +1266,46 @@ const HealthHistoryTab = ({ healthHistory, historyHours, setHistoryHours, fetchH
 
     return (
         <div className="space-y-6">
-            {/* Time Range Selector */}
+            {/* Time Range and Granularity Selector */}
             <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
-                <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-4">
-                        <label className="text-sm font-medium text-slate-700">Time Range:</label>
-                        <select
-                            value={historyHours}
-                            onChange={(e) => {
-                                setHistoryHours(parseInt(e.target.value))
-                            }}
-                            className="px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                        >
-                            <option value={6}>Last 6 hours</option>
-                            <option value={12}>Last 12 hours</option>
-                            <option value={24}>Last 24 hours</option>
-                            <option value={48}>Last 48 hours</option>
-                            <option value={168}>Last 7 days</option>
-                        </select>
+                <div className="flex items-center justify-between flex-wrap gap-4">
+                    <div className="flex items-center gap-4 flex-wrap">
+                        <div className="flex items-center gap-2">
+                            <label className="text-sm font-medium text-slate-700">Time Range:</label>
+                            <select
+                                value={historyHours}
+                                onChange={(e) => {
+                                    setHistoryHours(parseInt(e.target.value))
+                                }}
+                                className="px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                            >
+                                <option value={1}>Last 1 hour</option>
+                                <option value={6}>Last 6 hours</option>
+                                <option value={12}>Last 12 hours</option>
+                                <option value={24}>Last 24 hours</option>
+                                <option value={48}>Last 48 hours</option>
+                                <option value={168}>Last 7 days</option>
+                            </select>
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <label className="text-sm font-medium text-slate-700">Granularity:</label>
+                            <select
+                                value={historyInterval}
+                                onChange={(e) => {
+                                    setHistoryInterval(parseFloat(e.target.value))
+                                }}
+                                className="px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                            >
+                                <option value={0.5}>30 seconds</option>
+                                <option value={1}>1 minute</option>
+                                <option value={2}>2 minutes</option>
+                                <option value={5}>5 minutes</option>
+                                <option value={10}>10 minutes</option>
+                                <option value={15}>15 minutes</option>
+                                <option value={30}>30 minutes</option>
+                                <option value={60}>1 hour</option>
+                            </select>
+                        </div>
                         <button
                             onClick={fetchHealthHistory}
                             className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 flex items-center gap-2 text-sm"
@@ -1271,6 +1316,11 @@ const HealthHistoryTab = ({ healthHistory, historyHours, setHistoryHours, fetchH
                     </div>
                     <div className="text-sm text-slate-500">
                         {healthHistory.time_series?.length || 0} data points
+                        {healthHistory.time_series?.length > 0 && (
+                            <span className="ml-2 text-xs">
+                                (~{Math.round(historyHours * 60 / historyInterval)} max)
+                            </span>
+                        )}
                     </div>
                 </div>
             </div>
