@@ -11,12 +11,14 @@ Provides endpoints for:
 
 from fastapi import APIRouter, Depends, HTTPException, Query, WebSocket, WebSocketDisconnect
 from sqlalchemy.orm import Session
-from sqlalchemy import func, and_, or_, desc
+from sqlalchemy import func, and_, or_, desc, Text
 from typing import List, Optional, Dict, Any
 from datetime import datetime, timedelta, timezone
 from pydantic import BaseModel, ConfigDict
 from app.core.database import get_db
-from app.models.models import SystemLog, UserInvitation, User, Company, UserRole
+from app.core.database_logs import get_logs_db
+from app.models.models import UserInvitation, User, Company, UserRole
+from app.models.log_models import SystemLog, LLMLog
 from app.api.deps import get_current_user
 from jose import jwt, JWTError
 from app.core.security import SECRET_KEY, ALGORITHM
@@ -172,6 +174,7 @@ def get_system_logs(
     limit: int = Query(100, ge=1, le=1000),
     offset: int = Query(0, ge=0),
     db: Session = Depends(get_db),
+    db_logs: Session = Depends(get_logs_db),
     current_user: User = Depends(get_current_user)
 ):
     """
@@ -180,7 +183,7 @@ def get_system_logs(
     """
     require_super_admin(current_user)
     
-    query = db.query(SystemLog)
+    query = db_logs.query(SystemLog)
     
     # Apply filters
     if level:
@@ -212,7 +215,7 @@ def get_system_logs(
         query = query.filter(
             or_(
                 SystemLog.message.ilike(search_pattern),
-                SystemLog.extra_metadata.ilike(search_pattern)
+                SystemLog.extra_metadata.cast(Text).ilike(search_pattern)
             )
         )
     
@@ -263,7 +266,7 @@ def get_system_logs(
             "error_message": log.error_message,
             "deployment_version": log.deployment_version,
             "deployment_environment": log.deployment_environment,
-            "metadata": json.loads(log.extra_metadata) if log.extra_metadata else None,
+            "metadata": log.extra_metadata if log.extra_metadata else None,
             "created_at": log.created_at,
             "user_email": users_map.get(log.user_id),
             "company_name": companies_map.get(log.company_id)
@@ -277,7 +280,7 @@ def get_log_statistics(
     start_date: Optional[datetime] = Query(None),
     end_date: Optional[datetime] = Query(None),
     company_id: Optional[int] = Query(None),
-    db: Session = Depends(get_db),
+    db_logs: Session = Depends(get_logs_db),
     current_user: User = Depends(get_current_user)
 ):
     """
@@ -286,7 +289,7 @@ def get_log_statistics(
     """
     require_super_admin(current_user)
     
-    query = db.query(SystemLog)
+    query = db_logs.query(SystemLog)
     
     if start_date:
         query = query.filter(SystemLog.created_at >= start_date)
@@ -302,7 +305,7 @@ def get_log_statistics(
         logs_by_level[level] = count
     
     # Count by component
-    component_counts = db.query(
+    component_counts = db_logs.query(
         SystemLog.component,
         func.count(SystemLog.id).label("count")
     ).group_by(SystemLog.component)
@@ -322,7 +325,7 @@ def get_log_statistics(
     error_rate = (error_count / total_count * 100) if total_count > 0 else 0
     
     # Average response time
-    avg_response_time = db.query(func.avg(SystemLog.response_time_ms)).filter(
+    avg_response_time = db_logs.query(func.avg(SystemLog.response_time_ms)).filter(
         SystemLog.response_time_ms.isnot(None)
     ).scalar() or 0
     
@@ -471,6 +474,7 @@ def get_invitation_statistics(
 @router.get("/metrics", response_model=SystemMetrics)
 def get_system_metrics(
     db: Session = Depends(get_db),
+    db_logs: Session = Depends(get_logs_db),
     current_user: User = Depends(get_current_user)
 ):
     """
@@ -483,15 +487,15 @@ def get_system_metrics(
     last_24h = now - timedelta(hours=24)
     
     # Log statistics
-    total_logs = db.query(func.count(SystemLog.id)).scalar() or 0
+    total_logs = db_logs.query(func.count(SystemLog.id)).scalar() or 0
     
     logs_by_level = {}
     for level in ["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]:
-        count = db.query(func.count(SystemLog.id)).filter(SystemLog.level == level).scalar() or 0
+        count = db_logs.query(func.count(SystemLog.id)).filter(SystemLog.level == level).scalar() or 0
         logs_by_level[level] = count
     
     logs_by_component = {}
-    component_counts = db.query(
+    component_counts = db_logs.query(
         SystemLog.component,
         func.count(SystemLog.id).label("count")
     ).group_by(SystemLog.component).all()
@@ -499,25 +503,25 @@ def get_system_metrics(
         logs_by_component[row.component] = row.count
     
     # Error statistics
-    error_count = db.query(func.count(SystemLog.id)).filter(
+    error_count = db_logs.query(func.count(SystemLog.id)).filter(
         SystemLog.error_type.isnot(None)
     ).scalar() or 0
     
-    errors_24h = db.query(func.count(SystemLog.id)).filter(
+    errors_24h = db_logs.query(func.count(SystemLog.id)).filter(
         and_(
             SystemLog.error_type.isnot(None),
             SystemLog.created_at >= last_24h
         )
     ).scalar() or 0
     
-    logs_24h = db.query(func.count(SystemLog.id)).filter(
+    logs_24h = db_logs.query(func.count(SystemLog.id)).filter(
         SystemLog.created_at >= last_24h
     ).scalar() or 1
     
     error_rate_24h = (errors_24h / logs_24h * 100) if logs_24h > 0 else 0
     
     # Response time
-    avg_response_time = db.query(func.avg(SystemLog.response_time_ms)).filter(
+    avg_response_time = db_logs.query(func.avg(SystemLog.response_time_ms)).filter(
         SystemLog.response_time_ms.isnot(None)
     ).scalar() or 0
     
@@ -538,7 +542,7 @@ def get_system_metrics(
     ).scalar() or 0
     
     # API requests in last 24h (exclude LLM operations - LLM has its own component)
-    api_requests_24h = db.query(func.count(SystemLog.id)).filter(
+    api_requests_24h = db_logs.query(func.count(SystemLog.id)).filter(
         and_(
             SystemLog.component == "api",  # Only count "api" component, not "llm"
             SystemLog.created_at >= last_24h
@@ -546,7 +550,7 @@ def get_system_metrics(
     ).scalar() or 0
     
     # Get latest deployment version
-    latest_deployment = db.query(SystemLog.deployment_version).filter(
+    latest_deployment = db_logs.query(SystemLog.deployment_version).filter(
         SystemLog.deployment_version.isnot(None)
     ).order_by(desc(SystemLog.created_at)).first()
     
@@ -574,6 +578,7 @@ def get_recent_errors(
     company_id: Optional[int] = Query(None),
     include_4xx: bool = Query(True, description="Include 4xx client errors"),
     db: Session = Depends(get_db),
+    db_logs: Session = Depends(get_logs_db),
     current_user: User = Depends(get_current_user)
 ):
     """
@@ -585,7 +590,7 @@ def get_recent_errors(
     
     # Include both exceptions and HTTP error responses
     if include_4xx:
-        query = db.query(SystemLog).filter(
+        query = db_logs.query(SystemLog).filter(
             or_(
                 SystemLog.error_type.isnot(None),
                 SystemLog.http_status >= 400
@@ -593,7 +598,7 @@ def get_recent_errors(
         )
     else:
         # Only 5xx server errors and exceptions
-        query = db.query(SystemLog).filter(
+        query = db_logs.query(SystemLog).filter(
             or_(
                 SystemLog.error_type.isnot(None),
                 SystemLog.http_status >= 500
@@ -640,7 +645,7 @@ def get_recent_errors(
             "error_message": log.error_message,
             "deployment_version": log.deployment_version,
             "deployment_environment": log.deployment_environment,
-            "metadata": json.loads(log.extra_metadata) if log.extra_metadata else None,
+            "metadata": log.extra_metadata if log.extra_metadata else None,
             "created_at": log.created_at,
             "user_email": users_map.get(log.user_id),
             "company_name": companies_map.get(log.company_id)
@@ -780,6 +785,7 @@ def get_system_health(
 def get_ux_analytics(
     hours: int = Query(24, ge=1, le=168, description="Analysis period in hours"),
     db: Session = Depends(get_db),
+    db_logs: Session = Depends(get_logs_db),
     current_user: User = Depends(get_current_user)
 ):
     """
@@ -792,7 +798,7 @@ def get_ux_analytics(
     start_time = now - timedelta(hours=hours)
     
     # Get all logs in period with response times (exclude LLM operations - they have their own monitoring)
-    logs = db.query(SystemLog).filter(
+    logs = db_logs.query(SystemLog).filter(
         and_(
             SystemLog.created_at >= start_time,
             SystemLog.response_time_ms.isnot(None),
@@ -946,7 +952,7 @@ def get_database_stats(
 def cleanup_old_logs(
     older_than_days: int = Query(30, ge=1, le=365, description="Delete logs older than N days"),
     confirm: bool = Query(False, description="Must be true to execute deletion"),
-    db: Session = Depends(get_db),
+    db_logs: Session = Depends(get_logs_db),
     current_user: User = Depends(get_current_user)
 ):
     """
@@ -959,7 +965,7 @@ def cleanup_old_logs(
     cutoff_date = datetime.now(timezone.utc) - timedelta(days=older_than_days)
     
     # Count logs to be deleted
-    count = db.query(func.count(SystemLog.id)).filter(
+    count = db_logs.query(func.count(SystemLog.id)).filter(
         SystemLog.created_at < cutoff_date
     ).scalar() or 0
     
@@ -973,10 +979,10 @@ def cleanup_old_logs(
         }
     
     # Execute deletion
-    deleted = db.query(SystemLog).filter(
+    deleted = db_logs.query(SystemLog).filter(
         SystemLog.created_at < cutoff_date
     ).delete(synchronize_session=False)
-    db.commit()
+    db_logs.commit()
     
     return {
         "action": "deleted",
@@ -992,6 +998,7 @@ def get_health_history(
     hours: int = Query(24, ge=1, le=168, description="History period in hours"),
     interval_minutes: float = Query(1.0, ge=0.5, le=60, description="Data point interval in minutes (0.5 = 30 seconds, 1 = 1 minute)"),
     db: Session = Depends(get_db),
+    db_logs: Session = Depends(get_logs_db),
     current_user: User = Depends(get_current_user)
 ):
     """
@@ -1032,7 +1039,7 @@ def get_health_history(
     
     # Query logs with index hint for better performance with high granularity
     # Use only necessary columns to reduce memory footprint
-    logs = db.query(SystemLog).filter(
+    logs = db_logs.query(SystemLog).filter(
         SystemLog.created_at >= start_time,
         SystemLog.created_at <= now
     ).order_by(SystemLog.created_at).all()
@@ -1254,20 +1261,25 @@ async def send_monitoring_update(websocket: WebSocket, user: User):
         # Get database session - properly consume the generator
         db_gen = get_db()
         db = next(db_gen)
+        
+        # Get Logs DB session
+        db_logs_gen = get_logs_db()
+        db_logs = next(db_logs_gen)
+        
         try:
             # Get metrics
             now = datetime.now(timezone.utc)
             last_24h = now - timedelta(hours=24)
             
             # Quick metrics calculation
-            total_logs = db.query(func.count(SystemLog.id)).scalar() or 0
-            errors_24h = db.query(func.count(SystemLog.id)).filter(
+            total_logs = db_logs.query(func.count(SystemLog.id)).scalar() or 0
+            errors_24h = db_logs.query(func.count(SystemLog.id)).filter(
                 and_(
                     SystemLog.error_type.isnot(None),
                     SystemLog.created_at >= last_24h
                 )
             ).scalar() or 0
-            logs_24h = db.query(func.count(SystemLog.id)).filter(
+            logs_24h = db_logs.query(func.count(SystemLog.id)).filter(
                 SystemLog.created_at >= last_24h
             ).scalar() or 1
             error_rate = (errors_24h / logs_24h * 100) if logs_24h > 0 else 0
@@ -1470,6 +1482,7 @@ def get_llm_metrics(
     end_date: Optional[datetime] = Query(None),
     company_id: Optional[int] = Query(None),
     db: Session = Depends(get_db),
+    db_logs: Session = Depends(get_logs_db),
     current_user: User = Depends(get_current_user)
 ):
     """
@@ -1486,48 +1499,44 @@ def get_llm_metrics(
     start = start_date or last_24h
     end = end_date or now
     
-    # Base query for LLM operations
-    base_query = db.query(SystemLog).filter(
-        SystemLog.component == "llm"
-    )
+    # Base query for LLM operations - Querying LLMLog table
+    base_query = db_logs.query(LLMLog)
     
     if company_id:
-        base_query = base_query.filter(SystemLog.company_id == company_id)
+        base_query = base_query.filter(LLMLog.company_id == company_id)
     
     if start_date:
-        base_query = base_query.filter(SystemLog.created_at >= start)
+        base_query = base_query.filter(LLMLog.created_at >= start)
     if end_date:
-        base_query = base_query.filter(SystemLog.created_at <= end)
+        base_query = base_query.filter(LLMLog.created_at <= end)
     
     # Total operations
     total_operations = base_query.count()
     
     # Operations in last 24h
-    operations_24h = db.query(func.count(SystemLog.id)).filter(
+    operations_24h = db_logs.query(func.count(LLMLog.id)).filter(
         and_(
-            SystemLog.component == "llm",
-            SystemLog.created_at >= last_24h
+            LLMLog.created_at >= last_24h
         )
     ).scalar() or 0
     
     # Operations by action
     operations_by_action = {}
-    action_counts = db.query(
-        SystemLog.action,
-        func.count(SystemLog.id).label("count")
+    action_counts = db_logs.query(
+        LLMLog.action,
+        func.count(LLMLog.id).label("count")
     ).filter(
         and_(
-            SystemLog.component == "llm",
-            SystemLog.created_at >= start,
-            SystemLog.created_at <= end
+            LLMLog.created_at >= start,
+            LLMLog.created_at <= end
         )
-    ).group_by(SystemLog.action).all()
+    ).group_by(LLMLog.action).all()
     for row in action_counts:
         operations_by_action[row.action] = row.count
     
     # Token statistics
     llm_logs = base_query.filter(
-        SystemLog.extra_metadata.isnot(None)
+        LLMLog.extra_metadata.isnot(None)
     ).all()
     
     total_tokens = 0
@@ -1627,13 +1636,12 @@ def get_llm_metrics(
         return sorted_data[min(index, len(sorted_data) - 1)]
     
     # Error statistics
-    error_query = base_query.filter(SystemLog.error_type.isnot(None))
+    error_query = base_query.filter(LLMLog.error_type.isnot(None))
     total_errors = error_query.count()
-    errors_24h = db.query(func.count(SystemLog.id)).filter(
+    errors_24h = db_logs.query(func.count(LLMLog.id)).filter(
         and_(
-            SystemLog.component == "llm",
-            SystemLog.error_type.isnot(None),
-            SystemLog.created_at >= last_24h
+            LLMLog.error_type.isnot(None),
+            LLMLog.created_at >= last_24h
         )
     ).scalar() or 0
     
@@ -1641,17 +1649,16 @@ def get_llm_metrics(
     
     # Operations by company
     operations_by_company = {}
-    company_counts = db.query(
-        SystemLog.company_id,
-        func.count(SystemLog.id).label("count")
+    company_counts = db_logs.query(
+        LLMLog.company_id,
+        func.count(LLMLog.id).label("count")
     ).filter(
         and_(
-            SystemLog.component == "llm",
-            SystemLog.created_at >= start,
-            SystemLog.created_at <= end,
-            SystemLog.company_id.isnot(None)
+            LLMLog.created_at >= start,
+            LLMLog.created_at <= end,
+            LLMLog.company_id.isnot(None)
         )
-    ).group_by(SystemLog.company_id).all()
+    ).group_by(LLMLog.company_id).all()
     for row in company_counts:
         company = db.query(Company).filter(Company.id == row.company_id).first()
         company_name = company.name if company else f"Company {row.company_id}"
@@ -1669,17 +1676,16 @@ def get_llm_metrics(
     
     # Operations by user
     operations_by_user = {}
-    user_counts = db.query(
-        SystemLog.user_id,
-        func.count(SystemLog.id).label("count")
+    user_counts = db_logs.query(
+        LLMLog.user_id,
+        func.count(LLMLog.id).label("count")
     ).filter(
         and_(
-            SystemLog.component == "llm",
-            SystemLog.created_at >= start,
-            SystemLog.created_at <= end,
-            SystemLog.user_id.isnot(None)
+            LLMLog.created_at >= start,
+            LLMLog.created_at <= end,
+            LLMLog.user_id.isnot(None)
         )
-    ).group_by(SystemLog.user_id).all()
+    ).group_by(LLMLog.user_id).all()
     for row in user_counts:
         user = db.query(User).filter(User.id == row.user_id).first()
         user_name = user.email if user else f"User {row.user_id}"
@@ -1687,7 +1693,7 @@ def get_llm_metrics(
     
     # Recent operations
     recent_operations = []
-    recent_logs = base_query.order_by(desc(SystemLog.created_at)).limit(10).all()
+    recent_logs = base_query.order_by(desc(LLMLog.created_at)).limit(10).all()
     for log in recent_logs:
         metadata = {}
         try:

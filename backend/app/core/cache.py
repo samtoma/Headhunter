@@ -1,10 +1,10 @@
 from fastapi_cache import FastAPICache
 from fastapi_cache.backends.redis import RedisBackend
 from redis import asyncio as aioredis
-import os
+from app.core.config import settings
 
 # Use the internal Docker network URL for Redis
-REDIS_URL = os.getenv("REDIS_URL", "redis://redis:6379/0")
+REDIS_URL = settings.REDIS_URL
 
 async def init_cache():
     """Initialize FastAPI-Cache with Redis backend"""
