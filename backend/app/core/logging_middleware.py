@@ -57,7 +57,27 @@ class LoggingMiddleware(BaseHTTPMiddleware):
         
         # Skip logging for health checks and static files
         skip_paths = ["/health", "/metrics", "/docs", "/openapi.json", "/redoc", "/favicon.ico"]
-        should_log = not any(path.startswith(skip) for skip in skip_paths)
+        
+        # Skip logging for LLM feedback endpoints (they'll be logged separately via LLM logger)
+        llm_skip_paths = [
+            "/api/interviews/",  # Will check for generate-feedback or stream-feedback in path
+        ]
+        
+        # Check if this is an LLM endpoint (exclude from API logging)
+        # These endpoints use LLM and should be logged separately with component="llm"
+        is_llm_endpoint = (
+            "generate-feedback" in path or
+            "stream-feedback" in path or
+            path.startswith("/api/ai/") or
+            "/company/regenerate" in path or
+            "/departments/generate" in path or
+            "/jobs/analyze" in path or
+            "/jobs/analyze/stream" in path or
+            "/jobs/" in path and "/regenerate" in path
+        )
+        
+        # Skip LLM endpoints from normal API logging
+        should_log = not any(path.startswith(skip) for skip in skip_paths) and not is_llm_endpoint
         
         # Prepare metadata
         metadata = {

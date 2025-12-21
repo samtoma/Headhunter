@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, Body
+from fastapi import APIRouter, Depends, HTTPException, Body, WebSocket, WebSocketDisconnect
 from sqlalchemy.orm import Session, joinedload
 from typing import List, Optional, Any, Dict
 import json
@@ -6,12 +6,18 @@ from app.core.database import get_db
 from app.models.models import Job, ParsedCV, User, CV, UserRole, Application, Department
 from app.api.deps import get_current_user
 from app.services.parser import generate_job_metadata
+from app.services.ai_job_analysis import generate_job_metadata_stream
 from app.services.sync import touch_company_state
 from app.schemas.job import JobCreate, JobUpdate, JobOut, CandidateMatch, BulkAssignRequest
 from app.core.logging import jobs_logger
+from app.core.llm_logging import LLMLogger
 from fastapi_cache.decorator import cache
 from fastapi_cache import FastAPICache
 from app.api.v1.activity import log_system_activity, log_application_activity
+from jose import jwt, JWTError
+from app.core.security import SECRET_KEY, ALGORITHM
+import time
+import os
 
 router = APIRouter(prefix="/jobs", tags=["Jobs"])
 
@@ -76,13 +82,266 @@ async def analyze_job_request(
             except Exception:
                 pass
     
+    # Keep the non-streaming endpoint for backward compatibility
+    # New frontend should use WebSocket endpoint for streaming
     return await generate_job_metadata(
         title=title,
         company_context=context,
         fine_tuning=fine_tuning,
         location=location,
-        employment_type=employment_type
+        employment_type=employment_type,
+        user_id=current_user.id,
+        company_id=current_user.company_id
     )
+
+
+# ==================== WebSocket for Job Analysis Streaming ====================
+
+OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
+
+async def authenticate_job_analysis_websocket(websocket: WebSocket) -> Optional[User]:
+    """Authenticate WebSocket connection for job analysis"""
+    token = websocket.query_params.get("token")
+    
+    if not token:
+        await websocket.close(code=1008, reason="Authentication required")
+        return None
+    
+    db_gen = None
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        email: str = payload.get("sub")
+        if not email:
+            await websocket.close(code=1008, reason="Invalid token")
+            return None
+        
+        db_gen = get_db()
+        db = next(db_gen)
+        try:
+            user = db.query(User).filter(User.email == email).first()
+            if not user:
+                await websocket.close(code=1008, reason="User not found")
+                return None
+            
+            return user
+        finally:
+            try:
+                next(db_gen, None)
+            except StopIteration:
+                pass
+    except JWTError:
+        await websocket.close(code=1008, reason="Invalid token")
+        return None
+    except Exception as e:
+        await websocket.close(code=1011, reason=f"Authentication error: {str(e)}")
+        return None
+    finally:
+        if db_gen:
+            try:
+                next(db_gen, None)
+            except StopIteration:
+                pass
+
+
+@router.websocket("/analyze/stream")
+async def stream_job_analysis(websocket: WebSocket):
+    """
+    WebSocket endpoint for streaming job analysis.
+    
+    Connect with: ws://host/api/jobs/analyze/stream?token=YOUR_JWT_TOKEN&title=Job+Title&location=Location&employment_type=Full-time
+    
+    Query parameters:
+    - token: JWT authentication token
+    - title: Job title (required)
+    - location: Optional location
+    - employment_type: Optional employment type
+    - fine_tuning: Optional fine-tuning instructions
+    - department_id: Optional department ID
+    - department_name: Optional department name
+    
+    Messages sent to client:
+    - {"type": "status", "status": "thinking|analyzing|generating", "message": "..."}
+    - {"type": "chunk", "content": "partial JSON...", "accumulated": "..."}
+    - {"type": "complete", "data": {...}, "tokens_used": 1234, "model": "...", "latency_ms": 5000}
+    - {"type": "error", "message": "error message", "code": "ERROR_CODE"}
+    """
+    await websocket.accept()
+    
+    # Authenticate user
+    user = await authenticate_job_analysis_websocket(websocket)
+    if not user:
+        return
+    
+    db_gen = None
+    start_time = None
+    tokens_used = 0
+    tokens_input = 0
+    tokens_output = 0
+    model_used = None
+    latency_ms = 0
+    
+    try:
+        # Get query parameters
+        title = websocket.query_params.get("title")
+        if not title:
+            await websocket.send_json({
+                "type": "error",
+                "message": "Job title is required",
+                "code": "MISSING_TITLE"
+            })
+            await websocket.close()
+            return
+        
+        location = websocket.query_params.get("location")
+        employment_type = websocket.query_params.get("employment_type")
+        fine_tuning = websocket.query_params.get("fine_tuning")
+        department_id = websocket.query_params.get("department_id")
+        department_name = websocket.query_params.get("department_name")
+        
+        # Get database session
+        db_gen = get_db()
+        db = next(db_gen)
+
+        # Re-fetch user with company relationship to avoid lazy loading issues
+        user = db.query(User).options(joinedload(User.company)).filter(User.id == user.id).first()
+        if not user:
+            await websocket.send_json({
+                "type": "error",
+                "message": "User not found",
+                "code": "USER_NOT_FOUND"
+            })
+            await websocket.close()
+            return
+
+        # Fetch Company Context
+        company = user.company
+        context = {}
+        if company:
+            context = {
+                "name": company.name,
+                "description": company.description,
+                "culture": company.culture,
+                "mission": company.mission,
+                "values": company.values
+            }
+        
+        # Fetch Department Context
+        dept = None
+        if department_id:
+            dept = db.query(Department).filter(Department.id == int(department_id), Department.company_id == user.company_id).first()
+        elif department_name:
+            dept = db.query(Department).filter(Department.name == department_name, Department.company_id == user.company_id).first()
+        
+        if dept:
+            context["department_name"] = dept.name
+            context["department_description"] = dept.description
+            context["department_technologies"] = dept.technologies
+            
+            # Check for job templates
+            if dept.job_templates:
+                try:
+                    templates = json.loads(dept.job_templates)
+                    for t in templates:
+                        if t.get("title_match", "").lower() in title.lower():
+                            context["job_template_description"] = t.get("description")
+                            context["job_template_technologies"] = t.get("technologies")
+                            break
+                except Exception:
+                    pass
+        
+        # Start timing
+        start_time = time.time()
+        
+        # Stream job analysis
+        async for message in generate_job_metadata_stream(
+            title=title,
+            company_context=context,
+            fine_tuning=fine_tuning,
+            location=location,
+            employment_type=employment_type
+        ):
+            # Send message to client
+            await websocket.send_json(message)
+            
+            # Track completion data
+            if message.get("type") == "complete":
+                tokens_used = message.get("tokens_used", 0)
+                tokens_input = message.get("tokens_input", 0)
+                tokens_output = message.get("tokens_output", 0)
+                model_used = message.get("model", OPENAI_MODEL)
+                latency_ms = message.get("latency_ms", 0)
+            
+            # Handle errors
+            if message.get("type") == "error":
+                LLMLogger.log_llm_operation(
+                    action="analyze_job_error",
+                    message=f"Error analyzing job '{title}': {message.get('message')}",
+                    user_id=user.id,
+                    company_id=user.company_id,
+                    error_type="GenerationError",
+                    error_message=message.get("message")
+                )
+                break
+        
+        # Log successful operation
+        if tokens_used > 0:
+            LLMLogger.log_llm_operation(
+                action="analyze_job",
+                message=f"Analyzed job '{title}'",
+                user_id=user.id,
+                company_id=user.company_id,
+                model=model_used,
+                tokens_used=tokens_used,
+                tokens_input=tokens_input,
+                tokens_output=tokens_output,
+                latency_ms=latency_ms,
+                streaming=True,
+                metadata={"title": title, "location": location, "employment_type": employment_type}
+            )
+        
+    except WebSocketDisconnect:
+        # Client disconnected, log if we have partial data
+        if start_time and tokens_used > 0:
+            LLMLogger.log_llm_operation(
+                action="analyze_job_disconnected",
+                message=f"Job analysis interrupted for '{title}'",
+                user_id=user.id,
+                company_id=user.company_id,
+                model=model_used,
+                tokens_used=tokens_used,
+                tokens_input=tokens_input,
+                tokens_output=tokens_output,
+                latency_ms=int((time.time() - start_time) * 1000) if start_time else 0,
+                streaming=True
+            )
+    except Exception as e:
+        import traceback
+        error_trace = traceback.format_exc()
+        await websocket.send_json({
+            "type": "error",
+            "message": f"Internal error: {str(e)}",
+            "code": "INTERNAL_ERROR"
+        })
+        LLMLogger.log_llm_operation(
+            action="analyze_job_error",
+            message=f"Internal error analyzing job '{title}': {str(e)}",
+            user_id=user.id if user else None,
+            company_id=user.company_id if user else None,
+            error_type=type(e).__name__,
+            error_message=str(e),
+            metadata={"traceback": error_trace}
+        )
+    finally:
+        # Clean up database connection
+        if db_gen:
+            try:
+                next(db_gen, None)
+            except StopIteration:
+                pass
+        try:
+            await websocket.close()
+        except:
+            pass
 
 @router.post("/{job_id}/regenerate", response_model=Dict[str, Any])
 async def regenerate_job_description(
@@ -116,7 +375,9 @@ async def regenerate_job_description(
         company_context=context,
         fine_tuning=fine_tuning,
         location=job.location,
-        employment_type=job.employment_type
+        employment_type=job.employment_type,
+        user_id=current_user.id,
+        company_id=current_user.company_id
     )
     
     # Update job with new data

@@ -100,7 +100,7 @@ async def sync_embeddings(limit: int = 500):
             if needs_new_embedding:
                 logger.info(f"[Sync] Generating new embedding for CV {cv.id}...")
                 rich_text = construct_rich_text(parsed)
-                embedding = await generate_embedding(rich_text)
+                embedding = await generate_embedding(rich_text, cv_id=cv.id, company_id=cv.company_id, user_id=cv.uploaded_by)
                 if not embedding:
                     logger.error(f"[Sync] Failed to generate embedding for CV {cv.id}")
                     continue

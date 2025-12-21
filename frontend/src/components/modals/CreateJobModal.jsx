@@ -6,6 +6,7 @@ import { useState, useEffect } from 'react'
 import axios from 'axios'
 import { Sparkles, X, RefreshCw, Users, CheckSquare, Square, Award, Trash2, Globe, Copy, Check } from 'lucide-react'
 import { safeList } from '../../utils/helpers'
+import JobAnalysisGenerator from '../ai/JobAnalysisGenerator'
 
 const CreateJobModal = ({ onClose, onCreate, initialData = null }) => {
     const [step, setStep] = useState(initialData ? 2 : 1)
@@ -40,6 +41,7 @@ const CreateJobModal = ({ onClose, onCreate, initialData = null }) => {
     const [matches, setMatches] = useState([])
     const [selectedMatches, setSelectedMatches] = useState([])
     const [slugCopied, setSlugCopied] = useState(false)
+    const [showAnalysisGenerator, setShowAnalysisGenerator] = useState(false)
 
     // Fetch departments on mount
     useEffect(() => {
@@ -55,43 +57,25 @@ const CreateJobModal = ({ onClose, onCreate, initialData = null }) => {
         })
     }, [])
 
-    const runInitialAnalysis = async () => {
+    const runInitialAnalysis = () => {
         if (!data.title) return
-        setLoading(true)
-        try {
-            const res = await axios.post('/api/jobs/analyze', { title: data.title })
+        setShowAnalysisGenerator(true)
+    }
 
-            const parseField = (val) => {
-                if (Array.isArray(val)) return val
-                if (typeof val === 'string') {
-                    try { return JSON.parse(val) } catch { return [] }
-                }
-                return []
-            }
+    const handleAnalysisComplete = async (analysisData) => {
+        // Merge AI results but keep user inputs if already set
+        setData(prev => ({
+            ...prev,
+            ...analysisData
+        }))
 
-            const newData = {
-                ...res.data,
-                responsibilities: parseField(res.data.responsibilities),
-                qualifications: parseField(res.data.qualifications),
-                preferred_qualifications: parseField(res.data.preferred_qualifications),
-                benefits: parseField(res.data.benefits),
-                skills_required: parseField(res.data.skills_required)
-            }
+        await refreshCandidates({ ...data, ...analysisData })
+        setShowAnalysisGenerator(false)
+        setStep(2)
+    }
 
-            // Merge AI results but keep user inputs if already set
-            setData(prev => ({
-                ...prev,
-                ...newData
-            }))
-
-            await refreshCandidates({ ...data, ...newData })
-
-            setStep(2)
-        } catch (e) {
-            console.error("Analysis Error:", e);
-            alert("AI Analysis Failed")
-        }
-        setLoading(false)
+    const handleAnalysisCancel = () => {
+        setShowAnalysisGenerator(false)
     }
 
     const refreshCandidates = async (jobData) => {
@@ -173,11 +157,27 @@ const CreateJobModal = ({ onClose, onCreate, initialData = null }) => {
                                 <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Job Title</label>
                                 <div className="flex gap-2">
                                     <input className="flex-1 text-lg font-bold p-3 border border-slate-200 rounded-xl focus:ring-2 ring-indigo-500 outline-none" placeholder="e.g. Senior Product Designer" value={data.title} onChange={e => setData({ ...data, title: e.target.value })} autoFocus onKeyDown={e => e.key === 'Enter' && runInitialAnalysis()} />
-                                    <button onClick={runInitialAnalysis} disabled={loading || !data.title} className="bg-indigo-600 text-white px-6 py-3 rounded-xl font-bold flex items-center gap-2 hover:bg-indigo-700 transition disabled:opacity-50">
-                                        {loading ? <RefreshCw className="animate-spin" /> : <Sparkles size={18} />} {loading ? "Analyze" : "Analyze"}
-                                    </button>
+                                    {!showAnalysisGenerator && (
+                                        <button onClick={runInitialAnalysis} disabled={loading || !data.title} className="bg-indigo-600 text-white px-6 py-3 rounded-xl font-bold flex items-center gap-2 hover:bg-indigo-700 transition disabled:opacity-50">
+                                            <Sparkles size={18} /> Analyze
+                                        </button>
+                                    )}
                                 </div>
                                 <p className="text-xs text-slate-400 mt-2 ml-1">AI will generate a structured description, required skills, and find matching candidates.</p>
+                                
+                                {/* Streaming Job Analysis Generator */}
+                                {showAnalysisGenerator && (
+                                    <div className="mt-4">
+                                        <JobAnalysisGenerator
+                                            title={data.title}
+                                            location={data.location}
+                                            employmentType={data.employment_type}
+                                            fineTuning={data.fine_tuning}
+                                            onComplete={handleAnalysisComplete}
+                                            onCancel={handleAnalysisCancel}
+                                        />
+                                    </div>
+                                )}
                             </div>
                         )}
 

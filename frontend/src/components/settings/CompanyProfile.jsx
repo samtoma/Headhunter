@@ -3,6 +3,7 @@ import axios from 'axios'
 import { Building2, Sparkles, Users, Target, Share2, Save, X } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
 import SettingsTabs from '../common/SettingsTabs'
+import CompanyProfileGenerator from '../ai/CompanyProfileGenerator'
 
 import PageHeader from '../layout/PageHeader'
 
@@ -27,6 +28,7 @@ const CompanyProfile = ({ onOpenMobileSidebar }) => {
     const [activeTab, setActiveTab] = useState("basic")
     const [loading, setLoading] = useState(false)
     const [regenerating, setRegenerating] = useState(false)
+    const [showGenerator, setShowGenerator] = useState(false)
     const [data, setData] = useState({
         name: "",
         tagline: "",
@@ -104,23 +106,24 @@ const CompanyProfile = ({ onOpenMobileSidebar }) => {
         setData({ ...data, departments: updated })
     }
 
-    const handleRegenerate = async () => {
+    const handleRegenerate = () => {
         if (!data.website) return
-        setRegenerating(true)
-        try {
-            const res = await axios.post('/api/company/regenerate', { url: data.website })
-            const loadedData = res.data
-            if (loadedData.values) loadedData.values = parseJsonArray(loadedData.values)
-            if (loadedData.specialties) loadedData.specialties = parseJsonArray(loadedData.specialties)
-            if (loadedData.departments) loadedData.departments = parseJsonArray(loadedData.departments)
-            setData(loadedData)
-            alert("Profile regenerated successfully!")
-        } catch (err) {
-            console.error(err)
-            alert("Failed to regenerate profile. Please check the website URL.")
-        } finally {
-            setRegenerating(false)
-        }
+        setShowGenerator(true)
+    }
+
+    // Handle generation completion
+    const handleGenerationComplete = (generatedData) => {
+        const loadedData = generatedData
+        if (loadedData.values) loadedData.values = parseJsonArray(loadedData.values)
+        if (loadedData.specialties) loadedData.specialties = parseJsonArray(loadedData.specialties)
+        if (loadedData.departments) loadedData.departments = parseJsonArray(loadedData.departments)
+        setData(loadedData)
+        setShowGenerator(false)
+    }
+
+    // Handle generation cancellation
+    const handleGenerationCancel = () => {
+        setShowGenerator(false)
     }
 
     return (
@@ -319,18 +322,31 @@ const CompanyProfile = ({ onOpenMobileSidebar }) => {
                             )}
                         </div>
 
+                        {/* Company Profile Generator */}
+                        {showGenerator && (
+                            <div className="p-6 border-t border-slate-200">
+                                <CompanyProfileGenerator
+                                    url={data.website}
+                                    onComplete={handleGenerationComplete}
+                                    onCancel={handleGenerationCancel}
+                                />
+                            </div>
+                        )}
+
                         {/* Footer */}
                         {canEdit && (
                             <div className="p-6 border-t border-slate-200 flex flex-col md:flex-row justify-between items-center gap-4">
                                 <div className="w-full md:w-auto">
-                                    <button
-                                        onClick={handleRegenerate}
-                                        disabled={regenerating || !data.website}
-                                        className="w-full md:w-auto justify-center text-sm flex items-center gap-1.5 text-indigo-600 font-bold hover:bg-indigo-50 px-3 py-2 rounded-lg transition disabled:opacity-50"
-                                    >
-                                        <Sparkles className={`w-4 h-4 ${regenerating ? 'animate-spin' : ''}`} />
-                                        <span>Regenerate with AI</span>
-                                    </button>
+                                    {!showGenerator && (
+                                        <button
+                                            onClick={handleRegenerate}
+                                            disabled={regenerating || !data.website}
+                                            className="w-full md:w-auto justify-center text-sm flex items-center gap-1.5 text-indigo-600 font-bold hover:bg-indigo-50 px-3 py-2 rounded-lg transition disabled:opacity-50"
+                                        >
+                                            <Sparkles className={`w-4 h-4 ${regenerating ? 'animate-spin' : ''}`} />
+                                            <span>Regenerate with AI</span>
+                                        </button>
+                                    )}
                                 </div>
                                 <div className="flex gap-3 w-full md:w-auto">
                                     <button

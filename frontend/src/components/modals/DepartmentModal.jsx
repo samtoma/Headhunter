@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import axios from 'axios'
 import { X, Plus, Trash2, FileText, Sparkles } from 'lucide-react'
+import DepartmentGenerator from '../ai/DepartmentGenerator'
 
 const DepartmentModal = ({ isOpen, onClose, department, onSave }) => {
     const [formData, setFormData] = useState({
@@ -12,6 +13,7 @@ const DepartmentModal = ({ isOpen, onClose, department, onSave }) => {
     const [techInput, setTechInput] = useState("")
     const [loading, setLoading] = useState(false)
     const [generating, setGenerating] = useState(false)
+    const [showGenerator, setShowGenerator] = useState(false)
 
     useEffect(() => {
         if (department) {
@@ -83,31 +85,30 @@ const DepartmentModal = ({ isOpen, onClose, department, onSave }) => {
     }
 
     // AI Generation function
-    const generateWithAI = async () => {
+    const generateWithAI = () => {
         if (!formData.name.trim()) {
             alert("Please enter a department name first")
             return
         }
 
-        setGenerating(true)
-        try {
-            const res = await axios.post('/api/departments/generate', {
-                name: formData.name.trim()
-            })
+        setShowGenerator(true)
+    }
 
-            // Populate form with AI-generated content
-            setFormData(prev => ({
-                ...prev,
-                description: res.data.description || prev.description,
-                technologies: res.data.technologies || prev.technologies,
-                job_templates: res.data.job_templates || prev.job_templates
-            }))
-        } catch (err) {
-            console.error("AI generation failed:", err)
-            alert("Failed to generate department profile. Please try again.")
-        } finally {
-            setGenerating(false)
-        }
+    // Handle AI generation completion
+    const handleGenerationComplete = (generatedData) => {
+        // Populate form with AI-generated content
+        setFormData(prev => ({
+            ...prev,
+            description: generatedData.description || prev.description,
+            technologies: generatedData.technologies || prev.technologies,
+            job_templates: generatedData.job_templates || prev.job_templates
+        }))
+        setShowGenerator(false)
+    }
+
+    // Handle AI generation cancellation
+    const handleGenerationCancel = () => {
+        setShowGenerator(false)
     }
 
     const handleSubmit = async () => {
@@ -178,18 +179,31 @@ const DepartmentModal = ({ isOpen, onClose, department, onSave }) => {
                                     value={formData.name}
                                     onChange={e => setFormData({ ...formData, name: e.target.value })}
                                 />
-                                <button
-                                    type="button"
-                                    onClick={generateWithAI}
-                                    disabled={generating || !formData.name.trim()}
-                                    className="text-sm flex items-center gap-1.5 text-indigo-600 font-bold hover:bg-indigo-50 px-3 py-2 rounded-lg"
-                                    title="Generate profile with AI"
-                                >
-                                    <Sparkles size={14} className={generating ? "animate-spin" : ""} />
-                                    <span>Generate</span>
-                                </button>
+                                {!showGenerator && (
+                                    <button
+                                        type="button"
+                                        onClick={generateWithAI}
+                                        disabled={generating || !formData.name.trim()}
+                                        className="text-sm flex items-center gap-1.5 text-indigo-600 font-bold hover:bg-indigo-50 px-3 py-2 rounded-lg"
+                                        title="Generate profile with AI"
+                                    >
+                                        <Sparkles size={14} className={generating ? "animate-spin" : ""} />
+                                        <span>Generate</span>
+                                    </button>
+                                )}
                             </div>
                             <p className="text-xs text-slate-400 mt-1.5">AI will auto-fill description, technologies, and job templates</p>
+
+                            {/* Department Generator */}
+                            {showGenerator && (
+                                <div className="mt-4">
+                                    <DepartmentGenerator
+                                        name={formData.name}
+                                        onComplete={handleGenerationComplete}
+                                        onCancel={handleGenerationCancel}
+                                    />
+                                </div>
+                            )}
                         </div>
                         <div>
                             <label className="block text-sm font-bold text-slate-700 mb-1">General Description</label>

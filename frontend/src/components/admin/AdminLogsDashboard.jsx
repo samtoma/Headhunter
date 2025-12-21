@@ -2,9 +2,19 @@ import React, { useState, useEffect, useRef } from 'react'
 import axios from 'axios'
 import {
     Activity, AlertCircle, RefreshCw, Clock, Server, TrendingUp, AlertTriangle,
-    CheckCircle, XCircle, ChevronDown, ChevronUp, Database, Trash2, Zap, Gauge, Wifi, WifiOff
+    CheckCircle, XCircle, ChevronDown, ChevronUp, Database, Trash2, Zap, Gauge, Wifi, WifiOff, Brain, Sparkles
 } from 'lucide-react'
 import { XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, AreaChart, Area, LineChart, Line, Legend, ReferenceLine } from 'recharts'
+
+// Helper function to identify AI/LLM endpoints
+const isAiEndpoint = (path) => {
+    return (
+        path.includes('/company/regenerate') ||
+        path.includes('/departments/generate') ||
+        path.includes('/jobs/analyze') ||
+        path.includes('/interviews/') && (path.includes('generate-feedback') || path.includes('stream-feedback'))
+    )
+}
 
 const AdminLogsDashboard = () => {
     const [activeTab, setActiveTab] = useState("overview")
@@ -25,6 +35,8 @@ const AdminLogsDashboard = () => {
     const [historyHours, setHistoryHours] = useState(24)
     const [historyInterval, setHistoryInterval] = useState(1) // minutes, default 1 minute for higher granularity
     const [refreshRate, setRefreshRate] = useState(5) // seconds
+    const [llmMetrics, setLlmMetrics] = useState(null)
+    const [llmCompanyFilter, setLlmCompanyFilter] = useState('')
     const [thresholds, setThresholds] = useState({
         response_time_warning_ms: 200,
         response_time_critical_ms: 500,
@@ -200,6 +212,8 @@ const AdminLogsDashboard = () => {
             fetchErrors()
         } else if (activeTab === "health-history") {
             fetchHealthHistory()
+        } else if (activeTab === "llm") {
+            fetchLlmMetrics()
         }
     }, [activeTab, filters, pagination.offset, historyHours, historyInterval])
 
@@ -309,6 +323,20 @@ const AdminLogsDashboard = () => {
             setErrors(res.data)
         } catch (err) {
             console.error("Failed to fetch errors", err)
+        }
+    }
+
+    const fetchLlmMetrics = async () => {
+        try {
+            const params = new URLSearchParams()
+            if (llmCompanyFilter) {
+                params.append('company_id', llmCompanyFilter)
+            }
+            const url = `/api/api/v1/admin/llm/metrics${params.toString() ? '?' + params.toString() : ''}`
+            const res = await axios.get(url)
+            setLlmMetrics(res.data)
+        } catch (err) {
+            console.error("Failed to fetch LLM metrics", err)
         }
     }
 
@@ -499,6 +527,15 @@ const AdminLogsDashboard = () => {
                 >
                     Health History
                 </button>
+                <button
+                    onClick={() => setActiveTab("llm")}
+                    className={`pb-4 text-sm font-medium border-b-2 transition ${activeTab === "llm"
+                        ? 'border-indigo-600 text-indigo-600'
+                        : 'border-transparent text-slate-500 hover:text-slate-700'
+                        }`}
+                >
+                    LLM Monitoring
+                </button>
             </div>
 
             {/* Content */}
@@ -560,6 +597,17 @@ const AdminLogsDashboard = () => {
                         setHistoryInterval={setHistoryInterval}
                         fetchHealthHistory={fetchHealthHistory}
                         thresholds={thresholds}
+                    />
+                )}
+
+                {activeTab === "llm" && (
+                    <LLMMonitoringTab
+                        llmMetrics={llmMetrics}
+                        llmCompanyFilter={llmCompanyFilter}
+                        setLlmCompanyFilter={setLlmCompanyFilter}
+                        fetchLlmMetrics={fetchLlmMetrics}
+                        fetchLlmMetrics={fetchLlmMetrics}
+                        formatDate={formatDate}
                     />
                 )}
             </div>
@@ -677,10 +725,11 @@ const OverviewTab = ({
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     {/* Response Time Percentiles */}
                     <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
-                        <h3 className="font-bold text-slate-700 mb-4 flex items-center gap-2">
+                        <h3 className="font-bold text-slate-700 mb-2 flex items-center gap-2">
                             <Gauge size={18} />
                             Response Time Percentiles
                         </h3>
+                        <p className="text-xs text-slate-500 mb-4">API endpoints only (AI operations excluded)</p>
                         <div className="grid grid-cols-3 gap-4">
                             <div className="text-center p-4 bg-slate-50 rounded-lg">
                                 <div className="text-2xl font-bold text-slate-900">{uxAnalytics.response_time_p50_ms?.toFixed(0)}ms</div>
@@ -697,22 +746,53 @@ const OverviewTab = ({
                         </div>
                     </div>
 
-                    {/* Slow Endpoints */}
+                    {/* AI Endpoints */}
+                    {uxAnalytics.slow_endpoints?.some(ep => isAiEndpoint(ep.path)) && (
+                        <div className="bg-gradient-to-r from-indigo-50 to-purple-50 p-6 rounded-xl border border-indigo-200 shadow-sm">
+                            <h3 className="font-bold text-slate-700 mb-4 flex items-center gap-2">
+                                <Zap size={18} className="text-indigo-600" />
+                                AI Endpoints
+                                <span className="text-xs bg-indigo-100 text-indigo-700 px-2 py-1 rounded-full font-normal">
+                                    LLM Operations
+                                </span>
+                            </h3>
+                            <div className="space-y-2 max-h-48 overflow-y-auto">
+                                {uxAnalytics.slow_endpoints
+                                    .filter(ep => isAiEndpoint(ep.path))
+                                    .map((ep, i) => (
+                                        <div key={i} className="flex justify-between items-center py-2 border-b border-slate-100 last:border-0">
+                                            <span className="text-sm font-mono text-slate-600 truncate max-w-[200px]">{ep.path}</span>
+                                            <span className="text-sm font-bold text-indigo-600">{ep.avg_response_ms?.toFixed(0)}ms</span>
+                                        </div>
+                                    ))
+                                }
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Regular Slow Endpoints */}
                     <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
                         <h3 className="font-bold text-slate-700 mb-4 flex items-center gap-2">
                             <AlertTriangle size={18} />
                             Slow Endpoints (avg &gt; 200ms)
                         </h3>
                         <div className="space-y-2 max-h-48 overflow-y-auto">
-                            {uxAnalytics.slow_endpoints?.length > 0 ? (
-                                uxAnalytics.slow_endpoints.map((ep, i) => (
-                                    <div key={i} className="flex justify-between items-center py-2 border-b border-slate-100 last:border-0">
-                                        <span className="text-sm font-mono text-slate-600 truncate max-w-[200px]">{ep.path}</span>
-                                        <span className="text-sm font-bold text-amber-600">{ep.avg_response_ms?.toFixed(0)}ms</span>
-                                    </div>
-                                ))
+                            {uxAnalytics.slow_endpoints?.filter(ep => !isAiEndpoint(ep.path)).length > 0 ? (
+                                uxAnalytics.slow_endpoints
+                                    .filter(ep => !isAiEndpoint(ep.path))
+                                    .map((ep, i) => (
+                                        <div key={i} className="flex justify-between items-center py-2 border-b border-slate-100 last:border-0">
+                                            <span className="text-sm font-mono text-slate-600 truncate max-w-[200px]">{ep.path}</span>
+                                            <span className="text-sm font-bold text-amber-600">{ep.avg_response_ms?.toFixed(0)}ms</span>
+                                        </div>
+                                    ))
                             ) : (
-                                <div className="text-sm text-slate-400 text-center py-4">All endpoints are fast! 🚀</div>
+                                <div className="text-sm text-slate-400 text-center py-4">
+                                    {uxAnalytics.slow_endpoints?.length > 0
+                                        ? "All non-AI endpoints are fast! 🚀"
+                                        : "All endpoints are fast! 🚀"
+                                    }
+                                </div>
                             )}
                         </div>
                     </div>
@@ -806,10 +886,11 @@ const OverviewTab = ({
                 {/* Response Time Percentiles with Thresholds */}
                 {uxAnalytics && (
                     <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
-                        <h3 className="font-bold text-slate-700 mb-4 flex items-center gap-2">
+                        <h3 className="font-bold text-slate-700 mb-2 flex items-center gap-2">
                             <Gauge size={18} />
                             Response Time Percentiles with Thresholds
                         </h3>
+                        <p className="text-xs text-slate-500 mb-2">API endpoints only (AI operations excluded)</p>
                         <div className="mb-2 text-xs text-slate-500">
                             Yellow: {thresholds.p95_warning_ms}ms | Red: {thresholds.p95_critical_ms}ms
                         </div>
@@ -1327,10 +1408,11 @@ const HealthHistoryTab = ({ healthHistory, historyHours, setHistoryHours, histor
 
             {/* Response Time by Service */}
             <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
-                <h3 className="font-bold text-slate-700 mb-4 flex items-center gap-2">
+                <h3 className="font-bold text-slate-700 mb-2 flex items-center gap-2">
                     <Clock size={18} />
                     Response Time by Service (ms)
                 </h3>
+                <p className="text-xs text-slate-500 mb-2">API endpoints only (AI operations excluded)</p>
                 <div className="mb-2 text-xs text-slate-500 flex gap-4">
                     <span>Yellow: {thresholds.response_time_warning_ms}ms</span>
                     <span>Red: {thresholds.response_time_critical_ms}ms</span>
@@ -1599,6 +1681,255 @@ const HealthHistoryTab = ({ healthHistory, historyHours, setHistoryHours, histor
                     </AreaChart>
                 </ResponsiveContainer>
             </div>
+        </div>
+    )
+}
+
+// LLM Monitoring Tab Component
+const LLMMonitoringTab = ({ llmMetrics, llmCompanyFilter, setLlmCompanyFilter, fetchLlmMetrics, formatDate }) => {
+    if (!llmMetrics) {
+        return (
+            <div className="p-8 text-center">
+                <RefreshCw className="animate-spin mx-auto mb-4 text-indigo-600" size={32} />
+                <p className="text-slate-600">Loading LLM metrics...</p>
+            </div>
+        )
+    }
+
+    return (
+        <div className="p-8 space-y-6">
+            {/* Header */}
+            <div className="flex items-center justify-between mb-6">
+                <div>
+                    <h2 className="text-2xl font-bold text-slate-900 flex items-center gap-2">
+                        <Brain className="text-indigo-600" size={28} />
+                        LLM Operations Monitoring
+                    </h2>
+                    <p className="text-sm text-slate-600 mt-1">
+                        Monitor AI/LLM operations, token usage, latency, and performance metrics
+                    </p>
+                </div>
+                <div className="flex items-center gap-4">
+                    <div className="flex items-center gap-2">
+                        <label className="text-sm font-medium text-slate-600">Company:</label>
+                        <select
+                            value={llmCompanyFilter}
+                            onChange={(e) => setLlmCompanyFilter(e.target.value)}
+                            className="px-3 py-1 border border-slate-300 rounded-md text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                        >
+                            <option value="">All Companies</option>
+                            {/* TODO: Fetch companies dynamically */}
+                            <option value="1">Company 1</option>
+                            <option value="2">Company 2</option>
+                        </select>
+                    </div>
+                    <button
+                        onClick={fetchLlmMetrics}
+                        className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 flex items-center gap-2 transition-colors"
+                    >
+                        <RefreshCw size={16} />
+                        Refresh
+                    </button>
+                </div>
+            </div>
+
+            {/* Key Metrics Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+                    <div className="flex items-center justify-between mb-2">
+                        <div className="text-sm text-slate-500">Total Operations</div>
+                        <Sparkles className="text-indigo-600" size={20} />
+                    </div>
+                    <div className="text-3xl font-bold text-slate-900">{llmMetrics.total_operations}</div>
+                    <div className="text-xs text-slate-500 mt-1">{llmMetrics.operations_24h} in last 24h</div>
+                </div>
+
+                <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+                    <div className="flex items-center justify-between mb-2">
+                        <div className="text-sm text-slate-500">Total Tokens</div>
+                        <TrendingUp className="text-emerald-600" size={20} />
+                    </div>
+                    <div className="text-3xl font-bold text-slate-900">
+                        {llmMetrics.total_tokens_used.toLocaleString()}
+                    </div>
+                    <div className="text-xs text-slate-500 mt-1">
+                        {llmMetrics.tokens_24h.toLocaleString()} in last 24h
+                    </div>
+                    <div className="mt-2 text-xs">
+                        <span className="text-emerald-600">Input: {llmMetrics.total_tokens_input.toLocaleString()}</span>
+                        <span className="mx-2 text-slate-400">|</span>
+                        <span className="text-blue-600">Output: {llmMetrics.total_tokens_output.toLocaleString()}</span>
+                    </div>
+                </div>
+
+                <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+                    <div className="flex items-center justify-between mb-2">
+                        <div className="text-sm text-slate-500">Avg Latency</div>
+                        <Clock className="text-blue-600" size={20} />
+                    </div>
+                    <div className="text-3xl font-bold text-slate-900">
+                        {Math.round(llmMetrics.avg_latency_ms)}ms
+                    </div>
+                    <div className="text-xs text-slate-500 mt-1">
+                        {Math.round(llmMetrics.avg_latency_24h_ms)}ms (24h avg)
+                    </div>
+                </div>
+
+                <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+                    <div className="flex items-center justify-between mb-2">
+                        <div className="text-sm text-slate-500">Error Rate</div>
+                        <AlertCircle className="text-red-600" size={20} />
+                    </div>
+                    <div className="text-3xl font-bold text-slate-900">
+                        {llmMetrics.error_rate_percent.toFixed(2)}%
+                    </div>
+                    <div className="text-xs text-slate-500 mt-1">
+                        {llmMetrics.errors_24h} errors in last 24h
+                    </div>
+                </div>
+            </div>
+
+            {/* Performance Metrics */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+                    <h3 className="font-bold text-slate-700 mb-4 flex items-center gap-2">
+                        <Gauge size={18} />
+                        Latency Percentiles
+                    </h3>
+                    <div className="space-y-3">
+                        <div className="flex items-center justify-between">
+                            <span className="text-sm text-slate-600">P50 (Median)</span>
+                            <span className="font-semibold text-slate-900">{Math.round(llmMetrics.latency_p50_ms)}ms</span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                            <span className="text-sm text-slate-600">P95</span>
+                            <span className="font-semibold text-slate-900">{Math.round(llmMetrics.latency_p95_ms)}ms</span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                            <span className="text-sm text-slate-600">P99</span>
+                            <span className="font-semibold text-slate-900">{Math.round(llmMetrics.latency_p99_ms)}ms</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+                    <h3 className="font-bold text-slate-700 mb-4 flex items-center gap-2">
+                        <Zap size={18} />
+                        Time Breakdown
+                    </h3>
+                    <div className="space-y-3">
+                        {llmMetrics.thinking_time_avg_ms && (
+                            <div className="flex items-center justify-between">
+                                <span className="text-sm text-slate-600">Avg Thinking Time</span>
+                                <span className="font-semibold text-slate-900">{Math.round(llmMetrics.thinking_time_avg_ms)}ms</span>
+                            </div>
+                        )}
+                        {llmMetrics.response_time_avg_ms && (
+                            <div className="flex items-center justify-between">
+                                <span className="text-sm text-slate-600">Avg Response Time</span>
+                                <span className="font-semibold text-slate-900">{Math.round(llmMetrics.response_time_avg_ms)}ms</span>
+                            </div>
+                        )}
+                        {llmMetrics.implementation_time_avg_ms && (
+                            <div className="flex items-center justify-between">
+                                <span className="text-sm text-slate-600">Avg Implementation Time</span>
+                                <span className="font-semibold text-slate-900">{Math.round(llmMetrics.implementation_time_avg_ms)}ms</span>
+                            </div>
+                        )}
+                        <div className="flex items-center justify-between">
+                            <span className="text-sm text-slate-600">Streaming Operations</span>
+                            <span className="font-semibold text-slate-900">
+                                {llmMetrics.streaming_operations} ({llmMetrics.streaming_percentage.toFixed(1)}%)
+                            </span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            {/* Operations by Action */}
+            {Object.keys(llmMetrics.operations_by_action).length > 0 && (
+                <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+                    <h3 className="font-bold text-slate-700 mb-4 flex items-center gap-2">
+                        <Activity size={18} />
+                        Operations by Action
+                    </h3>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                        {Object.entries(llmMetrics.operations_by_action).map(([action, count]) => (
+                            <div key={action} className="bg-slate-50 p-4 rounded-lg">
+                                <div className="text-sm text-slate-500 mb-1">{action}</div>
+                                <div className="text-2xl font-bold text-slate-900">{count}</div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
+
+            {/* Operations by Model */}
+            {Object.keys(llmMetrics.operations_by_model).length > 0 && (
+                <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+                    <h3 className="font-bold text-slate-700 mb-4 flex items-center gap-2">
+                        <Brain size={18} />
+                        Operations by Model
+                    </h3>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                        {Object.entries(llmMetrics.operations_by_model).map(([model, count]) => (
+                            <div key={model} className="bg-slate-50 p-4 rounded-lg">
+                                <div className="text-sm text-slate-500 mb-1">{model}</div>
+                                <div className="text-2xl font-bold text-slate-900">{count}</div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
+
+            {/* Recent Operations */}
+            {llmMetrics.recent_operations && llmMetrics.recent_operations.length > 0 && (
+                <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+                    <h3 className="font-bold text-slate-700 mb-4 flex items-center gap-2">
+                        <Clock size={18} />
+                        Recent Operations
+                    </h3>
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-sm">
+                            <thead className="bg-slate-50">
+                                <tr>
+                                    <th className="px-4 py-2 text-left text-slate-600 font-semibold">Action</th>
+                                    <th className="px-4 py-2 text-left text-slate-600 font-semibold">Model</th>
+                                    <th className="px-4 py-2 text-left text-slate-600 font-semibold">Tokens (In/Out)</th>
+                                    <th className="px-4 py-2 text-left text-slate-600 font-semibold">Latency</th>
+                                    <th className="px-4 py-2 text-left text-slate-600 font-semibold">Streaming</th>
+                                    <th className="px-4 py-2 text-left text-slate-600 font-semibold">Time</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {llmMetrics.recent_operations.map((op) => (
+                                    <tr key={op.id} className="border-b border-slate-100">
+                                        <td className="px-4 py-2 text-slate-700">{op.action}</td>
+                                        <td className="px-4 py-2 text-slate-600">{op.model}</td>
+                                        <td className="px-4 py-2 text-slate-600">
+                                            {op.tokens_input || op.tokens_output ?
+                                                `${op.tokens_input || 0}/${op.tokens_output || 0}` :
+                                                op.tokens_used || 0
+                                            }
+                                        </td>
+                                        <td className="px-4 py-2 text-slate-600">{op.latency_ms}ms</td>
+                                        <td className="px-4 py-2">
+                                            {op.streaming ? (
+                                                <span className="text-emerald-600">Yes</span>
+                                            ) : (
+                                                <span className="text-slate-400">No</span>
+                                            )}
+                                        </td>
+                                        <td className="px-4 py-2 text-slate-500 text-xs">
+                                            {formatDate ? formatDate(new Date(op.created_at)) : new Date(op.created_at).toLocaleString()}
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            )}
         </div>
     )
 }

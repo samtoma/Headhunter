@@ -36,7 +36,9 @@ class ChromaSearchEngine(SearchEngine):
 
         try:
             # Generate embedding
-            embedding = await generate_embedding(text)
+            company_id = metadata.get('company_id')
+            user_id = metadata.get('user_id')
+            embedding = await generate_embedding(text, cv_id=int(candidate_id) if candidate_id.isdigit() else None, company_id=company_id, user_id=user_id)
             if not embedding:
                 logger.error(f"Failed to generate embedding for candidate {candidate_id}")
                 return False

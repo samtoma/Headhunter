@@ -57,6 +57,8 @@ def process_cv(cv_id: int):
         
         # STEP 1: Fetch CV data
         db = SessionLocal()
+        company_id = None
+        user_id = None
         try:
             cv = db.query(CV).filter(CV.id == cv_id).first()
             if not cv:
@@ -65,6 +67,8 @@ def process_cv(cv_id: int):
             
             cv_filepath = cv.filepath
             cv_filename = cv.filename
+            company_id = cv.company_id
+            user_id = cv.uploaded_by
         finally:
             db.close()
         
@@ -76,7 +80,7 @@ def process_cv(cv_id: int):
 
         # Run async parser synchronously
         try:
-            data = asyncio.run(parse_cv_with_llm(full_text, cv_filename))
+            data = asyncio.run(parse_cv_with_llm(full_text, cv_filename, cv_id=cv_id, company_id=company_id, user_id=user_id))
         except Exception as e:
             logger.error(f"Error calling AI service for CV {cv_id}: {e}")
             raise

@@ -1,5 +1,5 @@
-from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.orm import Session
+from fastapi import APIRouter, Depends, HTTPException, WebSocket, WebSocketDisconnect
+from sqlalchemy.orm import Session, joinedload
 from app.core.database import get_db
 from app.api.deps import get_current_user
 from app.models.models import User, UserRole
@@ -11,6 +11,11 @@ import os
 from openai import AsyncOpenAI
 import logging
 import json
+import time
+import asyncio
+from app.core.llm_logging import LLMLogger
+from jose import jwt, JWTError
+from app.core.security import SECRET_KEY, ALGORITHM
 
 logger = logging.getLogger(__name__)
 router = APIRouter(tags=["Company"])
@@ -278,6 +283,7 @@ async def extract_company_info(
         {full_text}
         """
             
+            start_time = time.time()
             client = get_openai_client()
             completion = await client.chat.completions.create(
                 model=OPENAI_MODEL,
@@ -288,7 +294,32 @@ async def extract_company_info(
                 response_format={"type": "json_object"}
             )
             
+            # Track token usage
+            tokens_used = 0
+            tokens_input = 0
+            tokens_output = 0
+            if hasattr(completion, 'usage') and completion.usage:
+                tokens_used = completion.usage.total_tokens
+                tokens_input = completion.usage.prompt_tokens
+                tokens_output = completion.usage.completion_tokens
+            
             result = json.loads(completion.choices[0].message.content)
+            
+            # Log LLM operation
+            latency_ms = int((time.time() - start_time) * 1000)
+            LLMLogger.log_llm_operation(
+                action="extract_company_info",
+                message=f"Extracted company info from {url}",
+                user_id=current_user.id if current_user else None,
+                company_id=current_user.company_id if current_user else None,
+                model=OPENAI_MODEL,
+                tokens_used=tokens_used,
+                tokens_input=tokens_input,
+                tokens_output=tokens_output,
+                latency_ms=latency_ms,
+                streaming=False,
+                metadata={"url": url}
+            )
             
             # Add extracted social links
             if social_links["linkedin"]:
@@ -317,6 +348,23 @@ async def extract_company_info(
             
     except Exception as e:
         logger.error(f"Error extracting info: {e}")
+        # Log error if we have timing info
+        if 'start_time' in locals():
+            latency_ms = int((time.time() - start_time) * 1000)
+            LLMLogger.log_llm_operation(
+                action="extract_company_info_error",
+                message=f"Error extracting company info from {url}: {str(e)}",
+                user_id=current_user.id if current_user else None,
+                company_id=current_user.company_id if current_user else None,
+                model=OPENAI_MODEL,
+                tokens_used=tokens_used if 'tokens_used' in locals() else None,
+                tokens_input=tokens_input if 'tokens_input' in locals() else None,
+                tokens_output=tokens_output if 'tokens_output' in locals() else None,
+                latency_ms=latency_ms,
+                error_type=type(e).__name__,
+                error_message=str(e),
+                metadata={"url": url}
+            )
         raise HTTPException(status_code=400, detail=f"Failed to extract info: {str(e)}")
 
 @router.put("/profile")
@@ -367,7 +415,297 @@ async def regenerate_company_profile(
     for key, value in extracted_data.items():
         if value is not None:
             setattr(company, key, value)
-    
+
     db.commit()
     db.refresh(company)
     return company
+
+
+# ==================== WebSocket for Company Profile Extraction Progress ====================
+
+async def authenticate_company_websocket(websocket: WebSocket) -> Optional[User]:
+    """Authenticate WebSocket connection for company profile extraction"""
+    token = websocket.query_params.get("token")
+
+    if not token:
+        await websocket.close(code=1008, reason="Authentication required")
+        return None
+
+    db_gen = None
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        email: str = payload.get("sub")
+        if not email:
+            await websocket.close(code=1008, reason="Invalid token")
+            return None
+
+        db_gen = get_db()
+        db = next(db_gen)
+        try:
+            user = db.query(User).filter(User.email == email).first()
+            if not user:
+                await websocket.close(code=1008, reason="User not found")
+                return None
+
+            return user
+        finally:
+            try:
+                next(db_gen, None)
+            except StopIteration:
+                pass
+    except JWTError:
+        await websocket.close(code=1008, reason="Invalid token")
+        return None
+    except Exception as e:
+        await websocket.close(code=1011, reason=f"Authentication error: {str(e)}")
+        return None
+    finally:
+        if db_gen:
+            try:
+                next(db_gen, None)
+            except StopIteration:
+                pass
+
+
+@router.websocket("/regenerate/stream")
+async def stream_company_profile_extraction(websocket: WebSocket):
+    """
+    WebSocket endpoint for streaming company profile extraction with step-by-step progress.
+
+    Connect with: ws://host/api/company/regenerate/stream?token=YOUR_JWT_TOKEN&url=https://company-website.com
+
+    Query parameters:
+    - token: JWT authentication token
+    - url: Company website URL (required)
+
+    Messages sent to client:
+    - {"type": "step", "step": 1, "total_steps": 5, "message": "Fetching website content..."}
+    - {"type": "complete", "data": {...}, "tokens_used": 1234, "model": "...", "latency_ms": 5000}
+    - {"type": "error", "message": "error message", "code": "ERROR_CODE"}
+    """
+    await websocket.accept()
+
+    # Authenticate user
+    user = await authenticate_company_websocket(websocket)
+    if not user:
+        return
+
+    db_gen = None
+    start_time = None
+    tokens_used = 0
+    tokens_input = 0
+    tokens_output = 0
+    model_used = OPENAI_MODEL
+    latency_ms = 0
+
+    try:
+        # Get query parameters
+        url = websocket.query_params.get("url")
+        if not url:
+            await websocket.send_json({
+                "type": "error",
+                "message": "Company website URL is required",
+                "code": "MISSING_URL"
+            })
+            await websocket.close()
+            return
+
+        # Get database session
+        db_gen = get_db()
+        db = next(db_gen)
+
+        # Re-fetch user with company relationship
+        user = db.query(User).options(joinedload(User.company)).filter(User.id == user.id).first()
+        if not user:
+            await websocket.send_json({
+                "type": "error",
+                "message": "User not found",
+                "code": "USER_NOT_FOUND"
+            })
+            await websocket.close()
+            return
+
+        # Verify user owns the company
+        if not user.company:
+            await websocket.send_json({
+                "type": "error",
+                "message": "Company not found",
+                "code": "COMPANY_NOT_FOUND"
+            })
+            await websocket.close()
+            return
+
+        # Start timing
+        start_time = time.time()
+
+        # Step 1: Fetching website content
+        await websocket.send_json({
+            "type": "step",
+            "step": 1,
+            "total_steps": 5,
+            "message": "Fetching website content..."
+        })
+
+        # Fetch website content (same logic as original endpoint)
+        try:
+            async with httpx.AsyncClient(timeout=30.0) as client:
+                response = await client.get(url, headers={
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+                })
+                response.raise_for_status()
+                soup = BeautifulSoup(response.text, 'html.parser')
+
+                # Extract text content
+                for script in soup(["script", "style"]):
+                    script.decompose()
+
+                text_content = soup.get_text(separator=' ', strip=True)
+                full_text = text_content[:15000]  # Limit text length
+        except Exception as e:
+            await websocket.send_json({
+                "type": "error",
+                "message": f"Failed to fetch website content: {str(e)}",
+                "code": "FETCH_FAILED"
+            })
+            return
+
+        # Step 2: Analyzing content
+        await websocket.send_json({
+            "type": "step",
+            "step": 2,
+            "total_steps": 5,
+            "message": "Analyzing website content and extracting key information..."
+        })
+        await asyncio.sleep(0.5)
+
+        # Step 3: Processing with AI
+        await websocket.send_json({
+            "type": "step",
+            "step": 3,
+            "total_steps": 5,
+            "message": "Processing with AI to extract company details..."
+        })
+
+        # Build the prompt (same as original)
+        prompt = f"""Extract the following information from the company website text below. Return ONLY valid JSON:
+
+{{
+    "name": "Company Name",
+    "description": "Brief company description (2-3 sentences)",
+    "founding_year": 2015,
+    "industry": "Primary industry/sector",
+    "company_size": "e.g., 51-200 employees, 201-500 employees, etc.",
+    "headquarters": "City, State/Country",
+    "mission": "Company mission statement",
+    "vision": "Company vision",
+    "values": ["Value 1", "Value 2", "Value 3"],
+    "culture": "Company culture description",
+    "products_services": "Main products or services offered",
+    "target_market": "Target market or customer base",
+    "competitive_advantage": "What makes them unique",
+    "departments": ["Engineering", "Sales", "Marketing", "HR", "Finance"]
+}}
+
+Website Text:
+{full_text}
+"""
+
+        # Call OpenAI
+        client = get_openai_client()
+        completion = await client.chat.completions.create(
+            model=OPENAI_MODEL,
+            messages=[
+                {"role": "system", "content": "You are an expert business analyst specializing in company research. You are VERY GOOD at finding founding dates, company sizes, and organizational types from website text. You use inference when needed. Always return valid JSON."},
+                {"role": "user", "content": prompt}
+            ],
+            response_format={"type": "json_object"}
+        )
+
+        # Track token usage
+        if hasattr(completion, 'usage') and completion.usage:
+            tokens_used = completion.usage.total_tokens
+            tokens_input = completion.usage.prompt_tokens
+            tokens_output = completion.usage.completion_tokens
+
+        result = json.loads(completion.choices[0].message.content)
+
+        # Step 4: Validating data
+        await websocket.send_json({
+            "type": "step",
+            "step": 4,
+            "total_steps": 5,
+            "message": "Validating extracted information..."
+        })
+        await asyncio.sleep(0.3)
+
+        # Step 5: Generating profile
+        await websocket.send_json({
+            "type": "step",
+            "step": 5,
+            "total_steps": 5,
+            "message": "Generating company profile..."
+        })
+        await asyncio.sleep(0.2)
+
+        # Calculate latency
+        latency_ms = int((time.time() - start_time) * 1000)
+
+        # Log successful operation
+        LLMLogger.log_llm_operation(
+            action="extract_company_info",
+            message=f"Extracted company info from {url}",
+            user_id=user.id,
+            company_id=user.company_id,
+            model=model_used,
+            tokens_used=tokens_used,
+            tokens_input=tokens_input,
+            tokens_output=tokens_output,
+            latency_ms=latency_ms,
+            streaming=False,
+            metadata={"url": url}
+        )
+
+        # Send completion
+        await websocket.send_json({
+            "type": "complete",
+            "data": result,
+            "tokens_used": tokens_used,
+            "tokens_input": tokens_input,
+            "tokens_output": tokens_output,
+            "model": model_used,
+            "latency_ms": latency_ms
+        })
+
+    except Exception as e:
+        latency_ms = int((time.time() - start_time) * 1000) if start_time else 0
+        await websocket.send_json({
+            "type": "error",
+            "message": f"Internal error: {str(e)}",
+            "code": "INTERNAL_ERROR"
+        })
+
+        # Log error
+        LLMLogger.log_llm_operation(
+            action="extract_company_info_error",
+            message=f"Error extracting company info from {url}: {str(e)}",
+            user_id=user.id if user else None,
+            company_id=user.company_id if user else None,
+            model=model_used,
+            tokens_used=tokens_used,
+            tokens_input=tokens_input,
+            tokens_output=tokens_output,
+            latency_ms=latency_ms,
+            error_type=type(e).__name__,
+            error_message=str(e)
+        )
+    finally:
+        # Clean up database connection
+        if db_gen:
+            try:
+                next(db_gen, None)
+            except StopIteration:
+                pass
+        try:
+            await websocket.close()
+        except:
+            pass

@@ -537,10 +537,10 @@ def get_system_metrics(
         User.login_count > 0  # Simplified - in production, track last_login_at
     ).scalar() or 0
     
-    # API requests in last 24h
+    # API requests in last 24h (exclude LLM operations - LLM has its own component)
     api_requests_24h = db.query(func.count(SystemLog.id)).filter(
         and_(
-            SystemLog.component == "api",
+            SystemLog.component == "api",  # Only count "api" component, not "llm"
             SystemLog.created_at >= last_24h
         )
     ).scalar() or 0
@@ -791,10 +791,13 @@ def get_ux_analytics(
     now = datetime.now(timezone.utc)
     start_time = now - timedelta(hours=hours)
     
-    # Get all logs in period with response times
+    # Get all logs in period with response times (exclude LLM operations - they have their own monitoring)
     logs = db.query(SystemLog).filter(
-        SystemLog.created_at >= start_time,
-        SystemLog.response_time_ms.isnot(None)
+        and_(
+            SystemLog.created_at >= start_time,
+            SystemLog.response_time_ms.isnot(None),
+            SystemLog.component == "api"  # Only API operations, not LLM
+        )
     ).all()
     
     total_requests = len(logs)
@@ -817,12 +820,15 @@ def get_ux_analytics(
     p95 = percentile(response_times, 95)
     p99 = percentile(response_times, 99)
     
-    # Slow endpoints (avg > 500ms)
+    # Slow endpoints (avg > 200ms) - exclude LLM operations
     from collections import defaultdict
     endpoint_times = defaultdict(list)
     endpoint_errors = defaultdict(int)
     
     for log in logs:
+        # Skip LLM operations - they're tracked separately in LLM monitoring tab
+        if log.component == "llm":
+            continue
         if log.http_path:
             endpoint_times[log.http_path].append(log.response_time_ms or 0)
             if log.http_status and log.http_status >= 400:
@@ -1419,3 +1425,323 @@ def update_thresholds(
     require_super_admin(current_user)
     # In production, store in Redis or database
     return thresholds
+
+# ==================== LLM Metrics Endpoint ====================
+
+class LLMMetricsResponse(BaseModel):
+    """LLM-specific metrics"""
+    total_operations: int
+    operations_24h: int
+    operations_by_action: Dict[str, int]
+    total_tokens_used: int
+    total_tokens_input: int
+    total_tokens_output: int
+    tokens_24h: int
+    tokens_input_24h: int
+    tokens_output_24h: int
+    avg_tokens_per_operation: float
+    avg_tokens_input_per_operation: float
+    avg_tokens_output_per_operation: float
+    total_cost_usd: float
+    cost_24h_usd: float
+    avg_latency_ms: float
+    avg_latency_24h_ms: float
+    total_errors: int
+    errors_24h: int
+    error_rate_percent: float
+    operations_by_model: Dict[str, int]
+    streaming_operations: int
+    streaming_percentage: float
+    latency_p50_ms: float
+    latency_p95_ms: float
+    latency_p99_ms: float
+    thinking_time_avg_ms: Optional[float] = None
+    response_time_avg_ms: Optional[float] = None
+    implementation_time_avg_ms: Optional[float] = None
+    operations_by_company: Dict[str, int]
+    tokens_by_company: Dict[str, Dict[str, int]]  # {company_name: {total, input, output}}
+    cost_by_company: Dict[str, float]
+    operations_by_user: Dict[str, int]
+    recent_operations: List[Dict[str, Any]]
+
+@router.get("/llm/metrics", response_model=LLMMetricsResponse)
+def get_llm_metrics(
+    start_date: Optional[datetime] = Query(None),
+    end_date: Optional[datetime] = Query(None),
+    company_id: Optional[int] = Query(None),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Get comprehensive LLM operation metrics.
+    Super admin only.
+    Excludes LLM operations from API metrics.
+    """
+    require_super_admin(current_user)
+    
+    now = datetime.now(timezone.utc)
+    last_24h = now - timedelta(hours=24)
+    
+    # Use provided dates or default to last 24h
+    start = start_date or last_24h
+    end = end_date or now
+    
+    # Base query for LLM operations
+    base_query = db.query(SystemLog).filter(
+        SystemLog.component == "llm"
+    )
+    
+    if company_id:
+        base_query = base_query.filter(SystemLog.company_id == company_id)
+    
+    if start_date:
+        base_query = base_query.filter(SystemLog.created_at >= start)
+    if end_date:
+        base_query = base_query.filter(SystemLog.created_at <= end)
+    
+    # Total operations
+    total_operations = base_query.count()
+    
+    # Operations in last 24h
+    operations_24h = db.query(func.count(SystemLog.id)).filter(
+        and_(
+            SystemLog.component == "llm",
+            SystemLog.created_at >= last_24h
+        )
+    ).scalar() or 0
+    
+    # Operations by action
+    operations_by_action = {}
+    action_counts = db.query(
+        SystemLog.action,
+        func.count(SystemLog.id).label("count")
+    ).filter(
+        and_(
+            SystemLog.component == "llm",
+            SystemLog.created_at >= start,
+            SystemLog.created_at <= end
+        )
+    ).group_by(SystemLog.action).all()
+    for row in action_counts:
+        operations_by_action[row.action] = row.count
+    
+    # Token statistics
+    llm_logs = base_query.filter(
+        SystemLog.extra_metadata.isnot(None)
+    ).all()
+    
+    total_tokens = 0
+    tokens_24h = 0
+    total_tokens_input = 0
+    tokens_input_24h = 0
+    total_tokens_output = 0
+    tokens_output_24h = 0
+    total_cost = 0.0
+    cost_24h = 0.0
+    latencies = []
+    latencies_24h = []
+    streaming_count = 0
+    models_used = {}
+    thinking_times = []
+    response_times = []
+    implementation_times = []
+    tokens_by_company_dict = {}
+    cost_by_company_dict = {}
+    
+    for log in llm_logs:
+        try:
+            metadata = json.loads(log.extra_metadata) if isinstance(log.extra_metadata, str) else log.extra_metadata
+            
+            # Token tracking
+            tokens = metadata.get("tokens_used", 0)
+            tokens_input = metadata.get("tokens_input", 0)
+            tokens_output = metadata.get("tokens_output", 0)
+
+            if tokens:
+                total_tokens += tokens
+                if log.created_at >= last_24h:
+                    tokens_24h += tokens
+
+            if tokens_input:
+                total_tokens_input += tokens_input
+                if log.created_at >= last_24h:
+                    tokens_input_24h += tokens_input
+
+            if tokens_output:
+                total_tokens_output += tokens_output
+                if log.created_at >= last_24h:
+                    tokens_output_24h += tokens_output
+
+            # Cost calculation
+            cost = metadata.get("cost_usd", 0)
+            if cost:
+                total_cost += cost
+                if log.created_at >= last_24h:
+                    cost_24h += cost
+
+            # Company-level aggregation
+            if log.company_id:
+                if log.company_id not in tokens_by_company_dict:
+                    tokens_by_company_dict[log.company_id] = {"total": 0, "input": 0, "output": 0}
+                tokens_by_company_dict[log.company_id]["total"] += tokens
+                tokens_by_company_dict[log.company_id]["input"] += tokens_input
+                tokens_by_company_dict[log.company_id]["output"] += tokens_output
+
+                if cost:
+                    if log.company_id not in cost_by_company_dict:
+                        cost_by_company_dict[log.company_id] = 0.0
+                    cost_by_company_dict[log.company_id] += cost
+
+            # Latency tracking
+            latency = metadata.get("latency_ms", 0)
+            if latency:
+                latencies.append(latency)
+                if log.created_at >= last_24h:
+                    latencies_24h.append(latency)
+            
+            # Streaming tracking
+            if metadata.get("streaming", False):
+                streaming_count += 1
+            
+            # Model tracking
+            model = metadata.get("model", "unknown")
+            models_used[model] = models_used.get(model, 0) + 1
+            
+            # Time breakdowns (if available)
+            if metadata.get("thinking_time_ms"):
+                thinking_times.append(metadata["thinking_time_ms"])
+            if metadata.get("response_time_ms"):
+                response_times.append(metadata["response_time_ms"])
+            if metadata.get("implementation_time_ms"):
+                implementation_times.append(metadata["implementation_time_ms"])
+                
+        except (json.JSONDecodeError, TypeError):
+            continue
+    
+    # Calculate percentiles
+    def percentile(data, p):
+        if not data:
+            return 0
+        sorted_data = sorted(data)
+        index = int(len(sorted_data) * p / 100)
+        return sorted_data[min(index, len(sorted_data) - 1)]
+    
+    # Error statistics
+    error_query = base_query.filter(SystemLog.error_type.isnot(None))
+    total_errors = error_query.count()
+    errors_24h = db.query(func.count(SystemLog.id)).filter(
+        and_(
+            SystemLog.component == "llm",
+            SystemLog.error_type.isnot(None),
+            SystemLog.created_at >= last_24h
+        )
+    ).scalar() or 0
+    
+    error_rate = (total_errors / total_operations * 100) if total_operations > 0 else 0
+    
+    # Operations by company
+    operations_by_company = {}
+    company_counts = db.query(
+        SystemLog.company_id,
+        func.count(SystemLog.id).label("count")
+    ).filter(
+        and_(
+            SystemLog.component == "llm",
+            SystemLog.created_at >= start,
+            SystemLog.created_at <= end,
+            SystemLog.company_id.isnot(None)
+        )
+    ).group_by(SystemLog.company_id).all()
+    for row in company_counts:
+        company = db.query(Company).filter(Company.id == row.company_id).first()
+        company_name = company.name if company else f"Company {row.company_id}"
+        operations_by_company[company_name] = row.count
+    
+    # Tokens by company (with company names)
+    tokens_by_company = {}
+    cost_by_company = {}
+    for company_id, token_data in tokens_by_company_dict.items():
+        company = db.query(Company).filter(Company.id == company_id).first()
+        company_name = company.name if company else f"Company {company_id}"
+        tokens_by_company[company_name] = token_data
+        if company_id in cost_by_company_dict:
+            cost_by_company[company_name] = round(cost_by_company_dict[company_id], 4)
+    
+    # Operations by user
+    operations_by_user = {}
+    user_counts = db.query(
+        SystemLog.user_id,
+        func.count(SystemLog.id).label("count")
+    ).filter(
+        and_(
+            SystemLog.component == "llm",
+            SystemLog.created_at >= start,
+            SystemLog.created_at <= end,
+            SystemLog.user_id.isnot(None)
+        )
+    ).group_by(SystemLog.user_id).all()
+    for row in user_counts:
+        user = db.query(User).filter(User.id == row.user_id).first()
+        user_name = user.email if user else f"User {row.user_id}"
+        operations_by_user[user_name] = row.count
+    
+    # Recent operations
+    recent_operations = []
+    recent_logs = base_query.order_by(desc(SystemLog.created_at)).limit(10).all()
+    for log in recent_logs:
+        metadata = {}
+        try:
+            if log.extra_metadata:
+                metadata = json.loads(log.extra_metadata) if isinstance(log.extra_metadata, str) else log.extra_metadata
+        except:
+            pass
+        
+        recent_operations.append({
+            "id": log.id,
+            "action": log.action,
+            "message": log.message,
+            "tokens_used": metadata.get("tokens_used", 0),
+            "tokens_input": metadata.get("tokens_input", 0),
+            "tokens_output": metadata.get("tokens_output", 0),
+            "latency_ms": metadata.get("latency_ms", 0),
+            "model": metadata.get("model", "unknown"),
+            "streaming": metadata.get("streaming", False),
+            "error": log.error_message,
+            "created_at": log.created_at.isoformat()
+        })
+    
+    return LLMMetricsResponse(
+        total_operations=total_operations,
+        operations_24h=operations_24h,
+        operations_by_action=operations_by_action,
+        total_tokens_used=total_tokens,
+        total_tokens_input=total_tokens_input,
+        total_tokens_output=total_tokens_output,
+        tokens_24h=tokens_24h,
+        tokens_input_24h=tokens_input_24h,
+        tokens_output_24h=tokens_output_24h,
+        avg_tokens_per_operation=round(total_tokens / total_operations, 2) if total_operations > 0 else 0,
+        avg_tokens_input_per_operation=round(total_tokens_input / total_operations, 2) if total_operations > 0 else 0,
+        avg_tokens_output_per_operation=round(total_tokens_output / total_operations, 2) if total_operations > 0 else 0,
+        total_cost_usd=round(total_cost, 4),
+        cost_24h_usd=round(cost_24h, 4),
+        avg_latency_ms=round(sum(latencies) / len(latencies), 2) if latencies else 0,
+        avg_latency_24h_ms=round(sum(latencies_24h) / len(latencies_24h), 2) if latencies_24h else 0,
+        total_errors=total_errors,
+        errors_24h=errors_24h,
+        error_rate_percent=round(error_rate, 2),
+        operations_by_model=models_used,
+        streaming_operations=streaming_count,
+        streaming_percentage=round(streaming_count / total_operations * 100, 2) if total_operations > 0 else 0,
+        latency_p50_ms=round(percentile(latencies, 50), 2),
+        latency_p95_ms=round(percentile(latencies, 95), 2),
+        latency_p99_ms=round(percentile(latencies, 99), 2),
+        thinking_time_avg_ms=round(sum(thinking_times) / len(thinking_times), 2) if thinking_times else None,
+        response_time_avg_ms=round(sum(response_times) / len(response_times), 2) if response_times else None,
+        implementation_time_avg_ms=round(sum(implementation_times) / len(implementation_times), 2) if implementation_times else None,
+        operations_by_company=operations_by_company,
+        tokens_by_company=tokens_by_company,
+        cost_by_company=cost_by_company,
+        operations_by_user=operations_by_user,
+        recent_operations=recent_operations
+    )

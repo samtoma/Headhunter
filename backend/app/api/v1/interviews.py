@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, WebSocket, WebSocketDisconnect
 from sqlalchemy.orm import Session, joinedload
 from typing import List, Optional
 from pydantic import BaseModel, ConfigDict
@@ -9,7 +9,14 @@ from app.models.models import Interview, Application, User, CV, UserRole
 from app.api.deps import get_current_user
 from app.api.v1.activity import log_application_activity
 from app.core.email import send_interview_notification
+from app.services.ai_feedback import generate_interview_feedback_stream
+from app.core.llm_logging import LLMLogger
+from jose import jwt, JWTError
+from app.core.security import SECRET_KEY, ALGORITHM
 import asyncio
+import os
+
+OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
 
 router = APIRouter(prefix="/interviews", tags=["Interviews"])
 
@@ -935,3 +942,249 @@ def delete_interview(interview_id: int, db: Session = Depends(get_db)):
     db.delete(interview)
     db.commit()
     return {"status": "deleted"}
+
+
+# ==================== WebSocket for LLM Feedback Streaming ====================
+
+async def authenticate_feedback_websocket(websocket: WebSocket) -> Optional[User]:
+    """Authenticate WebSocket connection for feedback generation"""
+    token = websocket.query_params.get("token")
+    
+    if not token:
+        await websocket.close(code=1008, reason="Authentication required")
+        return None
+    
+    db_gen = None
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        email: str = payload.get("sub")
+        if not email:
+            await websocket.close(code=1008, reason="Invalid token")
+            return None
+        
+        db_gen = get_db()
+        db = next(db_gen)
+        try:
+            user = db.query(User).filter(User.email == email).first()
+            if not user:
+                await websocket.close(code=1008, reason="User not found")
+                return None
+            
+            return user
+        finally:
+            try:
+                next(db_gen, None)
+            except StopIteration:
+                pass
+    except JWTError:
+        await websocket.close(code=1008, reason="Invalid token")
+        return None
+    except Exception as e:
+        await websocket.close(code=1011, reason=f"Authentication error: {str(e)}")
+        return None
+    finally:
+        if db_gen:
+            try:
+                next(db_gen, None)
+            except StopIteration:
+                pass
+
+
+@router.websocket("/{interview_id}/generate-feedback/stream")
+async def stream_feedback_generation(websocket: WebSocket, interview_id: int):
+    """
+    WebSocket endpoint for streaming LLM-generated interview feedback.
+    
+    Connect with: ws://host/api/interviews/{interview_id}/generate-feedback/stream?token=YOUR_JWT_TOKEN
+    
+    Messages sent to client:
+    - {"type": "status", "status": "thinking|analyzing|generating", "message": "..."}
+    - {"type": "chunk", "content": "partial text...", "accumulated": "..."}
+    - {"type": "complete", "feedback": "full text", "tokens_used": 1234, "model": "...", "latency_ms": 5000}
+    - {"type": "error", "message": "error message", "code": "ERROR_CODE"}
+    """
+    await websocket.accept()
+    
+    # Authenticate user
+    user = await authenticate_feedback_websocket(websocket)
+    if not user:
+        return
+    
+    db_gen = None
+    start_time = None
+    tokens_used = 0
+    tokens_input = 0
+    tokens_output = 0
+    model_used = None
+    latency_ms = 0
+    
+    try:
+        # Get database session
+        db_gen = get_db()
+        db = next(db_gen)
+        
+        # Fetch interview with all related data
+        interview = db.query(Interview).options(
+            joinedload(Interview.application).joinedload(Application.cv).joinedload(CV.parsed_data),
+            joinedload(Interview.application).joinedload(Application.job)
+        ).filter(Interview.id == interview_id).first()
+        
+        if not interview:
+            await websocket.send_json({
+                "type": "error",
+                "message": "Interview not found",
+                "code": "NOT_FOUND"
+            })
+            await websocket.close()
+            return
+        
+        # Verify user has access to this interview
+        # Check if user is interviewer, or admin/recruiter in same company
+        has_access = False
+        if interview.interviewer_id == user.id:
+            has_access = True
+        elif user.role in [UserRole.ADMIN, UserRole.RECRUITER]:
+            # Check if interview belongs to user's company
+            if interview.application and interview.application.job:
+                if interview.application.job.company_id == user.company_id:
+                    has_access = True
+        
+        if not has_access:
+            await websocket.send_json({
+                "type": "error",
+                "message": "Access denied to this interview",
+                "code": "ACCESS_DENIED"
+            })
+            await websocket.close()
+            return
+        
+        # Prepare data for feedback generation
+        candidate_data = {}
+        if interview.application and interview.application.cv:
+            cv = interview.application.cv
+            if cv.parsed_data:
+                # Extract candidate data from parsed CV
+                candidate_data = {
+                    "name": getattr(cv.parsed_data, 'name', cv.filename or 'Candidate'),
+                    "summary": getattr(cv.parsed_data, 'summary', ''),
+                    "experience_years": getattr(cv.parsed_data, 'experience_years', 0),
+                    "skills": getattr(cv.parsed_data, 'skills', [])
+                }
+            else:
+                candidate_data = {
+                    "name": cv.filename or 'Candidate',
+                    "summary": "",
+                    "experience_years": 0,
+                    "skills": []
+                }
+        
+        job_data = {}
+        if interview.application and interview.application.job:
+            job = interview.application.job
+            job_data = {
+                "title": job.title or "Position",
+                "description": job.description or "",
+                "qualifications": job.qualifications or []
+            }
+        
+        interview_data = {
+            "step": interview.step or "Interview",
+            "status": interview.status or "Completed",
+            "scheduled_at": str(interview.scheduled_at) if interview.scheduled_at else None
+        }
+        
+        # Start timing
+        import time
+        start_time = time.time()
+        
+        # Stream feedback generation
+        async for message in generate_interview_feedback_stream(
+            interview_data=interview_data,
+            candidate_data=candidate_data,
+            job_data=job_data
+        ):
+            # Send message to client
+            await websocket.send_json(message)
+            
+            # Track completion data
+            if message.get("type") == "complete":
+                tokens_used = message.get("tokens_used", 0)
+                tokens_input = message.get("tokens_input", 0)
+                tokens_output = message.get("tokens_output", 0)
+                model_used = message.get("model", OPENAI_MODEL)
+                latency_ms = message.get("latency_ms", 0)
+            
+            # Handle errors
+            if message.get("type") == "error":
+                LLMLogger.log_llm_operation(
+                    action="generate_feedback_error",
+                    message=f"Error generating feedback for interview {interview_id}: {message.get('message')}",
+                    user_id=user.id,
+                    company_id=user.company_id,
+                    interview_id=interview_id,
+                    error_type="GenerationError",
+                    error_message=message.get("message")
+                )
+                break
+        
+        # Log successful operation
+        if tokens_used > 0:
+            LLMLogger.log_llm_operation(
+                action="generate_feedback",
+                message=f"Generated feedback for interview {interview_id}",
+                user_id=user.id,
+                company_id=user.company_id,
+                interview_id=interview_id,
+                model=model_used,
+                tokens_used=tokens_used,
+                tokens_input=tokens_input,
+                tokens_output=tokens_output,
+                latency_ms=latency_ms,
+                streaming=True
+            )
+        
+    except WebSocketDisconnect:
+        # Client disconnected, log if we have partial data
+        if start_time and tokens_used > 0:
+            LLMLogger.log_llm_operation(
+                action="generate_feedback_disconnected",
+                message=f"Feedback generation interrupted for interview {interview_id}",
+                user_id=user.id,
+                company_id=user.company_id,
+                interview_id=interview_id,
+                model=model_used,
+                tokens_used=tokens_used,
+                tokens_input=tokens_input,
+                tokens_output=tokens_output,
+                latency_ms=int((time.time() - start_time) * 1000) if start_time else 0,
+                streaming=True
+            )
+    except Exception as e:
+        import traceback
+        error_trace = traceback.format_exc()
+        await websocket.send_json({
+            "type": "error",
+            "message": f"Internal error: {str(e)}",
+            "code": "INTERNAL_ERROR"
+        })
+        LLMLogger.log_llm_operation(
+            action="generate_feedback_error",
+            message=f"Internal error generating feedback for interview {interview_id}: {str(e)}",
+            user_id=user.id if user else None,
+            company_id=user.company_id if user else None,
+            interview_id=interview_id,
+            error_type=type(e).__name__,
+            error_message=str(e),
+            metadata={"traceback": error_trace}
+        )
+    finally:
+        # Clean up database connection
+        if db_gen:
+            try:
+                next(db_gen, None)
+            except StopIteration:
+                pass
+        try:
+            await websocket.close()
+        except:
+            pass

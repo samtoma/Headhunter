@@ -6,8 +6,9 @@ import {
     Save, MapPin, FileText, GraduationCap, Award,
     Linkedin, Github, ExternalLink, FileCode, Eye, MoreVertical,
     X, UserPlus, CalendarClock, XCircle, AlertTriangle, History,
-    ChevronDown, ChevronRight
+    ChevronDown, ChevronRight, Sparkles
 } from 'lucide-react';
+import LLMFeedbackGenerator from '../components/ai/LLMFeedbackGenerator';
 
 /**
  * InterviewMode - Dedicated page for conducting interviews.
@@ -40,6 +41,7 @@ const InterviewMode = () => {
     const [rating, setRating] = useState(5);
     const [notes, setNotes] = useState('');
     const [expandedHistoryIds, setExpandedHistoryIds] = useState([]);
+    const [showLLMGenerator, setShowLLMGenerator] = useState(false);
 
     const toggleHistoryItem = (id) => {
         setExpandedHistoryIds(prev =>
@@ -599,7 +601,33 @@ const InterviewMode = () => {
 
                             {/* Feedback Text */}
                             <div>
-                                <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Detailed Feedback</label>
+                                <div className="flex items-center justify-between mb-2">
+                                    <label className="block text-xs font-bold text-slate-500 uppercase">Detailed Feedback</label>
+                                    {!showLLMGenerator && (
+                                        <button
+                                            onClick={() => setShowLLMGenerator(true)}
+                                            className="text-xs text-indigo-600 hover:text-indigo-700 font-semibold flex items-center gap-1"
+                                        >
+                                            <Sparkles size={14} />
+                                            Generate with AI
+                                        </button>
+                                    )}
+                                </div>
+                                
+                                {/* LLM Feedback Generator */}
+                                {showLLMGenerator && (
+                                    <div className="mb-4">
+                                        <LLMFeedbackGenerator
+                                            interviewId={parseInt(interviewId)}
+                                            onComplete={(generatedFeedback) => {
+                                                setFeedback(generatedFeedback);
+                                                setShowLLMGenerator(false);
+                                            }}
+                                            onCancel={() => setShowLLMGenerator(false)}
+                                        />
+                                    </div>
+                                )}
+                                
                                 <textarea
                                     value={feedback}
                                     onChange={e => setFeedback(e.target.value)}

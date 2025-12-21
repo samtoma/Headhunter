@@ -3,9 +3,11 @@ import os
 from openai import AsyncOpenAI
 import logging
 from pathlib import Path
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 from pypdf import PdfReader
 import docx
+import time
+from app.core.llm_logging import LLMLogger
 
 logger = logging.getLogger(__name__)
 
@@ -154,7 +156,9 @@ async def generate_job_metadata(
     company_context: Dict[str, str] = None,
     fine_tuning: str = None,
     location: str = None,
-    employment_type: str = None
+    employment_type: str = None,
+    user_id: Optional[int] = None,
+    company_id: Optional[int] = None
 ) -> Dict[str, Any]:
     """Generate comprehensive job description with all details"""
     
@@ -235,10 +239,14 @@ Return ONLY valid JSON in this exact format:
 """
 
     if OPENAI_API_KEY:
+        start_time = time.time()
+        tokens_used = 0
+        tokens_input = 0
+        tokens_output = 0
         try:
-            kwargs = { 
-                "model": OPENAI_MODEL, 
-                "messages": [{"role": "system", "content": system_prompt}] 
+            kwargs = {
+                "model": OPENAI_MODEL,
+                "messages": [{"role": "system", "content": system_prompt}]
             }
             if not OPENAI_MODEL.startswith("o1"):
                 kwargs["temperature"] = 1.0
@@ -247,6 +255,13 @@ Return ONLY valid JSON in this exact format:
             logger.debug("Generating comprehensive job metadata for '%s' using %s", title, OPENAI_MODEL)
             client = get_openai_client()
             completion = await client.chat.completions.create(**kwargs)
+
+            # Track token usage
+            if hasattr(completion, 'usage') and completion.usage:
+                tokens_used = completion.usage.total_tokens
+                tokens_input = completion.usage.prompt_tokens
+                tokens_output = completion.usage.completion_tokens
+            
             result = json.loads(completion.choices[0].message.content)
             
             # Convert arrays to JSON strings for database storage
@@ -254,9 +269,39 @@ Return ONLY valid JSON in this exact format:
                 if key in result and isinstance(result[key], list):
                     result[key] = json.dumps(result[key])
             
+            # Log LLM operation
+            latency_ms = int((time.time() - start_time) * 1000)
+            LLMLogger.log_llm_operation(
+                action="generate_job_metadata",
+                message=f"Generated job metadata for '{title}'",
+                user_id=user_id,
+                company_id=company_id,
+                model=OPENAI_MODEL,
+                tokens_used=tokens_used,
+                tokens_input=tokens_input,
+                tokens_output=tokens_output,
+                latency_ms=latency_ms,
+                streaming=False,
+                metadata={"title": title, "location": location, "employment_type": employment_type}
+            )
+            
             return result
         except Exception as e:
+            latency_ms = int((time.time() - start_time) * 1000)
             logger.error("OpenAI Error while generating job metadata: %s", e)
+            LLMLogger.log_llm_operation(
+                action="generate_job_metadata_error",
+                message=f"Error generating job metadata for '{title}': {str(e)}",
+                user_id=user_id,
+                company_id=company_id,
+                model=OPENAI_MODEL,
+                tokens_used=tokens_used if 'tokens_used' in locals() else None,
+                tokens_input=tokens_input if 'tokens_input' in locals() else None,
+                tokens_output=tokens_output if 'tokens_output' in locals() else None,
+                latency_ms=latency_ms,
+                error_type=type(e).__name__,
+                error_message=str(e)
+            )
             return {}
     return {}
 
@@ -264,7 +309,9 @@ Return ONLY valid JSON in this exact format:
 async def generate_department_profile(
     name: str,
     company_context: Dict[str, str] = None,
-    fine_tuning: str = None
+    fine_tuning: str = None,
+    user_id: Optional[int] = None,
+    company_id: Optional[int] = None
 ) -> Dict[str, Any]:
     """Generate comprehensive department profile with AI.
     
@@ -333,6 +380,10 @@ Return ONLY valid JSON in this exact format:
 """
 
     if OPENAI_API_KEY:
+        start_time = time.time()
+        tokens_used = 0
+        tokens_input = 0
+        tokens_output = 0
         try:
             kwargs = {
                 "model": OPENAI_MODEL,
@@ -345,19 +396,56 @@ Return ONLY valid JSON in this exact format:
             logger.debug("Generating department profile for '%s' using %s", name, OPENAI_MODEL)
             client = get_openai_client()
             completion = await client.chat.completions.create(**kwargs)
+
+            # Track token usage
+            if hasattr(completion, 'usage') and completion.usage:
+                tokens_used = completion.usage.total_tokens
+                tokens_input = completion.usage.prompt_tokens
+                tokens_output = completion.usage.completion_tokens
+            
             result = json.loads(completion.choices[0].message.content)
             
             logger.info("Generated department profile for '%s' with %d technologies and %d templates",
                        name, len(result.get("technologies", [])), len(result.get("job_templates", [])))
             
+            # Log LLM operation
+            latency_ms = int((time.time() - start_time) * 1000)
+            LLMLogger.log_llm_operation(
+                action="generate_department_profile",
+                message=f"Generated department profile for '{name}'",
+                user_id=user_id,
+                company_id=company_id,
+                model=OPENAI_MODEL,
+                tokens_used=tokens_used,
+                tokens_input=tokens_input,
+                tokens_output=tokens_output,
+                latency_ms=latency_ms,
+                streaming=False,
+                metadata={"name": name, "technologies_count": len(result.get("technologies", [])), "templates_count": len(result.get("job_templates", []))}
+            )
+            
             return result
         except Exception as e:
+            latency_ms = int((time.time() - start_time) * 1000)
             logger.error("OpenAI Error while generating department profile: %s", e)
+            LLMLogger.log_llm_operation(
+                action="generate_department_profile_error",
+                message=f"Error generating department profile for '{name}': {str(e)}",
+                user_id=user_id,
+                company_id=company_id,
+                model=OPENAI_MODEL,
+                tokens_used=tokens_used if 'tokens_used' in locals() else None,
+                tokens_input=tokens_input if 'tokens_input' in locals() else None,
+                tokens_output=tokens_output if 'tokens_output' in locals() else None,
+                latency_ms=latency_ms,
+                error_type=type(e).__name__,
+                error_message=str(e)
+            )
             return {}
     return {}
 
 
-async def parse_cv_with_llm(text: str, filename: str) -> Dict[str, Any]:
+async def parse_cv_with_llm(text: str, filename: str, cv_id: Optional[int] = None, company_id: Optional[int] = None, user_id: Optional[int] = None) -> Dict[str, Any]:
     truncated_text = text[:25000]
     logger.debug(
         "Starting parse for '%s' (original len=%d, truncated len=%d)",
@@ -407,6 +495,10 @@ async def parse_cv_with_llm(text: str, filename: str) -> Dict[str, Any]:
     """
 
     if OPENAI_API_KEY:
+        start_time = time.time()
+        tokens_used = 0
+        tokens_input = 0
+        tokens_output = 0
         try:
             kwargs = {
                 "model": OPENAI_MODEL,
@@ -422,6 +514,13 @@ async def parse_cv_with_llm(text: str, filename: str) -> Dict[str, Any]:
             logger.debug("Calling OpenAI for '%s' using model %s", filename, OPENAI_MODEL)
             client = get_openai_client()
             completion = await client.chat.completions.create(**kwargs)
+
+            # Track token usage
+            if hasattr(completion, 'usage') and completion.usage:
+                tokens_used = completion.usage.total_tokens
+                tokens_input = completion.usage.prompt_tokens
+                tokens_output = completion.usage.completion_tokens
+
             raw = completion.choices[0].message.content
             logger.debug("Raw response received for '%s' (%d chars)", filename, len(raw or ""))
             data = json.loads(repair_json(raw))
@@ -441,6 +540,22 @@ async def parse_cv_with_llm(text: str, filename: str) -> Dict[str, Any]:
             data["education"] = normalize_education(data.get("education", []))
 
             logger.info("Parsed CV '%s' successfully. Keys: %s", filename, list(data.keys()))
+            
+            # Log LLM operation
+            latency_ms = int((time.time() - start_time) * 1000)
+            LLMLogger.log_llm_operation(
+                action="parse_cv",
+                message=f"Parsed CV '{filename}'",
+                user_id=user_id,
+                company_id=company_id,
+                model=OPENAI_MODEL,
+                tokens_used=tokens_used,
+                tokens_input=tokens_input,
+                tokens_output=tokens_output,
+                latency_ms=latency_ms,
+                streaming=False,
+                metadata={"filename": filename, "cv_id": cv_id, "text_length": len(truncated_text), "keys_extracted": list(data.keys())}
+            )
             
             # --- VECTOR DB INTEGRATION ---
             try:
@@ -473,7 +588,7 @@ async def parse_cv_with_llm(text: str, filename: str) -> Dict[str, Any]:
                 try:
                     from app.services.embeddings import generate_embedding
                     logger.info(f"Generating embedding for CV '{filename}'...")
-                    embedding = await generate_embedding(rich_text)
+                    embedding = await generate_embedding(rich_text, cv_id=cv_id, company_id=company_id, user_id=user_id)
                     if embedding:
                         data["_embedding"] = embedding
                         logger.info(f"Successfully generated embedding for CV '{filename}' ({len(embedding)} dimensions)")
@@ -487,7 +602,22 @@ async def parse_cv_with_llm(text: str, filename: str) -> Dict[str, Any]:
             
             return data
         except Exception as e:
+            latency_ms = int((time.time() - start_time) * 1000) if 'start_time' in locals() else 0
             logger.error("OpenAI Error while parsing CV '%s': %s", filename, e)
+            LLMLogger.log_llm_operation(
+                action="parse_cv_error",
+                message=f"Error parsing CV '{filename}': {str(e)}",
+                user_id=user_id,
+                company_id=company_id,
+                model=OPENAI_MODEL,
+                tokens_used=tokens_used if 'tokens_used' in locals() else None,
+                tokens_input=tokens_input if 'tokens_input' in locals() else None,
+                tokens_output=tokens_output if 'tokens_output' in locals() else None,
+                latency_ms=latency_ms,
+                error_type=type(e).__name__,
+                error_message=str(e),
+                metadata={"filename": filename, "cv_id": cv_id}
+            )
             return {}
     return {}
 
