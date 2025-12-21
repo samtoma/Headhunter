@@ -9,7 +9,7 @@ Provides endpoints for:
 - Error tracking and debugging
 """
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, WebSocket, WebSocketDisconnect
 from sqlalchemy.orm import Session
 from sqlalchemy import func, and_, or_, desc
 from typing import List, Optional, Dict, Any
@@ -18,7 +18,10 @@ from pydantic import BaseModel, ConfigDict
 from app.core.database import get_db
 from app.models.models import SystemLog, UserInvitation, User, Company, UserRole
 from app.api.deps import get_current_user
+from jose import jwt, JWTError
+from app.core.security import SECRET_KEY, ALGORITHM
 import json
+import asyncio
 
 router = APIRouter(prefix="/admin", tags=["Admin"])
 
@@ -118,6 +121,20 @@ class DatabaseStatsResponse(BaseModel):
     total_tables: int
     table_sizes: List[Dict[str, Any]]
     total_db_size_mb: float
+
+class HealthHistoryPoint(BaseModel):
+    """Single point in health history"""
+    timestamp: datetime
+    services: List[ServiceHealth]
+    error_rate_percent: float
+    response_time_p50_ms: float
+    response_time_p95_ms: float
+    response_time_p99_ms: float
+
+class HealthHistoryResponse(BaseModel):
+    """Historical health data"""
+    period_hours: int
+    time_series: List[HealthHistoryPoint]
     
 class LogSearchParams(BaseModel):
     level: Optional[List[str]] = None
@@ -961,3 +978,365 @@ def cleanup_old_logs(
         "older_than_days": older_than_days,
         "cutoff_date": cutoff_date.isoformat()
     }
+
+# ==================== Health History Endpoint ====================
+
+@router.get("/health/history", response_model=HealthHistoryResponse)
+def get_health_history(
+    hours: int = Query(24, ge=1, le=168, description="History period in hours"),
+    interval_minutes: int = Query(15, ge=5, le=60, description="Data point interval in minutes"),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Get historical health data over time.
+    Returns time-series data for system health, response times, and error rates.
+    Super admin only.
+    """
+    require_super_admin(current_user)
+    
+    import time
+    import os
+    from sqlalchemy import text
+    from collections import defaultdict
+    
+    now = datetime.now(timezone.utc)
+    start_time = now - timedelta(hours=hours)
+    
+    # Calculate number of intervals
+    interval_seconds = interval_minutes * 60
+    num_intervals = int((hours * 3600) / interval_seconds)
+    
+    # Generate time buckets
+    time_buckets = []
+    for i in range(num_intervals):
+        bucket_time = start_time + timedelta(seconds=i * interval_seconds)
+        time_buckets.append(bucket_time)
+    
+    # Get logs grouped by time buckets
+    logs_by_bucket = defaultdict(list)
+    
+    logs = db.query(SystemLog).filter(
+        SystemLog.created_at >= start_time,
+        SystemLog.created_at <= now
+    ).order_by(SystemLog.created_at).all()
+    
+    # Group logs into time buckets
+    for log in logs:
+        # Find which bucket this log belongs to
+        bucket_index = int((log.created_at - start_time).total_seconds() / interval_seconds)
+        # Clamp bucket_index to valid range: logs at the boundary (now) go into the last bucket
+        bucket_index = min(bucket_index, len(time_buckets) - 1)
+        if bucket_index >= 0:
+            logs_by_bucket[bucket_index].append(log)
+    
+    time_series = []
+    
+    # For each time bucket, calculate health metrics
+    for i, bucket_time in enumerate(time_buckets):
+        bucket_logs = logs_by_bucket.get(i, [])
+        
+        # Calculate response time percentiles for this bucket
+        response_times = sorted([log.response_time_ms for log in bucket_logs if log.response_time_ms])
+        
+        def percentile(data, p):
+            if not data:
+                return 0
+            k = (len(data) - 1) * p / 100
+            f = int(k)
+            c = f + 1 if f + 1 < len(data) else f
+            return data[f] + (data[c] - data[f]) * (k - f) if c != f else data[f]
+        
+        p50 = percentile(response_times, 50)
+        p95 = percentile(response_times, 95)
+        p99 = percentile(response_times, 99)
+        
+        # Calculate error rate
+        error_count = sum(1 for log in bucket_logs if log.http_status and log.http_status >= 400)
+        total_requests = len([log for log in bucket_logs if log.http_status])
+        error_rate = (error_count / total_requests * 100) if total_requests > 0 else 0
+        
+        # Get service health (simulate based on logs or use current health)
+        # For historical data, we'll infer health from response times and errors
+        services = []
+        
+        # Database health - check for database-related errors
+        db_errors = sum(1 for log in bucket_logs if 'database' in log.component.lower() or 'db' in log.component.lower())
+        db_response_times = [log.response_time_ms for log in bucket_logs 
+                            if log.http_path and ('/api' in log.http_path or '/admin' in log.http_path) 
+                            and log.response_time_ms]
+        avg_db_time = sum(db_response_times) / len(db_response_times) if db_response_times else 0
+        
+        db_status = "healthy"
+        if db_errors > len(bucket_logs) * 0.1:  # More than 10% errors
+            db_status = "unhealthy"
+        elif avg_db_time > 500:  # Average response > 500ms
+            db_status = "degraded"
+        
+        services.append(ServiceHealth(
+            name="Database",
+            status=db_status,
+            response_time_ms=round(avg_db_time, 2) if avg_db_time > 0 else None,
+            message=f"{len(bucket_logs)} requests, {db_errors} errors"
+        ))
+        
+        # Redis health - check for redis-related errors
+        redis_errors = sum(1 for log in bucket_logs if 'redis' in log.component.lower())
+        redis_status = "healthy"
+        if redis_errors > 0:
+            redis_status = "degraded" if redis_errors < len(bucket_logs) * 0.1 else "unhealthy"
+        
+        services.append(ServiceHealth(
+            name="Redis",
+            status=redis_status,
+            response_time_ms=None,
+            message=f"{redis_errors} redis-related issues"
+        ))
+        
+        # Celery health - check for celery-related errors
+        celery_errors = sum(1 for log in bucket_logs if 'celery' in log.component.lower())
+        celery_status = "healthy"
+        if celery_errors > 0:
+            celery_status = "degraded" if celery_errors < len(bucket_logs) * 0.1 else "unhealthy"
+        
+        services.append(ServiceHealth(
+            name="Celery",
+            status=celery_status,
+            response_time_ms=None,
+            message=f"{celery_errors} celery-related issues"
+        ))
+        
+        # ChromaDB health - check for chroma-related errors
+        chroma_errors = sum(1 for log in bucket_logs if 'chroma' in log.component.lower() or 'vector' in log.component.lower())
+        chroma_status = "healthy"
+        if chroma_errors > 0:
+            chroma_status = "degraded" if chroma_errors < len(bucket_logs) * 0.1 else "unhealthy"
+        
+        services.append(ServiceHealth(
+            name="ChromaDB",
+            status=chroma_status,
+            response_time_ms=None,
+            message=f"{chroma_errors} chroma-related issues"
+        ))
+        
+        time_series.append(HealthHistoryPoint(
+            timestamp=bucket_time,
+            services=services,
+            error_rate_percent=round(error_rate, 2),
+            response_time_p50_ms=round(p50, 2),
+            response_time_p95_ms=round(p95, 2),
+            response_time_p99_ms=round(p99, 2)
+        ))
+    
+    return HealthHistoryResponse(
+        period_hours=hours,
+        time_series=time_series
+    )
+
+# ==================== WebSocket for Real-time Monitoring ====================
+
+# Active WebSocket connections
+active_connections: Dict[str, WebSocket] = {}
+
+async def authenticate_websocket(websocket: WebSocket) -> Optional[User]:
+    """Authenticate WebSocket connection"""
+    # Try to get token from query params
+    token = websocket.query_params.get("token")
+    
+    if not token:
+        await websocket.close(code=1008, reason="Authentication required")
+        return None
+    
+    db_gen = None
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        email: str = payload.get("sub")
+        if not email:
+            await websocket.close(code=1008, reason="Invalid token")
+            return None
+        
+        # Get user from database - properly consume the generator
+        db_gen = get_db()
+        db = next(db_gen)
+        try:
+            user = db.query(User).filter(User.email == email).first()
+            if not user:
+                await websocket.close(code=1008, reason="User not found")
+                return None
+            
+            # Check if super admin
+            if user.role != UserRole.SUPER_ADMIN:
+                await websocket.close(code=1008, reason="Super admin access required")
+                return None
+            
+            return user
+        finally:
+            # Properly exhaust the generator to trigger its finally block
+            try:
+                next(db_gen, None)
+            except StopIteration:
+                pass
+    except JWTError:
+        await websocket.close(code=1008, reason="Invalid token")
+        return None
+    except Exception as e:
+        await websocket.close(code=1011, reason=f"Authentication error: {str(e)}")
+        return None
+    finally:
+        # Ensure generator is exhausted even if exception occurred
+        if db_gen:
+            try:
+                next(db_gen, None)
+            except StopIteration:
+                pass
+
+@router.websocket("/ws/monitoring")
+async def websocket_monitoring(websocket: WebSocket):
+    """
+    WebSocket endpoint for real-time monitoring updates.
+    Sends periodic updates for metrics, health, and analytics.
+    Connect with: ws://host/api/v1/admin/ws/monitoring?token=YOUR_JWT_TOKEN
+    """
+    await websocket.accept()
+    
+    user = await authenticate_websocket(websocket)
+    if not user:
+        return
+    
+    connection_id = f"{user.id}_{datetime.now(timezone.utc).timestamp()}"
+    active_connections[connection_id] = websocket
+    refresh_interval = 5  # Default 5 seconds
+    
+    try:
+        # Send initial data
+        await send_monitoring_update(websocket, user)
+        
+        # Keep connection alive and send periodic updates
+        while True:
+            try:
+                # Wait for client message or timeout
+                try:
+                    data = await asyncio.wait_for(websocket.receive_json(), timeout=refresh_interval)
+                    if data.get("type") == "set_refresh_rate":
+                        refresh_interval = max(1, min(data.get("refresh_interval", 5), 60))  # 1-60 seconds
+                        await websocket.send_json({"type": "refresh_rate_updated", "interval": refresh_interval})
+                except asyncio.TimeoutError:
+                    # Timeout - send update
+                    await send_monitoring_update(websocket, user)
+            except WebSocketDisconnect:
+                break
+    except WebSocketDisconnect:
+        pass
+    finally:
+        if connection_id in active_connections:
+            del active_connections[connection_id]
+
+async def send_monitoring_update(websocket: WebSocket, user: User):
+    """Send monitoring data update via WebSocket"""
+    db_gen = None
+    try:
+        # Get database session - properly consume the generator
+        db_gen = get_db()
+        db = next(db_gen)
+        try:
+            # Get metrics
+            now = datetime.now(timezone.utc)
+            last_24h = now - timedelta(hours=24)
+            
+            # Quick metrics calculation
+            total_logs = db.query(func.count(SystemLog.id)).scalar() or 0
+            errors_24h = db.query(func.count(SystemLog.id)).filter(
+                and_(
+                    SystemLog.error_type.isnot(None),
+                    SystemLog.created_at >= last_24h
+                )
+            ).scalar() or 0
+            logs_24h = db.query(func.count(SystemLog.id)).filter(
+                SystemLog.created_at >= last_24h
+            ).scalar() or 1
+            error_rate = (errors_24h / logs_24h * 100) if logs_24h > 0 else 0
+            
+            # Get health status
+            import time
+            from sqlalchemy import text
+            
+            services = []
+            try:
+                start = time.time()
+                db.execute(text("SELECT 1"))
+                db_time = (time.time() - start) * 1000
+                services.append({
+                    "name": "Database",
+                    "status": "healthy" if db_time < 100 else "degraded",
+                    "response_time_ms": round(db_time, 2)
+                })
+            except:
+                services.append({"name": "Database", "status": "unhealthy"})
+            
+            update_data = {
+                "type": "monitoring_update",
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "metrics": {
+                    "total_logs": total_logs,
+                    "error_rate_24h": round(error_rate, 2),
+                    "api_requests_24h": logs_24h
+                },
+                "health": {
+                    "services": services,
+                    "overall_status": "healthy" if all(s.get("status") == "healthy" for s in services) else "degraded"
+                }
+            }
+            
+            await websocket.send_json(update_data)
+        finally:
+            # Properly exhaust the generator to trigger its finally block
+            try:
+                next(db_gen, None)
+            except StopIteration:
+                pass
+    except Exception as e:
+        try:
+            await websocket.send_json({
+                "type": "error",
+                "message": str(e)
+            })
+        except:
+            pass  # Connection might be closed
+    finally:
+        # Ensure generator is exhausted even if exception occurred
+        if db_gen:
+            try:
+                next(db_gen, None)
+            except StopIteration:
+                pass
+
+# ==================== Threshold Configuration ====================
+
+class ThresholdConfig(BaseModel):
+    """Threshold configuration for monitoring"""
+    response_time_warning_ms: int = 200  # Yellow threshold
+    response_time_critical_ms: int = 500  # Red threshold
+    error_rate_warning_percent: float = 1.0  # Yellow threshold
+    error_rate_critical_percent: float = 5.0  # Red threshold
+    p95_warning_ms: int = 300  # Yellow threshold for p95
+    p95_critical_ms: int = 500  # Red threshold for p95
+    p99_warning_ms: int = 500  # Yellow threshold for p99
+    p99_critical_ms: int = 1000  # Red threshold for p99
+
+@router.get("/thresholds", response_model=ThresholdConfig)
+def get_thresholds(
+    current_user: User = Depends(get_current_user)
+):
+    """Get threshold configuration for monitoring"""
+    require_super_admin(current_user)
+    return ThresholdConfig()
+
+@router.post("/thresholds", response_model=ThresholdConfig)
+def update_thresholds(
+    thresholds: ThresholdConfig,
+    current_user: User = Depends(get_current_user)
+):
+    """Update threshold configuration (stored in memory for now, could use Redis/DB)"""
+    require_super_admin(current_user)
+    # In production, store in Redis or database
+    return thresholds

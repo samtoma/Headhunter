@@ -1,10 +1,10 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import axios from 'axios'
 import {
     Activity, AlertCircle, RefreshCw, Clock, Server, TrendingUp, AlertTriangle,
-    CheckCircle, XCircle, ChevronDown, ChevronUp, Database, Trash2, Zap, Gauge
+    CheckCircle, XCircle, ChevronDown, ChevronUp, Database, Trash2, Zap, Gauge, Wifi, WifiOff
 } from 'lucide-react'
-import { XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, AreaChart, Area } from 'recharts'
+import { XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, AreaChart, Area, LineChart, Line, Legend, ReferenceLine } from 'recharts'
 
 const AdminLogsDashboard = () => {
     const [activeTab, setActiveTab] = useState("overview")
@@ -21,6 +21,23 @@ const AdminLogsDashboard = () => {
     const [cleanupPreview, setCleanupPreview] = useState(null)
     const [cleanupDays, setCleanupDays] = useState(30)
     const [isCleaningUp, setIsCleaningUp] = useState(false)
+    const [healthHistory, setHealthHistory] = useState(null)
+    const [historyHours, setHistoryHours] = useState(24)
+    const [refreshRate, setRefreshRate] = useState(5) // seconds
+    const [thresholds, setThresholds] = useState({
+        response_time_warning_ms: 200,
+        response_time_critical_ms: 500,
+        error_rate_warning_percent: 1.0,
+        error_rate_critical_percent: 5.0,
+        p95_warning_ms: 300,
+        p95_critical_ms: 500,
+        p99_warning_ms: 500,
+        p99_critical_ms: 1000
+    })
+    const [wsConnected, setWsConnected] = useState(false)
+    const [reconnectTrigger, setReconnectTrigger] = useState(0)
+    const wsRef = useRef(null)
+    const reconnectTimeoutRef = useRef(null)
 
     // Filters
     const [filters, setFilters] = useState({
@@ -41,7 +58,133 @@ const AdminLogsDashboard = () => {
 
     const [expandedLogs, setExpandedLogs] = useState(new Set())
 
+    // Fetch thresholds on mount
     useEffect(() => {
+        fetchThresholds()
+    }, [])
+
+    // WebSocket connection for real-time updates
+    useEffect(() => {
+        const token = localStorage.getItem('token')
+        if (!token) {
+            console.log('No token found, skipping WebSocket connection')
+            return
+        }
+
+        // Determine WebSocket URL - use same protocol and host as current page
+        const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
+        const wsHost = window.location.host
+        
+        // Try different paths based on environment
+        // In dev with Vite proxy: /api/api/v1/admin/ws/monitoring (proxy removes first /api)
+        // In production: /api/v1/admin/ws/monitoring (direct to backend)
+        const isDev = import.meta.env.DEV
+        const wsPath = isDev 
+            ? '/api/api/v1/admin/ws/monitoring'  // Vite proxy will rewrite /api to empty
+            : '/api/v1/admin/ws/monitoring'       // Direct path in production
+        const wsUrl = `${wsProtocol}//${wsHost}${wsPath}?token=${encodeURIComponent(token)}`
+        
+        console.log('Attempting WebSocket connection:', {
+            url: wsUrl.replace(/token=[^&]+/, 'token=***'),
+            isDev,
+            protocol: wsProtocol,
+            host: wsHost
+        })
+
+        try {
+            wsRef.current = new WebSocket(wsUrl)
+
+            wsRef.current.onopen = () => {
+                console.log('✅ WebSocket connected successfully')
+                setWsConnected(true)
+                // Set initial refresh rate
+                try {
+                    wsRef.current.send(JSON.stringify({
+                        type: 'set_refresh_rate',
+                        refresh_interval: refreshRate
+                    }))
+                } catch (e) {
+                    console.error('Error sending initial refresh rate:', e)
+                }
+            }
+
+            wsRef.current.onmessage = (event) => {
+                try {
+                    const data = JSON.parse(event.data)
+                    if (data.type === 'monitoring_update') {
+                        // Update metrics from WebSocket
+                        if (data.metrics) {
+                            setMetrics(prev => ({
+                                ...prev,
+                                ...data.metrics,
+                                error_rate_24h: data.metrics.error_rate_24h
+                            }))
+                        }
+                        if (data.health) {
+                            setHealth(data.health)
+                        }
+                    } else if (data.type === 'error') {
+                        console.error('WebSocket error message:', data.message)
+                    }
+                } catch (e) {
+                    console.error('Error parsing WebSocket message:', e)
+                }
+            }
+
+            wsRef.current.onerror = (error) => {
+                console.error('❌ WebSocket error:', error)
+                console.error('WebSocket readyState:', wsRef.current?.readyState)
+                setWsConnected(false)
+            }
+
+            wsRef.current.onclose = (event) => {
+                console.log('WebSocket disconnected. Code:', event.code, 'Reason:', event.reason)
+                setWsConnected(false)
+                // Clear any existing reconnect timeout
+                if (reconnectTimeoutRef.current) {
+                    clearTimeout(reconnectTimeoutRef.current)
+                }
+                // Attempt to reconnect after 5 seconds if it wasn't a normal closure
+                if (event.code !== 1000) {
+                    reconnectTimeoutRef.current = setTimeout(() => {
+                        if (wsRef.current?.readyState === WebSocket.CLOSED || !wsRef.current) {
+                            console.log('Attempting to reconnect WebSocket...')
+                            // Trigger reconnection by updating reconnectTrigger state
+                            setReconnectTrigger(prev => prev + 1)
+                        }
+                    }, 5000)
+                }
+            }
+        } catch (error) {
+            console.error('Failed to create WebSocket:', error)
+            setWsConnected(false)
+        }
+
+        return () => {
+            if (reconnectTimeoutRef.current) {
+                clearTimeout(reconnectTimeoutRef.current)
+                reconnectTimeoutRef.current = null
+            }
+            if (wsRef.current) {
+                console.log('Cleaning up WebSocket connection')
+                wsRef.current.close()
+                wsRef.current = null
+            }
+        }
+    }, [refreshRate, reconnectTrigger])
+
+    // Update refresh rate via WebSocket
+    useEffect(() => {
+        if (wsRef.current?.readyState === WebSocket.OPEN) {
+            wsRef.current.send(JSON.stringify({
+                type: 'set_refresh_rate',
+                refresh_interval: refreshRate
+            }))
+        }
+    }, [refreshRate])
+
+    useEffect(() => {
+        // Initial fetch (WebSocket will handle updates)
         fetchMetrics()
         fetchHealth()
         fetchUxAnalytics()
@@ -52,8 +195,19 @@ const AdminLogsDashboard = () => {
             fetchInvitations()
         } else if (activeTab === "errors") {
             fetchErrors()
+        } else if (activeTab === "health-history") {
+            fetchHealthHistory()
         }
-    }, [activeTab, filters, pagination.offset])
+    }, [activeTab, filters, pagination.offset, historyHours])
+
+    const fetchThresholds = async () => {
+        try {
+            const res = await axios.get('/api/api/v1/admin/thresholds')
+            setThresholds(res.data)
+        } catch (err) {
+            console.error("Failed to fetch thresholds", err)
+        }
+    }
 
     const fetchMetrics = async () => {
         try {
@@ -155,6 +309,15 @@ const AdminLogsDashboard = () => {
         }
     }
 
+    const fetchHealthHistory = async () => {
+        try {
+            const res = await axios.get(`/api/api/v1/admin/health/history?hours=${historyHours}`)
+            setHealthHistory(res.data)
+        } catch (err) {
+            console.error("Failed to fetch health history", err)
+        }
+    }
+
     const toggleLogExpand = (logId) => {
         const newExpanded = new Set(expandedLogs)
         if (newExpanded.has(logId)) {
@@ -200,9 +363,84 @@ const AdminLogsDashboard = () => {
         <div className="h-full flex flex-col bg-slate-50">
             {/* Header */}
             <div className="bg-white border-b border-slate-200 px-8 py-4">
-                <h1 className="text-2xl font-bold text-slate-900">Admin Dashboard</h1>
-                <p className="text-sm text-slate-500 mt-1">System monitoring, logs, and analytics</p>
+                <div className="flex items-center justify-between">
+                    <div>
+                        <h1 className="text-2xl font-bold text-slate-900">Admin Dashboard</h1>
+                        <p className="text-sm text-slate-500 mt-1">System monitoring, logs, and analytics</p>
+                    </div>
+                    <div className="flex items-center gap-4">
+                        {/* WebSocket Status */}
+                        <div className="flex items-center gap-2">
+                            {wsConnected ? (
+                                <>
+                                    <Wifi size={18} className="text-green-600" />
+                                    <span className="text-sm text-green-600">Live Updates</span>
+                                </>
+                            ) : (
+                                <>
+                                    <WifiOff size={18} className="text-red-600" />
+                                    <span className="text-sm text-red-600">Polling Mode</span>
+                                </>
+                            )}
+                        </div>
+                        {/* Refresh Rate Selector */}
+                        <div className="flex items-center gap-2">
+                            <label className="text-sm text-slate-600">Refresh:</label>
+                            <select
+                                value={refreshRate}
+                                onChange={(e) => setRefreshRate(parseInt(e.target.value))}
+                                className="px-3 py-1 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                            >
+                                <option value={1}>1s</option>
+                                <option value={5}>5s</option>
+                                <option value={10}>10s</option>
+                                <option value={30}>30s</option>
+                                <option value={60}>60s</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
             </div>
+
+            {/* Description Section */}
+            {activeTab === "overview" && (
+                <div className="bg-indigo-50 border-b border-indigo-200 px-8 py-4">
+                    <div className="max-w-4xl">
+                        <h2 className="text-lg font-semibold text-indigo-900 mb-2 flex items-center gap-2">
+                            <Activity size={20} />
+                            About This Dashboard
+                        </h2>
+                        <p className="text-sm text-indigo-800 mb-3">
+                            The Admin Monitoring Dashboard provides real-time visibility into your Headhunter AI system's health, performance, and operational metrics. 
+                            This comprehensive monitoring tool helps you track system status, identify issues, and optimize performance.
+                        </p>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-indigo-800">
+                            <div>
+                                <h3 className="font-semibold mb-1">What You Can Monitor:</h3>
+                                <ul className="list-disc list-inside space-y-1 ml-2">
+                                    <li>System health status (Database, Redis, Celery, ChromaDB)</li>
+                                    <li>Response time percentiles (p50, p95, p99)</li>
+                                    <li>Error rates and slow endpoints</li>
+                                    <li>Database connection pool and table sizes</li>
+                                    <li>System logs with advanced filtering</li>
+                                    <li>User invitation tracking</li>
+                                </ul>
+                            </div>
+                            <div>
+                                <h3 className="font-semibold mb-1">How to Test:</h3>
+                                <ol className="list-decimal list-inside space-y-1 ml-2">
+                                    <li>Check the <strong>System Health</strong> section - all services should show "healthy" status</li>
+                                    <li>Review <strong>Response Time Percentiles</strong> - p95 should typically be under 500ms</li>
+                                    <li>Monitor <strong>Error Rate</strong> - should be below 1% for healthy systems</li>
+                                    <li>Navigate to <strong>System Logs</strong> tab to view recent activity</li>
+                                    <li>Use <strong>Health History</strong> tab to view historical trends over time</li>
+                                    <li>Test filtering in <strong>System Logs</strong> by level, component, or date range</li>
+                                </ol>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* Tabs */}
             <div className="px-8 py-4 border-b border-slate-200 bg-white flex gap-6">
@@ -242,6 +480,15 @@ const AdminLogsDashboard = () => {
                 >
                     Errors
                 </button>
+                <button
+                    onClick={() => setActiveTab("health-history")}
+                    className={`pb-4 text-sm font-medium border-b-2 transition ${activeTab === "health-history"
+                        ? 'border-indigo-600 text-indigo-600'
+                        : 'border-transparent text-slate-500 hover:text-slate-700'
+                        }`}
+                >
+                    Health History
+                </button>
             </div>
 
             {/* Content */}
@@ -258,6 +505,7 @@ const AdminLogsDashboard = () => {
                         previewCleanup={previewCleanup}
                         executeCleanup={executeCleanup}
                         isCleaningUp={isCleaningUp}
+                        thresholds={thresholds}
                     />
                 )}
 
@@ -292,6 +540,16 @@ const AdminLogsDashboard = () => {
                         formatDate={formatDate}
                     />
                 )}
+
+                {activeTab === "health-history" && (
+                    <HealthHistoryTab
+                        healthHistory={healthHistory}
+                        historyHours={historyHours}
+                        setHistoryHours={setHistoryHours}
+                        fetchHealthHistory={fetchHealthHistory}
+                        thresholds={thresholds}
+                    />
+                )}
             </div>
         </div>
     )
@@ -308,7 +566,8 @@ const OverviewTab = ({
     setCleanupDays,
     previewCleanup,
     executeCleanup,
-    isCleaningUp
+    isCleaningUp,
+    thresholds
 }) => {
     const levelColors = {
         DEBUG: "#94a3b8",
@@ -528,6 +787,34 @@ const OverviewTab = ({
                                 <Tooltip />
                                 <Area type="monotone" dataKey="count" stroke="#6366f1" fill="#c7d2fe" />
                             </AreaChart>
+                        </ResponsiveContainer>
+                    </div>
+                )}
+
+                {/* Response Time Percentiles with Thresholds */}
+                {uxAnalytics && (
+                    <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+                        <h3 className="font-bold text-slate-700 mb-4 flex items-center gap-2">
+                            <Gauge size={18} />
+                            Response Time Percentiles with Thresholds
+                        </h3>
+                        <div className="mb-2 text-xs text-slate-500">
+                            Yellow: {thresholds.p95_warning_ms}ms | Red: {thresholds.p95_critical_ms}ms
+                        </div>
+                        <ResponsiveContainer width="100%" height={250}>
+                            <LineChart data={[
+                                { name: 'p50', value: uxAnalytics.response_time_p50_ms || 0 },
+                                { name: 'p95', value: uxAnalytics.response_time_p95_ms || 0 },
+                                { name: 'p99', value: uxAnalytics.response_time_p99_ms || 0 }
+                            ]}>
+                                <CartesianGrid strokeDasharray="3 3" />
+                                <XAxis dataKey="name" />
+                                <YAxis label={{ value: 'Response Time (ms)', angle: -90, position: 'insideLeft' }} />
+                                <Tooltip />
+                                <ReferenceLine y={thresholds.p95_warning_ms} stroke="#eab308" strokeDasharray="5 5" label="Warning" />
+                                <ReferenceLine y={thresholds.p95_critical_ms} stroke="#ef4444" strokeDasharray="5 5" label="Critical" />
+                                <Line type="monotone" dataKey="value" stroke="#6366f1" strokeWidth={2} />
+                            </LineChart>
                         </ResponsiveContainer>
                     </div>
                 )}
@@ -880,6 +1167,379 @@ const ErrorsTab = ({ errors, expandedLogs, toggleLogExpand, formatDate }) => {
                     )}
                 </div>
             ))}
+        </div>
+    )
+}
+
+// Health History Tab Component - Datadog Style
+const HealthHistoryTab = ({ healthHistory, historyHours, setHistoryHours, fetchHealthHistory, thresholds }) => {
+    const getStatusValue = (status) => {
+        switch (status) {
+            case 'healthy': return 1
+            case 'degraded': return 0.5
+            case 'unhealthy': return 0
+            default: return 0
+        }
+    }
+
+    const getStatusColor = (serviceName) => {
+        const colors = {
+            'Database': '#3b82f6',
+            'Redis': '#ef4444',
+            'Celery': '#10b981',
+            'ChromaDB': '#8b5cf6'
+        }
+        return colors[serviceName] || '#6b7280'
+    }
+
+    if (!healthHistory) {
+        return (
+            <div className="flex items-center justify-center h-64">
+                <div className="text-center">
+                    <RefreshCw className="animate-spin mx-auto mb-4 text-indigo-600" size={32} />
+                    <p className="text-slate-500">Loading health history...</p>
+                </div>
+            </div>
+        )
+    }
+
+    // Prepare data for charts
+    const responseTimeData = healthHistory.time_series?.map(point => ({
+        timestamp: new Date(point.timestamp).toLocaleTimeString(),
+        Database: point.services?.find(s => s.name === 'Database')?.response_time_ms || 0,
+        Redis: point.services?.find(s => s.name === 'Redis')?.response_time_ms || 0,
+        Celery: point.services?.find(s => s.name === 'Celery')?.response_time_ms || 0,
+        ChromaDB: point.services?.find(s => s.name === 'ChromaDB')?.response_time_ms || 0,
+    })) || []
+
+    const healthStatusData = healthHistory.time_series?.map(point => ({
+        timestamp: new Date(point.timestamp).toLocaleTimeString(),
+        Database: getStatusValue(point.services?.find(s => s.name === 'Database')?.status),
+        Redis: getStatusValue(point.services?.find(s => s.name === 'Redis')?.status),
+        Celery: getStatusValue(point.services?.find(s => s.name === 'Celery')?.status),
+        ChromaDB: getStatusValue(point.services?.find(s => s.name === 'ChromaDB')?.status),
+    })) || []
+
+    const errorRateData = healthHistory.time_series?.map(point => ({
+        timestamp: new Date(point.timestamp).toLocaleTimeString(),
+        error_rate: point.error_rate_percent || 0,
+    })) || []
+
+    const responseTimePercentilesData = healthHistory.time_series?.map(point => ({
+        timestamp: new Date(point.timestamp).toLocaleTimeString(),
+        p50: point.response_time_p50_ms || 0,
+        p95: point.response_time_p95_ms || 0,
+        p99: point.response_time_p99_ms || 0,
+    })) || []
+
+    return (
+        <div className="space-y-6">
+            {/* Time Range Selector */}
+            <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+                <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-4">
+                        <label className="text-sm font-medium text-slate-700">Time Range:</label>
+                        <select
+                            value={historyHours}
+                            onChange={(e) => {
+                                setHistoryHours(parseInt(e.target.value))
+                            }}
+                            className="px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                        >
+                            <option value={6}>Last 6 hours</option>
+                            <option value={12}>Last 12 hours</option>
+                            <option value={24}>Last 24 hours</option>
+                            <option value={48}>Last 48 hours</option>
+                            <option value={168}>Last 7 days</option>
+                        </select>
+                        <button
+                            onClick={fetchHealthHistory}
+                            className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 flex items-center gap-2 text-sm"
+                        >
+                            <RefreshCw size={16} />
+                            Refresh
+                        </button>
+                    </div>
+                    <div className="text-sm text-slate-500">
+                        {healthHistory.time_series?.length || 0} data points
+                    </div>
+                </div>
+            </div>
+
+            {/* Response Time by Service */}
+            <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+                <h3 className="font-bold text-slate-700 mb-4 flex items-center gap-2">
+                    <Clock size={18} />
+                    Response Time by Service (ms)
+                </h3>
+                <div className="mb-2 text-xs text-slate-500 flex gap-4">
+                    <span>Yellow: {thresholds.response_time_warning_ms}ms</span>
+                    <span>Red: {thresholds.response_time_critical_ms}ms</span>
+                </div>
+                <ResponsiveContainer width="100%" height={300}>
+                    <LineChart data={responseTimeData}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                        <XAxis 
+                            dataKey="timestamp" 
+                            tick={{ fontSize: 10 }}
+                            interval="preserveStartEnd"
+                            stroke="#64748b"
+                        />
+                        <YAxis 
+                            label={{ value: 'Response Time (ms)', angle: -90, position: 'insideLeft' }}
+                            stroke="#64748b"
+                        />
+                        <Tooltip 
+                            contentStyle={{ backgroundColor: '#fff', border: '1px solid #e2e8f0', borderRadius: '8px' }}
+                        />
+                        <Legend />
+                        <ReferenceLine 
+                            y={thresholds.response_time_warning_ms} 
+                            stroke="#eab308" 
+                            strokeDasharray="5 5" 
+                            label={{ value: "Warning", position: "topRight" }}
+                        />
+                        <ReferenceLine 
+                            y={thresholds.response_time_critical_ms} 
+                            stroke="#ef4444" 
+                            strokeDasharray="5 5" 
+                            label={{ value: "Critical", position: "topRight" }}
+                        />
+                        <Line 
+                            type="monotone" 
+                            dataKey="Database" 
+                            stroke={getStatusColor('Database')} 
+                            strokeWidth={2}
+                            dot={false}
+                            activeDot={{ r: 4 }}
+                        />
+                        <Line 
+                            type="monotone" 
+                            dataKey="Redis" 
+                            stroke={getStatusColor('Redis')} 
+                            strokeWidth={2}
+                            dot={false}
+                            activeDot={{ r: 4 }}
+                        />
+                        <Line 
+                            type="monotone" 
+                            dataKey="Celery" 
+                            stroke={getStatusColor('Celery')} 
+                            strokeWidth={2}
+                            dot={false}
+                            activeDot={{ r: 4 }}
+                        />
+                        <Line 
+                            type="monotone" 
+                            dataKey="ChromaDB" 
+                            stroke={getStatusColor('ChromaDB')} 
+                            strokeWidth={2}
+                            dot={false}
+                            activeDot={{ r: 4 }}
+                        />
+                    </LineChart>
+                </ResponsiveContainer>
+            </div>
+
+            {/* Health Status Over Time */}
+            <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+                <h3 className="font-bold text-slate-700 mb-4 flex items-center gap-2">
+                    <CheckCircle size={18} />
+                    Health Status Over Time
+                </h3>
+                <ResponsiveContainer width="100%" height={300}>
+                    <AreaChart data={healthStatusData}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                        <XAxis 
+                            dataKey="timestamp" 
+                            tick={{ fontSize: 10 }}
+                            interval="preserveStartEnd"
+                            stroke="#64748b"
+                        />
+                        <YAxis 
+                            domain={[0, 1]}
+                            tickFormatter={(value) => {
+                                if (value === 1) return 'Healthy'
+                                if (value === 0.5) return 'Degraded'
+                                return 'Unhealthy'
+                            }}
+                            stroke="#64748b"
+                        />
+                        <Tooltip 
+                            contentStyle={{ backgroundColor: '#fff', border: '1px solid #e2e8f0', borderRadius: '8px' }}
+                            formatter={(value) => {
+                                if (value === 1) return 'Healthy'
+                                if (value === 0.5) return 'Degraded'
+                                return 'Unhealthy'
+                            }}
+                        />
+                        <Legend />
+                        <Area 
+                            type="monotone" 
+                            dataKey="Database" 
+                            stackId="1"
+                            stroke={getStatusColor('Database')} 
+                            fill={getStatusColor('Database')}
+                            fillOpacity={0.6}
+                        />
+                        <Area 
+                            type="monotone" 
+                            dataKey="Redis" 
+                            stackId="1"
+                            stroke={getStatusColor('Redis')} 
+                            fill={getStatusColor('Redis')}
+                            fillOpacity={0.6}
+                        />
+                        <Area 
+                            type="monotone" 
+                            dataKey="Celery" 
+                            stackId="1"
+                            stroke={getStatusColor('Celery')} 
+                            fill={getStatusColor('Celery')}
+                            fillOpacity={0.6}
+                        />
+                        <Area 
+                            type="monotone" 
+                            dataKey="ChromaDB" 
+                            stackId="1"
+                            stroke={getStatusColor('ChromaDB')} 
+                            fill={getStatusColor('ChromaDB')}
+                            fillOpacity={0.6}
+                        />
+                    </AreaChart>
+                </ResponsiveContainer>
+            </div>
+
+            {/* Response Time Percentiles */}
+            <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+                <h3 className="font-bold text-slate-700 mb-4 flex items-center gap-2">
+                    <Gauge size={18} />
+                    Response Time Percentiles (ms)
+                </h3>
+                <div className="mb-2 text-xs text-slate-500 flex gap-4">
+                    <span>Yellow (p95): {thresholds.p95_warning_ms}ms</span>
+                    <span>Red (p95): {thresholds.p95_critical_ms}ms</span>
+                    <span>Yellow (p99): {thresholds.p99_warning_ms}ms</span>
+                    <span>Red (p99): {thresholds.p99_critical_ms}ms</span>
+                </div>
+                <ResponsiveContainer width="100%" height={300}>
+                    <LineChart data={responseTimePercentilesData}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                        <XAxis 
+                            dataKey="timestamp" 
+                            tick={{ fontSize: 10 }}
+                            interval="preserveStartEnd"
+                            stroke="#64748b"
+                        />
+                        <YAxis 
+                            label={{ value: 'Response Time (ms)', angle: -90, position: 'insideLeft' }}
+                            stroke="#64748b"
+                        />
+                        <Tooltip 
+                            contentStyle={{ backgroundColor: '#fff', border: '1px solid #e2e8f0', borderRadius: '8px' }}
+                        />
+                        <Legend />
+                        <ReferenceLine 
+                            y={thresholds.p95_warning_ms} 
+                            stroke="#eab308" 
+                            strokeDasharray="5 5" 
+                            label={{ value: "p95 Warning", position: "topRight" }}
+                        />
+                        <ReferenceLine 
+                            y={thresholds.p95_critical_ms} 
+                            stroke="#ef4444" 
+                            strokeDasharray="5 5" 
+                            label={{ value: "p95 Critical", position: "topRight" }}
+                        />
+                        <ReferenceLine 
+                            y={thresholds.p99_warning_ms} 
+                            stroke="#eab308" 
+                            strokeDasharray="3 3" 
+                            strokeOpacity={0.5}
+                        />
+                        <ReferenceLine 
+                            y={thresholds.p99_critical_ms} 
+                            stroke="#ef4444" 
+                            strokeDasharray="3 3" 
+                            strokeOpacity={0.5}
+                        />
+                        <Line 
+                            type="monotone" 
+                            dataKey="p50" 
+                            stroke="#3b82f6" 
+                            strokeWidth={2}
+                            dot={false}
+                            name="p50 (Median)"
+                        />
+                        <Line 
+                            type="monotone" 
+                            dataKey="p95" 
+                            stroke="#eab308" 
+                            strokeWidth={2}
+                            dot={false}
+                            name="p95"
+                        />
+                        <Line 
+                            type="monotone" 
+                            dataKey="p99" 
+                            stroke="#ef4444" 
+                            strokeWidth={2}
+                            dot={false}
+                            name="p99"
+                        />
+                    </LineChart>
+                </ResponsiveContainer>
+            </div>
+
+            {/* Error Rate */}
+            <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+                <h3 className="font-bold text-slate-700 mb-4 flex items-center gap-2">
+                    <AlertCircle size={18} />
+                    Error Rate Over Time (%)
+                </h3>
+                <div className="mb-2 text-xs text-slate-500 flex gap-4">
+                    <span>Yellow: {thresholds.error_rate_warning_percent}%</span>
+                    <span>Red: {thresholds.error_rate_critical_percent}%</span>
+                </div>
+                <ResponsiveContainer width="100%" height={300}>
+                    <AreaChart data={errorRateData}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                        <XAxis 
+                            dataKey="timestamp" 
+                            tick={{ fontSize: 10 }}
+                            interval="preserveStartEnd"
+                            stroke="#64748b"
+                        />
+                        <YAxis 
+                            label={{ value: 'Error Rate (%)', angle: -90, position: 'insideLeft' }}
+                            stroke="#64748b"
+                        />
+                        <Tooltip 
+                            contentStyle={{ backgroundColor: '#fff', border: '1px solid #e2e8f0', borderRadius: '8px' }}
+                            formatter={(value) => `${value.toFixed(2)}%`}
+                        />
+                        <ReferenceLine 
+                            y={thresholds.error_rate_warning_percent} 
+                            stroke="#eab308" 
+                            strokeDasharray="5 5" 
+                            label={{ value: "Warning", position: "topRight" }}
+                        />
+                        <ReferenceLine 
+                            y={thresholds.error_rate_critical_percent} 
+                            stroke="#ef4444" 
+                            strokeDasharray="5 5" 
+                            label={{ value: "Critical", position: "topRight" }}
+                        />
+                        <Area 
+                            type="monotone" 
+                            dataKey="error_rate" 
+                            stroke="#ef4444" 
+                            fill="#ef4444"
+                            fillOpacity={0.3}
+                        />
+                    </AreaChart>
+                </ResponsiveContainer>
+            </div>
         </div>
     )
 }

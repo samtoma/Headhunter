@@ -21,7 +21,9 @@ export default defineConfig({
           ? process.env.VITE_API_URL
           : 'http://backend:30001',
         changeOrigin: true,
-        rewrite: (path) => path.replace(/^\/api/, '')
+        rewrite: (path) => path.replace(/^\/api/, ''),
+        ws: true, // Enable WebSocket proxy
+        secure: false // Allow self-signed certificates
       }
     }
   },
