@@ -26,7 +26,7 @@ This release significantly enhances the monitoring dashboard with **real-time We
   - Red critical thresholds
   - Configurable via API endpoints
   - Threshold values displayed in chart headers
-- **Higher Granularity Support:** 
+- **Higher Granularity Support:**
   - Intervals from 30 seconds to 1 hour
   - Smart auto-scaling (max 1000 data points)
   - Timestamp formatting adapts to granularity
@@ -48,6 +48,7 @@ This release significantly enhances the monitoring dashboard with **real-time We
 - **WebSocket Reconnection:** Fixed reconnection logic to properly trigger reconnects after disconnections.
 - **Time Bucket Calculation:** Fixed boundary issue where logs at the end timestamp were excluded.
 - **Duplicate API Calls:** Fixed duplicate `fetchHealthHistory` calls when changing time range.
+- **Schedule Interview Modal:** Fixed z-index stacking issues by moving the modal to a portal, ensuring it appears above the Candidate Drawer.
 
 ## 🛠️ Technical Details
 
