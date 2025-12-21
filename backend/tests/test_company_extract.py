@@ -62,6 +62,9 @@ class TestExtractCompanyInfo:
         mock_completion = MagicMock()
         mock_completion.choices = [MagicMock()]
         mock_completion.choices[0].message.content = json.dumps(MOCK_AI_RESPONSE)
+        mock_completion.usage.total_tokens = 100
+        mock_completion.usage.prompt_tokens = 50
+        mock_completion.usage.completion_tokens = 50
         return mock_completion
 
     @patch("app.api.v1.company.httpx.AsyncClient")

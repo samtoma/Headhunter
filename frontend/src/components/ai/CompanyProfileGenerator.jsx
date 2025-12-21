@@ -71,8 +71,8 @@ const CompanyProfileGenerator = ({ url, onComplete, onCancel }) => {
         const wsUrl = `${wsProtocol}//${wsHost}${wsPath}?${params.toString()}`;
 
         console.log('🔌 Connecting to Company Profile WebSocket:', {
-            url: wsUrl.replace(/token=[^&]+/, 'token=***'),
-            url: url
+            wsUrl: wsUrl.replace(/token=[^&]+/, 'token=***'),
+            targetUrl: url
         });
 
         try {
@@ -119,11 +119,12 @@ const CompanyProfileGenerator = ({ url, onComplete, onCancel }) => {
 
     const handleWebSocketMessage = (data) => {
         switch (data.type) {
-            case 'step':
+            case 'step': {
                 const stepNum = data.step;
                 setCurrentStep(stepNum);
                 setState(`step${stepNum}`);
                 break;
+            }
 
             case 'complete':
                 setState('complete');
@@ -268,18 +269,16 @@ const CompanyProfileGenerator = ({ url, onComplete, onCancel }) => {
 
                                 return (
                                     <div key={index} className="flex items-center gap-2 text-xs">
-                                        <div className={`w-4 h-4 rounded-full flex items-center justify-center text-white text-xs font-bold ${
-                                            isCompleted ? 'bg-green-500' :
+                                        <div className={`w-4 h-4 rounded-full flex items-center justify-center text-white text-xs font-bold ${isCompleted ? 'bg-green-500' :
                                             isActive ? 'bg-blue-600' :
-                                            'bg-blue-300'
-                                        }`}>
+                                                'bg-blue-300'
+                                            }`}>
                                             {isCompleted ? '✓' : stepNumber}
                                         </div>
-                                        <span className={`${
-                                            isCompleted ? 'text-green-700' :
+                                        <span className={`${isCompleted ? 'text-green-700' :
                                             isActive ? 'text-blue-900 font-medium' :
-                                            'text-blue-500'
-                                        }`}>
+                                                'text-blue-500'
+                                            }`}>
                                             {stepText}
                                         </span>
                                     </div>

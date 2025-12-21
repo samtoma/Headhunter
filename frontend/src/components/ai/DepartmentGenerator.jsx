@@ -121,11 +121,12 @@ const DepartmentGenerator = ({ name, fineTuning, onComplete, onCancel }) => {
 
     const handleWebSocketMessage = (data) => {
         switch (data.type) {
-            case 'step':
+            case 'step': {
                 const stepNum = data.step;
                 setCurrentStep(stepNum);
                 setState(`step${stepNum}`);
                 break;
+            }
 
             case 'complete':
                 setState('complete');
@@ -269,18 +270,16 @@ const DepartmentGenerator = ({ name, fineTuning, onComplete, onCancel }) => {
 
                                 return (
                                     <div key={index} className="flex items-center gap-2 text-xs">
-                                        <div className={`w-4 h-4 rounded-full flex items-center justify-center text-white text-xs font-bold ${
-                                            isCompleted ? 'bg-green-500' :
-                                            isActive ? 'bg-indigo-600' :
-                                            'bg-indigo-300'
-                                        }`}>
+                                        <div className={`w-4 h-4 rounded-full flex items-center justify-center text-white text-xs font-bold ${isCompleted ? 'bg-green-500' :
+                                                isActive ? 'bg-indigo-600' :
+                                                    'bg-indigo-300'
+                                            }`}>
                                             {isCompleted ? '✓' : stepNumber}
                                         </div>
-                                        <span className={`${
-                                            isCompleted ? 'text-green-700' :
-                                            isActive ? 'text-indigo-900 font-medium' :
-                                            'text-indigo-500'
-                                        }`}>
+                                        <span className={`${isCompleted ? 'text-green-700' :
+                                                isActive ? 'text-indigo-900 font-medium' :
+                                                    'text-indigo-500'
+                                            }`}>
                                             {stepText}
                                         </span>
                                     </div>

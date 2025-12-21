@@ -1,3 +1,56 @@
+# Release Notes - v1.18.0 (LLM Analytics & Monitoring Platform)
+
+**Release Date:** 2025-12-21
+
+## Summary
+
+This release introduces the **LLM Analytics & Monitoring Platform**, a comprehensive solution for tracking, analyzing, and optimizing AI model usage within Headhunter. It includes real-time feedback streaming, dedicated analytics architecture, and enhanced admin monitoring capabilities.
+
+## 🚀 Key Features
+
+### 🧠 LLM Analytics Platform
+
+- **Real-time LLM Monitoring**: Dedicated dashboard for tracking AI model usage, including token consumption, latency, and costs.
+- **Streaming Feedback**: Real-time streaming of AI feedback for interviews via WebSockets, significantly improving perceived performance.
+- **Dedicated Architecture**:
+  - Redis-backed asynchronous logging queue to separate high-volume LLM logs from the main database.
+  - Non-blocking "fire-and-forget" logging pattern to ensure zero latency impact on user requests.
+- **Cost Tracking**: Detailed breakdowns of token input/output and associated costs per model (GPT-4o, GPT-3.5, etc.).
+- **Error Tracking**: Specialized tracking and alerting for LLM-related errors (rate limits, timeouts, API failures).
+
+### 🖥️ Enhanced Admin Dashboard
+
+- **System Health Monitoring**: Real-time status checks for critical infrastructure:
+  - **Database Connection Pool**: Monitoring active/idle connections.
+  - **Redis**: Queue health and connectivity.
+  - **Celery**: Worker status and task backlog.
+  - **ChromaDB**: Vector database connectivity.
+- **Health History**: Historical view of system health metrics to identify trends and intermittent issues.
+- **UX Analytics**:
+  - Response time percentiles (p50, p95, p99) for all API endpoints.
+  - Error rate tracking and "Slow Endpoint" detection.
+- **Database Stats**: Deep insights into table sizes and growth.
+
+## 🛠️ Technical Details
+
+- **Backend**:
+  - `LLMLogger`: New specialized logger class with async Redis queueing.
+  - `logging_middleware.py`: Optimized to intelligently exclude high-frequency streaming endpoints from standard system logs.
+  - `ai_feedback.py`: Refactored to support async streaming generators.
+- **Frontend**:
+  - `AdminLogsDashboard.jsx`: Major refactor to include new tabs for Health, LLM Metrics, and UX Analytics.
+  - `LLMFeedbackGenerator.jsx`: New component handling WebSocket streaming for interview feedback.
+
+## ✅ Verification
+
+- **Architecture**: Verified Redis queue connectivity and worker processing via `check_architecture_status.py`.
+- **Tests**:
+  - Backend: All tests passed (including new mocks for updated logging infrastructure).
+  - Frontend: Zero lint errors.
+- **Manual**: Verified real-time streaming updates in the Admin Dashboard.
+
+---
+
 # Release Notes - v1.17.0 (Enhanced Monitoring Dashboard with WebSocket & Higher Granularity)
 
 **Release Date:** 2025-12-21

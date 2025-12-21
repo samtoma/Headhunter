@@ -36,6 +36,9 @@ async def test_parse_cv_with_llm():
          patch("app.services.parser.OPENAI_API_KEY", "test-key"):
         mock_completion = MagicMock()
         mock_completion.choices[0].message.content = '{"name": "John", "email": ["j@d.com"]}'
+        mock_completion.usage.total_tokens = 100
+        mock_completion.usage.prompt_tokens = 50
+        mock_completion.usage.completion_tokens = 50
         mock_client.return_value.chat.completions.create = AsyncMock(return_value=mock_completion)
         
         data = await parse_cv_with_llm("CV Content", "test.pdf")
@@ -48,6 +51,9 @@ async def test_generate_job_metadata():
          patch("app.services.parser.OPENAI_API_KEY", "test-key"):
         mock_completion = MagicMock()
         mock_completion.choices[0].message.content = '{"description": "Job Desc"}'
+        mock_completion.usage.total_tokens = 100
+        mock_completion.usage.prompt_tokens = 50
+        mock_completion.usage.completion_tokens = 50
         mock_client.return_value.chat.completions.create = AsyncMock(return_value=mock_completion)
         
         data = await generate_job_metadata("Dev", {"name": "Comp"})

@@ -88,16 +88,16 @@ const AdminLogsDashboard = () => {
         // Determine WebSocket URL - use same protocol and host as current page
         const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
         const wsHost = window.location.host
-        
+
         // Try different paths based on environment
         // In dev with Vite proxy: /api/api/v1/admin/ws/monitoring (proxy removes first /api)
         // In production: /api/v1/admin/ws/monitoring (direct to backend)
         const isDev = import.meta.env.DEV
-        const wsPath = isDev 
+        const wsPath = isDev
             ? '/api/api/v1/admin/ws/monitoring'  // Vite proxy will rewrite /api to empty
             : '/api/v1/admin/ws/monitoring'       // Direct path in production
         const wsUrl = `${wsProtocol}//${wsHost}${wsPath}?token=${encodeURIComponent(token)}`
-        
+
         console.log('Attempting WebSocket connection:', {
             url: wsUrl.replace(/token=[^&]+/, 'token=***'),
             isDev,
@@ -449,7 +449,7 @@ const AdminLogsDashboard = () => {
                             About This Dashboard
                         </h2>
                         <p className="text-sm text-indigo-800 mb-3">
-                            The Admin Monitoring Dashboard provides real-time visibility into your Headhunter AI system's health, performance, and operational metrics. 
+                            The Admin Monitoring Dashboard provides real-time visibility into your Headhunter AI system&apos;s health, performance, and operational metrics.
                             This comprehensive monitoring tool helps you track system status, identify issues, and optimize performance.
                         </p>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-indigo-800">
@@ -467,7 +467,7 @@ const AdminLogsDashboard = () => {
                             <div>
                                 <h3 className="font-semibold mb-1">How to Test:</h3>
                                 <ol className="list-decimal list-inside space-y-1 ml-2">
-                                    <li>Check the <strong>System Health</strong> section - all services should show "healthy" status</li>
+                                    <li>Check the <strong>System Health</strong> section - all services should show &quot;healthy&quot; status</li>
                                     <li>Review <strong>Response Time Percentiles</strong> - p95 should typically be under 500ms</li>
                                     <li>Monitor <strong>Error Rate</strong> - should be below 1% for healthy systems</li>
                                     <li>Navigate to <strong>System Logs</strong> tab to view recent activity</li>
@@ -606,7 +606,7 @@ const AdminLogsDashboard = () => {
                         llmCompanyFilter={llmCompanyFilter}
                         setLlmCompanyFilter={setLlmCompanyFilter}
                         fetchLlmMetrics={fetchLlmMetrics}
-                        fetchLlmMetrics={fetchLlmMetrics}
+
                         formatDate={formatDate}
                     />
                 )}
@@ -1301,18 +1301,18 @@ const HealthHistoryTab = ({ healthHistory, historyHours, setHistoryHours, histor
         const date = new Date(timestamp)
         // If interval is less than 5 minutes, show seconds
         if (historyInterval < 5) {
-            return date.toLocaleTimeString('en-US', { 
-                hour: '2-digit', 
-                minute: '2-digit', 
+            return date.toLocaleTimeString('en-US', {
+                hour: '2-digit',
+                minute: '2-digit',
                 second: '2-digit',
-                hour12: false 
+                hour12: false
             })
         }
         // Otherwise show just hours and minutes
-        return date.toLocaleTimeString('en-US', { 
-            hour: '2-digit', 
+        return date.toLocaleTimeString('en-US', {
+            hour: '2-digit',
             minute: '2-digit',
-            hour12: false 
+            hour12: false
         })
     }
 
@@ -1420,60 +1420,60 @@ const HealthHistoryTab = ({ healthHistory, historyHours, setHistoryHours, histor
                 <ResponsiveContainer width="100%" height={300}>
                     <LineChart data={responseTimeData}>
                         <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-                        <XAxis 
-                            dataKey="timestamp" 
+                        <XAxis
+                            dataKey="timestamp"
                             tick={{ fontSize: 10 }}
                             interval="preserveStartEnd"
                             stroke="#64748b"
                         />
-                        <YAxis 
+                        <YAxis
                             label={{ value: 'Response Time (ms)', angle: -90, position: 'insideLeft' }}
                             stroke="#64748b"
                         />
-                        <Tooltip 
+                        <Tooltip
                             contentStyle={{ backgroundColor: '#fff', border: '1px solid #e2e8f0', borderRadius: '8px' }}
                         />
                         <Legend />
-                        <ReferenceLine 
-                            y={thresholds.response_time_warning_ms} 
-                            stroke="#eab308" 
-                            strokeDasharray="5 5" 
+                        <ReferenceLine
+                            y={thresholds.response_time_warning_ms}
+                            stroke="#eab308"
+                            strokeDasharray="5 5"
                             label={{ value: "Warning", position: "topRight" }}
                         />
-                        <ReferenceLine 
-                            y={thresholds.response_time_critical_ms} 
-                            stroke="#ef4444" 
-                            strokeDasharray="5 5" 
+                        <ReferenceLine
+                            y={thresholds.response_time_critical_ms}
+                            stroke="#ef4444"
+                            strokeDasharray="5 5"
                             label={{ value: "Critical", position: "topRight" }}
                         />
-                        <Line 
-                            type="monotone" 
-                            dataKey="Database" 
-                            stroke={getStatusColor('Database')} 
+                        <Line
+                            type="monotone"
+                            dataKey="Database"
+                            stroke={getStatusColor('Database')}
                             strokeWidth={2}
                             dot={false}
                             activeDot={{ r: 4 }}
                         />
-                        <Line 
-                            type="monotone" 
-                            dataKey="Redis" 
-                            stroke={getStatusColor('Redis')} 
+                        <Line
+                            type="monotone"
+                            dataKey="Redis"
+                            stroke={getStatusColor('Redis')}
                             strokeWidth={2}
                             dot={false}
                             activeDot={{ r: 4 }}
                         />
-                        <Line 
-                            type="monotone" 
-                            dataKey="Celery" 
-                            stroke={getStatusColor('Celery')} 
+                        <Line
+                            type="monotone"
+                            dataKey="Celery"
+                            stroke={getStatusColor('Celery')}
                             strokeWidth={2}
                             dot={false}
                             activeDot={{ r: 4 }}
                         />
-                        <Line 
-                            type="monotone" 
-                            dataKey="ChromaDB" 
-                            stroke={getStatusColor('ChromaDB')} 
+                        <Line
+                            type="monotone"
+                            dataKey="ChromaDB"
+                            stroke={getStatusColor('ChromaDB')}
                             strokeWidth={2}
                             dot={false}
                             activeDot={{ r: 4 }}
@@ -1491,13 +1491,13 @@ const HealthHistoryTab = ({ healthHistory, historyHours, setHistoryHours, histor
                 <ResponsiveContainer width="100%" height={300}>
                     <AreaChart data={healthStatusData}>
                         <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-                        <XAxis 
-                            dataKey="timestamp" 
+                        <XAxis
+                            dataKey="timestamp"
                             tick={{ fontSize: 10 }}
                             interval="preserveStartEnd"
                             stroke="#64748b"
                         />
-                        <YAxis 
+                        <YAxis
                             domain={[0, 1]}
                             tickFormatter={(value) => {
                                 if (value === 1) return 'Healthy'
@@ -1506,7 +1506,7 @@ const HealthHistoryTab = ({ healthHistory, historyHours, setHistoryHours, histor
                             }}
                             stroke="#64748b"
                         />
-                        <Tooltip 
+                        <Tooltip
                             contentStyle={{ backgroundColor: '#fff', border: '1px solid #e2e8f0', borderRadius: '8px' }}
                             formatter={(value) => {
                                 if (value === 1) return 'Healthy'
@@ -1515,35 +1515,35 @@ const HealthHistoryTab = ({ healthHistory, historyHours, setHistoryHours, histor
                             }}
                         />
                         <Legend />
-                        <Area 
-                            type="monotone" 
-                            dataKey="Database" 
+                        <Area
+                            type="monotone"
+                            dataKey="Database"
                             stackId="1"
-                            stroke={getStatusColor('Database')} 
+                            stroke={getStatusColor('Database')}
                             fill={getStatusColor('Database')}
                             fillOpacity={0.6}
                         />
-                        <Area 
-                            type="monotone" 
-                            dataKey="Redis" 
+                        <Area
+                            type="monotone"
+                            dataKey="Redis"
                             stackId="1"
-                            stroke={getStatusColor('Redis')} 
+                            stroke={getStatusColor('Redis')}
                             fill={getStatusColor('Redis')}
                             fillOpacity={0.6}
                         />
-                        <Area 
-                            type="monotone" 
-                            dataKey="Celery" 
+                        <Area
+                            type="monotone"
+                            dataKey="Celery"
                             stackId="1"
-                            stroke={getStatusColor('Celery')} 
+                            stroke={getStatusColor('Celery')}
                             fill={getStatusColor('Celery')}
                             fillOpacity={0.6}
                         />
-                        <Area 
-                            type="monotone" 
-                            dataKey="ChromaDB" 
+                        <Area
+                            type="monotone"
+                            dataKey="ChromaDB"
                             stackId="1"
-                            stroke={getStatusColor('ChromaDB')} 
+                            stroke={getStatusColor('ChromaDB')}
                             fill={getStatusColor('ChromaDB')}
                             fillOpacity={0.6}
                         />
@@ -1566,64 +1566,64 @@ const HealthHistoryTab = ({ healthHistory, historyHours, setHistoryHours, histor
                 <ResponsiveContainer width="100%" height={300}>
                     <LineChart data={responseTimePercentilesData}>
                         <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-                        <XAxis 
-                            dataKey="timestamp" 
+                        <XAxis
+                            dataKey="timestamp"
                             tick={{ fontSize: 10 }}
                             interval="preserveStartEnd"
                             stroke="#64748b"
                         />
-                        <YAxis 
+                        <YAxis
                             label={{ value: 'Response Time (ms)', angle: -90, position: 'insideLeft' }}
                             stroke="#64748b"
                         />
-                        <Tooltip 
+                        <Tooltip
                             contentStyle={{ backgroundColor: '#fff', border: '1px solid #e2e8f0', borderRadius: '8px' }}
                         />
                         <Legend />
-                        <ReferenceLine 
-                            y={thresholds.p95_warning_ms} 
-                            stroke="#eab308" 
-                            strokeDasharray="5 5" 
+                        <ReferenceLine
+                            y={thresholds.p95_warning_ms}
+                            stroke="#eab308"
+                            strokeDasharray="5 5"
                             label={{ value: "p95 Warning", position: "topRight" }}
                         />
-                        <ReferenceLine 
-                            y={thresholds.p95_critical_ms} 
-                            stroke="#ef4444" 
-                            strokeDasharray="5 5" 
+                        <ReferenceLine
+                            y={thresholds.p95_critical_ms}
+                            stroke="#ef4444"
+                            strokeDasharray="5 5"
                             label={{ value: "p95 Critical", position: "topRight" }}
                         />
-                        <ReferenceLine 
-                            y={thresholds.p99_warning_ms} 
-                            stroke="#eab308" 
-                            strokeDasharray="3 3" 
+                        <ReferenceLine
+                            y={thresholds.p99_warning_ms}
+                            stroke="#eab308"
+                            strokeDasharray="3 3"
                             strokeOpacity={0.5}
                         />
-                        <ReferenceLine 
-                            y={thresholds.p99_critical_ms} 
-                            stroke="#ef4444" 
-                            strokeDasharray="3 3" 
+                        <ReferenceLine
+                            y={thresholds.p99_critical_ms}
+                            stroke="#ef4444"
+                            strokeDasharray="3 3"
                             strokeOpacity={0.5}
                         />
-                        <Line 
-                            type="monotone" 
-                            dataKey="p50" 
-                            stroke="#3b82f6" 
+                        <Line
+                            type="monotone"
+                            dataKey="p50"
+                            stroke="#3b82f6"
                             strokeWidth={2}
                             dot={false}
                             name="p50 (Median)"
                         />
-                        <Line 
-                            type="monotone" 
-                            dataKey="p95" 
-                            stroke="#eab308" 
+                        <Line
+                            type="monotone"
+                            dataKey="p95"
+                            stroke="#eab308"
                             strokeWidth={2}
                             dot={false}
                             name="p95"
                         />
-                        <Line 
-                            type="monotone" 
-                            dataKey="p99" 
-                            stroke="#ef4444" 
+                        <Line
+                            type="monotone"
+                            dataKey="p99"
+                            stroke="#ef4444"
                             strokeWidth={2}
                             dot={false}
                             name="p99"
@@ -1645,36 +1645,36 @@ const HealthHistoryTab = ({ healthHistory, historyHours, setHistoryHours, histor
                 <ResponsiveContainer width="100%" height={300}>
                     <AreaChart data={errorRateData}>
                         <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-                        <XAxis 
-                            dataKey="timestamp" 
+                        <XAxis
+                            dataKey="timestamp"
                             tick={{ fontSize: 10 }}
                             interval="preserveStartEnd"
                             stroke="#64748b"
                         />
-                        <YAxis 
+                        <YAxis
                             label={{ value: 'Error Rate (%)', angle: -90, position: 'insideLeft' }}
                             stroke="#64748b"
                         />
-                        <Tooltip 
+                        <Tooltip
                             contentStyle={{ backgroundColor: '#fff', border: '1px solid #e2e8f0', borderRadius: '8px' }}
                             formatter={(value) => `${value.toFixed(2)}%`}
                         />
-                        <ReferenceLine 
-                            y={thresholds.error_rate_warning_percent} 
-                            stroke="#eab308" 
-                            strokeDasharray="5 5" 
+                        <ReferenceLine
+                            y={thresholds.error_rate_warning_percent}
+                            stroke="#eab308"
+                            strokeDasharray="5 5"
                             label={{ value: "Warning", position: "topRight" }}
                         />
-                        <ReferenceLine 
-                            y={thresholds.error_rate_critical_percent} 
-                            stroke="#ef4444" 
-                            strokeDasharray="5 5" 
+                        <ReferenceLine
+                            y={thresholds.error_rate_critical_percent}
+                            stroke="#ef4444"
+                            strokeDasharray="5 5"
                             label={{ value: "Critical", position: "topRight" }}
                         />
-                        <Area 
-                            type="monotone" 
-                            dataKey="error_rate" 
-                            stroke="#ef4444" 
+                        <Area
+                            type="monotone"
+                            dataKey="error_rate"
+                            stroke="#ef4444"
                             fill="#ef4444"
                             fillOpacity={0.3}
                         />

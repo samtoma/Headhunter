@@ -7,6 +7,7 @@ async def test_generate_embedding_success():
     mock_client = AsyncMock()
     mock_response = MagicMock()
     mock_response.data = [MagicMock(embedding=[0.1, 0.2, 0.3])]
+    mock_response.usage.total_tokens = 10
     mock_client.embeddings.create.return_value = mock_response
     
     with patch("app.services.embeddings.get_openai_client", return_value=mock_client):
@@ -24,6 +25,7 @@ async def test_generate_embedding_truncation():
     mock_client = AsyncMock()
     mock_response = MagicMock()
     mock_response.data = [MagicMock(embedding=[0.1])]
+    mock_response.usage.total_tokens = 10
     mock_client.embeddings.create.return_value = mock_response
     
     long_text = "a" * 40000 # > 32000

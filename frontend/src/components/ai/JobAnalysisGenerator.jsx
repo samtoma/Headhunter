@@ -20,7 +20,7 @@ const JobAnalysisGenerator = ({ title, location, employmentType, fineTuning, dep
     const [error, setError] = useState(null);
     const [tokensUsed, setTokensUsed] = useState(0);
     const [latency, setLatency] = useState(0);
-    
+
     const wsRef = useRef(null);
     const token = localStorage.getItem('token');
 
@@ -70,7 +70,7 @@ const JobAnalysisGenerator = ({ title, location, employmentType, fineTuning, dep
         const wsHost = window.location.host;
         const wsPath = `/api/jobs/analyze/stream`;
         const wsUrl = `${wsProtocol}//${wsHost}${wsPath}?${params.toString()}`;
-        
+
         console.log('🔌 Connecting to Job Analysis WebSocket:', {
             url: wsUrl.replace(/token=[^&]+/, 'token=***'),
             title
@@ -128,20 +128,20 @@ const JobAnalysisGenerator = ({ title, location, employmentType, fineTuning, dep
                     setState('generating');
                 }
                 break;
-            
+
             case 'chunk':
                 setPreview(data.accumulated || data.content || '');
                 if (state !== 'streaming') {
                     setState('streaming');
                 }
                 break;
-            
-            case 'complete':
+
+            case 'complete': {
                 setState('complete');
                 setStatusMessage('Analysis complete!');
                 setTokensUsed(data.tokens_used || 0);
                 setLatency(data.latency_ms || 0);
-                
+
                 // Parse the data
                 const parseField = (val) => {
                     if (Array.isArray(val)) return val;
@@ -159,17 +159,18 @@ const JobAnalysisGenerator = ({ title, location, employmentType, fineTuning, dep
                     benefits: parseField(data.data.benefits),
                     skills_required: parseField(data.data.skills_required)
                 };
-                
+
                 if (onComplete) {
                     onComplete(result);
                 }
                 break;
-            
+            }
+
             case 'error':
                 setError(data.message || 'An error occurred');
                 setState('error');
                 break;
-            
+
             default:
                 console.warn('Unknown message type:', data.type);
         }
@@ -265,7 +266,7 @@ const JobAnalysisGenerator = ({ title, location, employmentType, fineTuning, dep
                         </button>
                     </div>
                     <p className="text-sm text-indigo-700 mb-3">{statusMessage}</p>
-                    
+
                     {/* Streaming preview */}
                     {state === 'streaming' && preview && (
                         <div className="bg-white rounded-lg p-3 border border-indigo-100 max-h-48 overflow-y-auto">
