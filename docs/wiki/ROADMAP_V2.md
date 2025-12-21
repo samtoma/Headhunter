@@ -527,9 +527,18 @@ CREATE INDEX idx_audit_company ON audit_logs(company_id, timestamp DESC);
 
 ### 6.4 User Stories
 
+**✅ Completed (v1.17.0):**
+- [x] As a super admin, I can monitor system health in real-time via WebSocket
+- [x] As a super admin, I can view historical health trends with configurable granularity (30s to 1h)
+- [x] As a super admin, I can see threshold warnings on all monitoring charts
+- [x] As a super admin, I can filter and search system logs by multiple criteria (level, component, date range, text search)
+- [x] As a super admin, I can manage log retention and cleanup
+- [x] As a super admin, I can track user invitations and their status
+- [x] As a super admin, I can view error logs with stack traces
+
+**🔲 Planned (Future):**
 - [ ] As a super admin, I see real-time activity across all companies
 - [ ] As a super admin, I can drill down into any company's metrics
-- [ ] As a super admin, I can search the audit log for specific actions
 - [ ] As a super admin, I can export audit logs for compliance
 - [ ] As a super admin, I receive alerts for suspicious activities
 
