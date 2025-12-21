@@ -284,3 +284,130 @@ if path.startswith("/api/ai/") or "generate-feedback" in path:
 
 **Total**: ~15-20 hours
 
+---
+
+## Implementation Checklist for New Agent
+
+### ✅ Pre-Implementation
+- [x] Plan document created
+- [x] Architecture designed
+- [x] Requirements documented
+
+### Phase 1: Logging Exclusion
+- [ ] Update `backend/app/core/logging_middleware.py`:
+  - [ ] Add skip patterns for LLM endpoints (`/api/interviews/{id}/generate-feedback`, `/api/interviews/{id}/stream-feedback`)
+  - [ ] Add special logging path for LLM operations
+- [ ] Create `backend/app/core/llm_logging.py`:
+  - [ ] Create `LLMLogger` class
+  - [ ] Track: model, tokens, latency, streaming status
+  - [ ] Write to SystemLog with `component="llm"`
+- [ ] Test logging exclusion works correctly
+
+### Phase 2: Streaming Backend
+- [ ] Create `backend/app/services/ai_feedback.py`:
+  - [ ] Implement `generate_interview_feedback_stream()` function
+  - [ ] Use OpenAI streaming API (`stream=True`)
+  - [ ] Yield progress updates (thinking, analyzing, generating, chunks)
+  - [ ] Handle errors gracefully
+  - [ ] Track token usage
+- [ ] Create WebSocket endpoint in `backend/app/api/v1/interviews.py`:
+  - [ ] Add `@router.websocket("/{interview_id}/generate-feedback/stream")`
+  - [ ] Authenticate WebSocket connection
+  - [ ] Verify user has access to interview
+  - [ ] Call streaming service
+  - [ ] Forward progress updates to client
+  - [ ] Handle disconnections
+- [ ] Test streaming with OpenAI API
+
+### Phase 3: Frontend Components
+- [ ] Create `frontend/src/components/ai/LLMFeedbackGenerator.jsx`:
+  - [ ] WebSocket connection management
+  - [ ] State management (idle, connecting, thinking, generating, streaming, complete, error)
+  - [ ] Progress indicators UI
+  - [ ] Live text streaming display
+  - [ ] Error handling UI
+  - [ ] Cancel functionality
+- [ ] Create `frontend/src/hooks/useLLMFeedback.js` (optional helper hook):
+  - [ ] WebSocket connection logic
+  - [ ] Message handling
+  - [ ] State management
+- [ ] Test component in isolation
+
+### Phase 4: Integration
+- [ ] Integrate into `frontend/src/pages/InterviewMode.jsx`:
+  - [ ] Add "Generate AI Feedback" button
+  - [ ] Show `LLMFeedbackGenerator` when generating
+  - [ ] Auto-populate feedback field when complete
+  - [ ] Allow editing after generation
+- [ ] Test full flow end-to-end
+- [ ] Test error scenarios
+- [ ] Verify logging exclusion
+- [ ] Performance testing
+
+### Testing Checklist
+- [ ] Unit tests for LLM service
+- [ ] Integration tests for WebSocket endpoint
+- [ ] E2E tests for full flow
+- [ ] Test concurrent streams
+- [ ] Test network failures
+- [ ] Test API errors
+- [ ] Test timeouts
+- [ ] Verify logging exclusion
+- [ ] Verify resource cleanup
+
+### Files to Create/Modify
+
+**New Files:**
+- `backend/app/core/llm_logging.py` - LLM-specific logging
+- `backend/app/services/ai_feedback.py` - LLM feedback streaming service
+- `frontend/src/components/ai/LLMFeedbackGenerator.jsx` - Frontend component
+- `frontend/src/hooks/useLLMFeedback.js` - Optional helper hook
+
+**Files to Modify:**
+- `backend/app/core/logging_middleware.py` - Add LLM endpoint exclusions
+- `backend/app/api/v1/interviews.py` - Add WebSocket endpoint
+- `frontend/src/pages/InterviewMode.jsx` - Integrate LLM feedback generator
+
+### Key Dependencies
+- OpenAI Python SDK (already installed)
+- FastAPI WebSocket support (already available)
+- React WebSocket client (native browser API)
+
+### Important Notes
+1. **Authentication**: WebSocket must use JWT token from query params (similar to `/ws/sync`)
+2. **Authorization**: Verify user has access to the interview before generating feedback
+3. **Error Handling**: All errors should be sent to client with clear messages
+4. **Resource Cleanup**: Properly close WebSocket connections and database sessions
+5. **Token Tracking**: Track OpenAI token usage for cost monitoring
+6. **Rate Limiting**: Consider adding rate limits to prevent abuse
+
+### Example OpenAI Streaming Code
+```python
+async def generate_feedback_stream(candidate_data, job_data, interview_data):
+    client = get_openai_client()
+    stream = await client.chat.completions.create(
+        model=OPENAI_MODEL,
+        messages=[...],
+        stream=True
+    )
+    
+    async for chunk in stream:
+        if chunk.choices[0].delta.content:
+            yield {"type": "chunk", "content": chunk.choices[0].delta.content}
+```
+
+### Example WebSocket Handler
+```python
+@router.websocket("/{interview_id}/generate-feedback/stream")
+async def stream_feedback_generation(websocket: WebSocket, interview_id: int):
+    await websocket.accept()
+    user = await authenticate_websocket(websocket)
+    # Verify access, then stream...
+```
+
+---
+
+## Ready for Implementation
+
+This plan is complete and ready for a new agent to implement. All requirements, architecture, and technical details are documented above.
+
