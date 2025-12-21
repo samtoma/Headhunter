@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import axios from 'axios';
 import { X, Calendar, Clock, User, Briefcase, ChevronDown } from 'lucide-react';
 
@@ -141,7 +142,7 @@ const ScheduleInterviewModal = ({ show, onClose, onSchedule, candidate, candidat
     const displayCandidateName = candidate?.name || candidate?.parsed_data?.name || interviewToEdit?.candidate_name || "Candidate";
     const displayJobTitle = job?.title || interviewToEdit?.job_title || "Job";
 
-    return (
+    return createPortal(
         <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
             <div className="absolute inset-0 bg-slate-900/50 backdrop-blur-sm" onClick={onClose}></div>
             <div className="relative bg-white rounded-2xl shadow-xl w-full max-w-lg overflow-hidden animate-in fade-in zoom-in-95 duration-200">
@@ -261,7 +262,8 @@ const ScheduleInterviewModal = ({ show, onClose, onSchedule, candidate, candidat
                     </div>
                 </form>
             </div>
-        </div>
+        </div>,
+        document.body
     );
 };
 
