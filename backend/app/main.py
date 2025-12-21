@@ -3,7 +3,7 @@ from fastapi import FastAPI, Depends
 from fastapi.middleware.cors import CORSMiddleware
 import asyncio
 from app.core.database import engine, get_db
-from app.api.v1 import cv, profiles, jobs, applications, auth, company, sso, interviews, companies, logs, sync, stats, users, analytics, departments, activity, google_auth, public, calendars
+from app.api.v1 import cv, profiles, jobs, applications, auth, company, sso, interviews, companies, logs, sync, stats, users, analytics, departments, activity, google_auth, public, calendars, admin
 from app.api.endpoints import search
 from app.models import models
 from sqlalchemy.orm import Session
@@ -11,6 +11,7 @@ from app.core.cache import init_cache
 
 # ... (logging config)
 from app.core.logging import setup_logging, get_logger
+from app.core.logging_middleware import LoggingMiddleware
 from sqlalchemy import text
 
 # Initialize logging with daily rotation
@@ -87,6 +88,9 @@ app.add_middleware(
     allow_headers=["*"],  # Allows all headers
 )
 
+# Add logging middleware for request/response tracking
+app.add_middleware(LoggingMiddleware)
+
 # --- Register Routers ---
 app.include_router(cv.router)
 app.include_router(profiles.router)
@@ -108,6 +112,7 @@ app.include_router(activity.router)
 app.include_router(search.router, prefix="/search", tags=["Search"])
 app.include_router(public.router)  # Public landing page endpoints (unauthenticated)
 app.include_router(calendars.router, prefix="/calendars", tags=["Calendars"])
+app.include_router(admin.router, prefix="/api/v1")  # Admin endpoints for monitoring
 
 @app.get("/api/debug/db_check")
 def debug_db_check(db: Session = Depends(get_db)):

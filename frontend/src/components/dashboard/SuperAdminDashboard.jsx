@@ -1,10 +1,12 @@
 import { useState, useEffect } from 'react'
 import axios from 'axios'
-import { Building2, Users, TrendingUp, Search, Edit2, Check, X, ArrowLeft } from 'lucide-react'
+import { Building2, Users, TrendingUp, Search, Edit2, Check, X, ArrowLeft, Activity } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
 import PageHeader from '../layout/PageHeader'
 
 const SuperAdminDashboard = ({ onOpenMobileSidebar }) => {
+    const navigate = useNavigate()
     const [companies, setCompanies] = useState([])
     const [loading, setLoading] = useState(true)
     const [editingId, setEditingId] = useState(null)
@@ -276,6 +278,16 @@ const SuperAdminDashboard = ({ onOpenMobileSidebar }) => {
                 onOpenMobileSidebar={onOpenMobileSidebar}
             />
             <div className="p-4 md:p-8">
+                {/* Quick Actions */}
+                <div className="mb-6">
+                    <button
+                        onClick={() => navigate('/admin/logs')}
+                        className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 flex items-center gap-2"
+                    >
+                        <Activity size={16} />
+                        View System Logs & Monitoring
+                    </button>
+                </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
                     <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">

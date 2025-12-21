@@ -272,3 +272,87 @@ class CalendarConnection(Base):
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
     user = relationship("User", back_populates="calendar_connections")
+
+class SystemLog(Base):
+    """
+    Comprehensive system log for tracking all system events, errors, deployments, and operations.
+    This is separate from ActivityLog which tracks user actions.
+    """
+    __tablename__ = "system_logs"
+    id = Column(Integer, primary_key=True, index=True)
+    
+    # Log metadata
+    level = Column(String, nullable=False, index=True)  # "DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"
+    component = Column(String, nullable=False, index=True)  # "api", "celery", "auth", "cv_parser", "deployment", etc.
+    action = Column(String, nullable=False, index=True)  # "user_invited", "deployment", "error", "api_request", etc.
+    message = Column(Text, nullable=False)
+    
+    # Context
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=True, index=True)
+    company_id = Column(Integer, ForeignKey("companies.id"), nullable=True, index=True)
+    request_id = Column(String, nullable=True, index=True)  # For tracing requests across services
+    session_id = Column(String, nullable=True, index=True)
+    
+    # Request/Response tracking
+    http_method = Column(String, nullable=True)  # "GET", "POST", etc.
+    http_path = Column(String, nullable=True, index=True)
+    http_status = Column(Integer, nullable=True)
+    response_time_ms = Column(Integer, nullable=True)
+    ip_address = Column(String, nullable=True)
+    user_agent = Column(Text, nullable=True)
+    
+    # Error tracking
+    error_type = Column(String, nullable=True)  # Exception class name
+    error_message = Column(Text, nullable=True)
+    stack_trace = Column(Text, nullable=True)
+    
+    # Additional context (JSON)
+    extra_metadata = Column(Text, nullable=True)  # JSON string for flexible additional data
+    
+    # Deployment tracking
+    deployment_version = Column(String, nullable=True, index=True)  # Git commit hash or version tag
+    deployment_environment = Column(String, nullable=True, index=True)  # "production", "staging", "development"
+    
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), index=True)
+    
+    user = relationship("User")
+    company = relationship("Company")
+
+class UserInvitation(Base):
+    """
+    Track user invitations with status and detailed metadata.
+    """
+    __tablename__ = "user_invitations"
+    id = Column(Integer, primary_key=True, index=True)
+    
+    # Invitation details
+    email = Column(String, nullable=False, index=True)
+    token = Column(String, unique=True, nullable=False, index=True)
+    role = Column(String, nullable=False)
+    department = Column(String, nullable=True)
+    company_id = Column(Integer, ForeignKey("companies.id"), nullable=False, index=True)
+    
+    # Status tracking
+    status = Column(String, nullable=False, index=True, default="pending")  # "pending", "sent", "accepted", "expired", "cancelled"
+    sent_at = Column(DateTime(timezone=True), nullable=True)
+    expires_at = Column(DateTime(timezone=True), nullable=False, index=True)
+    accepted_at = Column(DateTime(timezone=True), nullable=True)
+    
+    # Who sent the invitation
+    invited_by = Column(Integer, ForeignKey("users.id"), nullable=False)
+    invited_user_id = Column(Integer, ForeignKey("users.id"), nullable=True)  # Set when user accepts
+    
+    # Email tracking
+    email_sent = Column(Boolean, default=False)
+    email_sent_at = Column(DateTime(timezone=True), nullable=True)
+    email_error = Column(Text, nullable=True)  # Error message if email failed
+    
+    # Additional metadata
+    extra_metadata = Column(Text, nullable=True)  # JSON string for additional data
+    
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), index=True)
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+    
+    company = relationship("Company")
+    inviter = relationship("User", foreign_keys=[invited_by])
+    invited_user = relationship("User", foreign_keys=[invited_user_id])

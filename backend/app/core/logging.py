@@ -121,10 +121,12 @@ class AuditLogger:
     """
     Structured audit logger for tracking user actions.
     Provides convenience methods for common operations.
+    Also writes to SystemLog table for admin dashboard.
     """
     
     def __init__(self, component: str):
         self.logger = logging.getLogger(f"audit.{component}")
+        self.component = component
     
     def log_action(
         self,
@@ -138,6 +140,7 @@ class AuditLogger:
     ):
         """
         Log a user action with full context.
+        Writes to both file logs and SystemLog table.
         
         Args:
             action: Action type (e.g., "login", "create_job", "upload_cv")
@@ -159,7 +162,18 @@ class AuditLogger:
         # Filter out None values
         extra = {k: v for k, v in extra.items() if v is not None}
         
+        # Log to file
         self.logger.info(message, extra=extra)
+        
+        # Also write to SystemLog table
+        self._write_to_system_log(
+            level="INFO",
+            action=action,
+            message=message,
+            user_id=user_id,
+            company_id=company_id,
+            metadata=kwargs
+        )
     
     def log_error(
         self,
@@ -172,10 +186,81 @@ class AuditLogger:
         extra = {"action": action, **kwargs}
         extra = {k: v for k, v in extra.items() if v is not None}
         
+        # Log to file
         if error:
             self.logger.error(message, exc_info=error, extra=extra)
         else:
             self.logger.error(message, extra=extra)
+        
+        # Also write to SystemLog table
+        error_type = type(error).__name__ if error else None
+        error_message = str(error) if error else None
+        import traceback
+        stack_trace = traceback.format_exc() if error else None
+        
+        self._write_to_system_log(
+            level="ERROR",
+            action=action,
+            message=message,
+            user_id=kwargs.get("user_id"),
+            company_id=kwargs.get("company_id"),
+            error_type=error_type,
+            error_message=error_message,
+            stack_trace=stack_trace,
+            metadata=kwargs
+        )
+    
+    def _write_to_system_log(
+        self,
+        level: str,
+        action: str,
+        message: str,
+        user_id: Optional[int] = None,
+        company_id: Optional[int] = None,
+        error_type: Optional[str] = None,
+        error_message: Optional[str] = None,
+        stack_trace: Optional[str] = None,
+        metadata: Optional[dict] = None
+    ):
+        """
+        Write log entry to SystemLog table.
+        Uses a separate database session to avoid transaction issues.
+        """
+        try:
+            from app.core.database import SessionLocal
+            from app.models.models import SystemLog
+            import os
+            
+            db = SessionLocal()
+            try:
+                deployment_version = os.getenv("DEPLOYMENT_VERSION", os.getenv("GIT_COMMIT", None))
+                deployment_environment = os.getenv("DEPLOYMENT_ENV", "development")
+                
+                system_log = SystemLog(
+                    level=level,
+                    component=self.component,
+                    action=action,
+                    message=message,
+                    user_id=user_id,
+                    company_id=company_id,
+                    error_type=error_type,
+                    error_message=error_message,
+                    stack_trace=stack_trace,
+                    extra_metadata=json.dumps(metadata) if metadata else None,
+                    deployment_version=deployment_version,
+                    deployment_environment=deployment_environment
+                )
+                db.add(system_log)
+                db.commit()
+            except Exception as e:
+                db.rollback()
+                # Don't log to avoid recursion - just fail silently
+                pass
+            finally:
+                db.close()
+        except Exception:
+            # Fail silently if database logging is unavailable
+            pass
 
 
 # Pre-configured audit loggers for key components

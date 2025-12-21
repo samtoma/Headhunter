@@ -114,7 +114,7 @@ async def invite_user(
     # Note: If reusing user, we should invalidate old tokens first? 
     # PasswordResetToken relates to user_id, so we can just add a new one.
     import uuid
-    from app.models.models import PasswordResetToken
+    from app.models.models import PasswordResetToken, UserInvitation
     from datetime import datetime, timedelta, timezone
     
     token = str(uuid.uuid4())
@@ -126,26 +126,55 @@ async def invite_user(
         expires_at=expires_at
     )
     db.add(reset_token)
+    
+    # 5. Create UserInvitation record for tracking
+    invitation = UserInvitation(
+        email=new_user.email,
+        token=token,
+        role=new_user.role,
+        department=new_user.department,
+        company_id=current_user.company_id,
+        invited_by=current_user.id,
+        invited_user_id=new_user.id if existing_user else None,
+        status="pending",
+        expires_at=expires_at
+    )
+    db.add(invitation)
     db.commit()
+    db.refresh(invitation)
 
-    # 5. Send Invite Email
+    # 6. Send Invite Email
     from app.core.email import send_team_invite_email
     company_name = current_user.company.name if current_user.company else "Headhunter"
     sender_name = current_user.full_name or "A colleague"
     
-    await send_team_invite_email(
-        email=new_user.email,
-        token=token,
-        sender_name=sender_name,
-        company_name=company_name,
-        role=new_user.role
-    )
+    email_sent = False
+    email_error = None
+    try:
+        await send_team_invite_email(
+            email=new_user.email,
+            token=token,
+            sender_name=sender_name,
+            company_name=company_name,
+            role=new_user.role
+        )
+        email_sent = True
+        invitation.email_sent = True
+        invitation.email_sent_at = datetime.now(timezone.utc)
+        invitation.sent_at = datetime.now(timezone.utc)
+        invitation.status = "sent"
+    except Exception as e:
+        email_error = str(e)
+        invitation.email_error = email_error
+        invitation.status = "pending"  # Keep as pending if email failed
+    
+    db.commit()
 
-    # 6. Audit Log
+    # 7. Audit Log
     log_system_activity(
         db, "user_invited" if not existing_user else "user_reinvited", 
         current_user.id, current_user.company_id,
-        {"invited_email": new_user.email, "role": new_user.role, "department": new_user.department}
+        {"invited_email": new_user.email, "role": new_user.role, "department": new_user.department, "invitation_id": invitation.id}
     )
     
     return new_user

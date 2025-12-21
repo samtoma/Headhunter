@@ -12,6 +12,7 @@ import ResetPassword from './components/auth/ResetPassword';
 
 import Pipeline from './pages/Pipeline';
 import SuperAdminDashboard from './components/dashboard/SuperAdminDashboard';
+import AdminLogsDashboard from './components/admin/AdminLogsDashboard';
 import Team from './pages/Team';
 import InterviewerDashboard from './pages/InterviewerDashboard';
 import InterviewMode from './pages/InterviewMode';
@@ -187,6 +188,16 @@ const AppRoutes = () => {
                     <RoleProtected requiredRole="super_admin">
                         <AppLayout>
                             <SuperAdminDashboard />
+                        </AppLayout>
+                    </RoleProtected>
+                </ProtectedRoute>
+            } />
+
+            <Route path="/admin/logs" element={
+                <ProtectedRoute>
+                    <RoleProtected requiredRole="super_admin">
+                        <AppLayout>
+                            <AdminLogsDashboard />
                         </AppLayout>
                     </RoleProtected>
                 </ProtectedRoute>
