@@ -36,6 +36,7 @@ const AdminLogsDashboard = () => {
     })
     const [wsConnected, setWsConnected] = useState(false)
     const [reconnectTrigger, setReconnectTrigger] = useState(0)
+    const [showAboutSection, setShowAboutSection] = useState(true)
     const wsRef = useRef(null)
     const reconnectTimeoutRef = useRef(null)
 
@@ -120,7 +121,8 @@ const AdminLogsDashboard = () => {
                                 error_rate_24h: data.metrics.error_rate_24h
                             }))
                         }
-                        if (data.health) {
+                        // Only update health if it has all services (4 services: Database, Redis, Celery, ChromaDB)
+                        if (data.health && data.health.services && data.health.services.length >= 4) {
                             setHealth(data.health)
                         }
                     } else if (data.type === 'error') {
@@ -403,8 +405,15 @@ const AdminLogsDashboard = () => {
             </div>
 
             {/* Description Section */}
-            {activeTab === "overview" && (
-                <div className="bg-indigo-50 border-b border-indigo-200 px-8 py-4">
+            {activeTab === "overview" && showAboutSection && (
+                <div className="bg-indigo-50 border-b border-indigo-200 px-8 py-4 relative">
+                    <button
+                        onClick={() => setShowAboutSection(false)}
+                        className="absolute top-4 right-4 text-indigo-600 hover:text-indigo-800 transition-colors"
+                        aria-label="Close about section"
+                    >
+                        <XCircle size={20} />
+                    </button>
                     <div className="max-w-4xl">
                         <h2 className="text-lg font-semibold text-indigo-900 mb-2 flex items-center gap-2">
                             <Activity size={20} />

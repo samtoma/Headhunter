@@ -1256,11 +1256,14 @@ async def send_monitoring_update(websocket: WebSocket, user: User):
             ).scalar() or 1
             error_rate = (errors_24h / logs_24h * 100) if logs_24h > 0 else 0
             
-            # Get health status
+            # Get health status - check all services like the health endpoint
             import time
+            import os
             from sqlalchemy import text
             
             services = []
+            
+            # Check Database
             try:
                 start = time.time()
                 db.execute(text("SELECT 1"))
@@ -1268,10 +1271,76 @@ async def send_monitoring_update(websocket: WebSocket, user: User):
                 services.append({
                     "name": "Database",
                     "status": "healthy" if db_time < 100 else "degraded",
-                    "response_time_ms": round(db_time, 2)
+                    "response_time_ms": round(db_time, 2),
+                    "message": "PostgreSQL connection OK"
                 })
-            except:
-                services.append({"name": "Database", "status": "unhealthy"})
+            except Exception as e:
+                services.append({
+                    "name": "Database",
+                    "status": "unhealthy",
+                    "message": str(e)
+                })
+            
+            # Check Redis
+            try:
+                import redis
+                redis_url = os.getenv("REDIS_URL", "redis://redis:6379/0")
+                start = time.time()
+                r = redis.from_url(redis_url)
+                r.ping()
+                redis_time = (time.time() - start) * 1000
+                services.append({
+                    "name": "Redis",
+                    "status": "healthy" if redis_time < 100 else "degraded",
+                    "response_time_ms": round(redis_time, 2),
+                    "message": "Redis connection OK"
+                })
+            except Exception as e:
+                services.append({
+                    "name": "Redis",
+                    "status": "unhealthy",
+                    "message": str(e)
+                })
+            
+            # Check Celery (via Redis queue)
+            try:
+                import redis
+                redis_url = os.getenv("REDIS_URL", "redis://redis:6379/0")
+                r = redis.from_url(redis_url)
+                queue_length = r.llen("celery")
+                services.append({
+                    "name": "Celery",
+                    "status": "healthy",
+                    "message": f"Queue length: {queue_length}"
+                })
+            except Exception as e:
+                services.append({
+                    "name": "Celery",
+                    "status": "unhealthy",
+                    "message": str(e)
+                })
+            
+            # Check ChromaDB
+            try:
+                start = time.time()
+                import chromadb
+                chroma_host = os.getenv("CHROMA_HOST", "vector_db")
+                chroma_port = int(os.getenv("CHROMA_PORT", "8000"))
+                client = chromadb.HttpClient(host=chroma_host, port=chroma_port)
+                collections = client.list_collections()
+                chroma_time = (time.time() - start) * 1000
+                services.append({
+                    "name": "ChromaDB",
+                    "status": "healthy" if chroma_time < 500 else "degraded",
+                    "response_time_ms": round(chroma_time, 2),
+                    "message": f"Collections: {len(collections)}"
+                })
+            except Exception as e:
+                services.append({
+                    "name": "ChromaDB",
+                    "status": "degraded",
+                    "message": str(e)
+                })
             
             update_data = {
                 "type": "monitoring_update",
