@@ -1,11 +1,10 @@
-import { useState, useEffect } from 'react'
+import React, { useState, useEffect } from 'react'
 import axios from 'axios'
 import {
-    Activity, AlertCircle, Users, Mail, Search, Filter, Download,
-    RefreshCw, Calendar, Clock, Server, TrendingUp, AlertTriangle,
-    CheckCircle, XCircle, Eye, ChevronDown, ChevronUp
+    Activity, AlertCircle, RefreshCw, Clock, Server, TrendingUp, AlertTriangle,
+    CheckCircle, XCircle, ChevronDown, ChevronUp, Database, Trash2, Zap, Gauge
 } from 'lucide-react'
-import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts'
+import { XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, AreaChart, Area } from 'recharts'
 
 const AdminLogsDashboard = () => {
     const [activeTab, setActiveTab] = useState("overview")
@@ -14,6 +13,14 @@ const AdminLogsDashboard = () => {
     const [invitations, setInvitations] = useState([])
     const [errors, setErrors] = useState([])
     const [loading, setLoading] = useState(true)
+
+    // New state for enhanced dashboard
+    const [health, setHealth] = useState(null)
+    const [uxAnalytics, setUxAnalytics] = useState(null)
+    const [dbStats, setDbStats] = useState(null)
+    const [cleanupPreview, setCleanupPreview] = useState(null)
+    const [cleanupDays, setCleanupDays] = useState(30)
+    const [isCleaningUp, setIsCleaningUp] = useState(false)
 
     // Filters
     const [filters, setFilters] = useState({
@@ -36,6 +43,9 @@ const AdminLogsDashboard = () => {
 
     useEffect(() => {
         fetchMetrics()
+        fetchHealth()
+        fetchUxAnalytics()
+        fetchDbStats()
         if (activeTab === "logs") {
             fetchLogs()
         } else if (activeTab === "invitations") {
@@ -53,6 +63,57 @@ const AdminLogsDashboard = () => {
             console.error("Failed to fetch metrics", err)
         } finally {
             setLoading(false)
+        }
+    }
+
+    const fetchHealth = async () => {
+        try {
+            const res = await axios.get('/api/api/v1/admin/health')
+            setHealth(res.data)
+        } catch (err) {
+            console.error("Failed to fetch health", err)
+        }
+    }
+
+    const fetchUxAnalytics = async () => {
+        try {
+            const res = await axios.get('/api/api/v1/admin/ux-analytics?hours=24')
+            setUxAnalytics(res.data)
+        } catch (err) {
+            console.error("Failed to fetch UX analytics", err)
+        }
+    }
+
+    const fetchDbStats = async () => {
+        try {
+            const res = await axios.get('/api/api/v1/admin/database/stats')
+            setDbStats(res.data)
+        } catch (err) {
+            console.error("Failed to fetch DB stats", err)
+        }
+    }
+
+    const previewCleanup = async () => {
+        try {
+            const res = await axios.delete(`/api/api/v1/admin/logs/cleanup?older_than_days=${cleanupDays}&confirm=false`)
+            setCleanupPreview(res.data)
+        } catch (err) {
+            console.error("Failed to preview cleanup", err)
+        }
+    }
+
+    const executeCleanup = async () => {
+        if (!window.confirm(`Are you sure you want to delete ${cleanupPreview?.logs_to_delete} logs?`)) return
+        setIsCleaningUp(true)
+        try {
+            await axios.delete(`/api/api/v1/admin/logs/cleanup?older_than_days=${cleanupDays}&confirm=true`)
+            setCleanupPreview(null)
+            fetchMetrics()
+            fetchLogs()
+        } catch (err) {
+            console.error("Failed to cleanup", err)
+        } finally {
+            setIsCleaningUp(false)
         }
     }
 
@@ -148,8 +209,8 @@ const AdminLogsDashboard = () => {
                 <button
                     onClick={() => setActiveTab("overview")}
                     className={`pb-4 text-sm font-medium border-b-2 transition ${activeTab === "overview"
-                            ? 'border-indigo-600 text-indigo-600'
-                            : 'border-transparent text-slate-500 hover:text-slate-700'
+                        ? 'border-indigo-600 text-indigo-600'
+                        : 'border-transparent text-slate-500 hover:text-slate-700'
                         }`}
                 >
                     Overview
@@ -157,8 +218,8 @@ const AdminLogsDashboard = () => {
                 <button
                     onClick={() => setActiveTab("logs")}
                     className={`pb-4 text-sm font-medium border-b-2 transition ${activeTab === "logs"
-                            ? 'border-indigo-600 text-indigo-600'
-                            : 'border-transparent text-slate-500 hover:text-slate-700'
+                        ? 'border-indigo-600 text-indigo-600'
+                        : 'border-transparent text-slate-500 hover:text-slate-700'
                         }`}
                 >
                     System Logs
@@ -166,8 +227,8 @@ const AdminLogsDashboard = () => {
                 <button
                     onClick={() => setActiveTab("invitations")}
                     className={`pb-4 text-sm font-medium border-b-2 transition ${activeTab === "invitations"
-                            ? 'border-indigo-600 text-indigo-600'
-                            : 'border-transparent text-slate-500 hover:text-slate-700'
+                        ? 'border-indigo-600 text-indigo-600'
+                        : 'border-transparent text-slate-500 hover:text-slate-700'
                         }`}
                 >
                     Invitations
@@ -175,8 +236,8 @@ const AdminLogsDashboard = () => {
                 <button
                     onClick={() => setActiveTab("errors")}
                     className={`pb-4 text-sm font-medium border-b-2 transition ${activeTab === "errors"
-                            ? 'border-indigo-600 text-indigo-600'
-                            : 'border-transparent text-slate-500 hover:text-slate-700'
+                        ? 'border-indigo-600 text-indigo-600'
+                        : 'border-transparent text-slate-500 hover:text-slate-700'
                         }`}
                 >
                     Errors
@@ -186,7 +247,18 @@ const AdminLogsDashboard = () => {
             {/* Content */}
             <div className="flex-1 overflow-y-auto p-8">
                 {activeTab === "overview" && metrics && (
-                    <OverviewTab metrics={metrics} />
+                    <OverviewTab
+                        metrics={metrics}
+                        health={health}
+                        uxAnalytics={uxAnalytics}
+                        dbStats={dbStats}
+                        cleanupPreview={cleanupPreview}
+                        cleanupDays={cleanupDays}
+                        setCleanupDays={setCleanupDays}
+                        previewCleanup={previewCleanup}
+                        executeCleanup={executeCleanup}
+                        isCleaningUp={isCleaningUp}
+                    />
                 )}
 
                 {activeTab === "logs" && (
@@ -225,8 +297,19 @@ const AdminLogsDashboard = () => {
     )
 }
 
-// Overview Tab Component
-const OverviewTab = ({ metrics }) => {
+// Overview Tab Component - Enhanced with Health, Analytics, DB Stats
+const OverviewTab = ({
+    metrics,
+    health,
+    uxAnalytics,
+    dbStats,
+    cleanupPreview,
+    cleanupDays,
+    setCleanupDays,
+    previewCleanup,
+    executeCleanup,
+    isCleaningUp
+}) => {
     const levelColors = {
         DEBUG: "#94a3b8",
         INFO: "#3b82f6",
@@ -241,8 +324,55 @@ const OverviewTab = ({ metrics }) => {
         color: levelColors[level] || "#94a3b8"
     }))
 
+    const getHealthColor = (status) => {
+        switch (status) {
+            case 'healthy': return 'bg-emerald-100 text-emerald-700 border-emerald-200'
+            case 'degraded': return 'bg-amber-100 text-amber-700 border-amber-200'
+            case 'unhealthy': return 'bg-red-100 text-red-700 border-red-200'
+            default: return 'bg-slate-100 text-slate-700 border-slate-200'
+        }
+    }
+
+    const getHealthIcon = (status) => {
+        switch (status) {
+            case 'healthy': return <CheckCircle size={20} className="text-emerald-600" />
+            case 'degraded': return <AlertTriangle size={20} className="text-amber-600" />
+            case 'unhealthy': return <XCircle size={20} className="text-red-600" />
+            default: return <Clock size={20} className="text-slate-600" />
+        }
+    }
+
     return (
         <div className="space-y-6">
+            {/* System Health Status */}
+            {health && (
+                <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+                    <div className="flex items-center justify-between mb-4">
+                        <h3 className="font-bold text-slate-700 flex items-center gap-2">
+                            <Server size={18} />
+                            System Health
+                        </h3>
+                        <span className={`px-3 py-1 rounded-full text-sm font-bold ${getHealthColor(health.overall_status)}`}>
+                            {health.overall_status?.toUpperCase()}
+                        </span>
+                    </div>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                        {health.services?.map((service) => (
+                            <div key={service.name} className={`p-4 rounded-lg border ${getHealthColor(service.status)}`}>
+                                <div className="flex items-center justify-between mb-2">
+                                    <span className="font-bold">{service.name}</span>
+                                    {getHealthIcon(service.status)}
+                                </div>
+                                {service.response_time_ms && (
+                                    <div className="text-xs">{service.response_time_ms.toFixed(0)}ms</div>
+                                )}
+                                <div className="text-xs mt-1 opacity-75">{service.message}</div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
+
             {/* Key Metrics */}
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                 <MetricCard
@@ -252,30 +382,120 @@ const OverviewTab = ({ metrics }) => {
                     color="indigo"
                 />
                 <MetricCard
-                    title="Errors (24h)"
-                    value={`${metrics.error_rate_24h?.toFixed(1) || 0}%`}
+                    title="Error Rate (24h)"
+                    value={`${uxAnalytics?.error_rate_percent?.toFixed(1) || metrics.error_rate_24h?.toFixed(1) || 0}%`}
                     icon={AlertCircle}
                     color="red"
                 />
                 <MetricCard
-                    title="Avg Response Time"
-                    value={`${metrics.avg_response_time_ms?.toFixed(0) || 0}ms`}
-                    icon={Clock}
+                    title="Response p95"
+                    value={`${uxAnalytics?.response_time_p95_ms?.toFixed(0) || metrics.avg_response_time_ms?.toFixed(0) || 0}ms`}
+                    icon={Zap}
                     color="blue"
                 />
                 <MetricCard
-                    title="Total Invitations"
-                    value={metrics.total_invitations?.toLocaleString() || "0"}
-                    icon={Mail}
+                    title="API Requests (24h)"
+                    value={uxAnalytics?.total_requests?.toLocaleString() || metrics.api_requests_24h?.toLocaleString() || "0"}
+                    icon={TrendingUp}
                     color="green"
                 />
             </div>
+
+            {/* UX Analytics */}
+            {uxAnalytics && (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {/* Response Time Percentiles */}
+                    <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+                        <h3 className="font-bold text-slate-700 mb-4 flex items-center gap-2">
+                            <Gauge size={18} />
+                            Response Time Percentiles
+                        </h3>
+                        <div className="grid grid-cols-3 gap-4">
+                            <div className="text-center p-4 bg-slate-50 rounded-lg">
+                                <div className="text-2xl font-bold text-slate-900">{uxAnalytics.response_time_p50_ms?.toFixed(0)}ms</div>
+                                <div className="text-sm text-slate-500">p50 (Median)</div>
+                            </div>
+                            <div className="text-center p-4 bg-amber-50 rounded-lg">
+                                <div className="text-2xl font-bold text-amber-700">{uxAnalytics.response_time_p95_ms?.toFixed(0)}ms</div>
+                                <div className="text-sm text-slate-500">p95</div>
+                            </div>
+                            <div className="text-center p-4 bg-red-50 rounded-lg">
+                                <div className="text-2xl font-bold text-red-700">{uxAnalytics.response_time_p99_ms?.toFixed(0)}ms</div>
+                                <div className="text-sm text-slate-500">p99</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Slow Endpoints */}
+                    <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+                        <h3 className="font-bold text-slate-700 mb-4 flex items-center gap-2">
+                            <AlertTriangle size={18} />
+                            Slow Endpoints (avg &gt; 200ms)
+                        </h3>
+                        <div className="space-y-2 max-h-48 overflow-y-auto">
+                            {uxAnalytics.slow_endpoints?.length > 0 ? (
+                                uxAnalytics.slow_endpoints.map((ep, i) => (
+                                    <div key={i} className="flex justify-between items-center py-2 border-b border-slate-100 last:border-0">
+                                        <span className="text-sm font-mono text-slate-600 truncate max-w-[200px]">{ep.path}</span>
+                                        <span className="text-sm font-bold text-amber-600">{ep.avg_response_ms?.toFixed(0)}ms</span>
+                                    </div>
+                                ))
+                            ) : (
+                                <div className="text-sm text-slate-400 text-center py-4">All endpoints are fast! 🚀</div>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Database Stats */}
+            {dbStats && (
+                <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+                    <h3 className="font-bold text-slate-700 mb-4 flex items-center gap-2">
+                        <Database size={18} />
+                        Database Statistics
+                    </h3>
+                    <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-4">
+                        <div className="text-center p-3 bg-slate-50 rounded-lg">
+                            <div className="text-xl font-bold text-slate-900">{dbStats.connection_pool_size}</div>
+                            <div className="text-xs text-slate-500">Pool Size</div>
+                        </div>
+                        <div className="text-center p-3 bg-indigo-50 rounded-lg">
+                            <div className="text-xl font-bold text-indigo-700">{dbStats.connections_in_use}</div>
+                            <div className="text-xs text-slate-500">In Use</div>
+                        </div>
+                        <div className="text-center p-3 bg-emerald-50 rounded-lg">
+                            <div className="text-xl font-bold text-emerald-700">{dbStats.connections_available}</div>
+                            <div className="text-xs text-slate-500">Available</div>
+                        </div>
+                        <div className="text-center p-3 bg-slate-50 rounded-lg">
+                            <div className="text-xl font-bold text-slate-900">{dbStats.total_tables}</div>
+                            <div className="text-xs text-slate-500">Tables</div>
+                        </div>
+                        <div className="text-center p-3 bg-blue-50 rounded-lg">
+                            <div className="text-xl font-bold text-blue-700">{dbStats.total_db_size_mb?.toFixed(1)} MB</div>
+                            <div className="text-xs text-slate-500">Total Size</div>
+                        </div>
+                    </div>
+                    <div className="mt-4">
+                        <h4 className="text-sm font-bold text-slate-600 mb-2">Top Tables by Size</h4>
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                            {dbStats.table_sizes?.slice(0, 8).map((t, i) => (
+                                <div key={i} className="text-xs p-2 bg-slate-50 rounded flex justify-between">
+                                    <span className="font-mono truncate">{t.table}</span>
+                                    <span className="text-slate-500 ml-2">{t.size}</span>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* Charts */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
                     <h3 className="font-bold text-slate-700 mb-4">Logs by Level</h3>
-                    <ResponsiveContainer width="100%" height={300}>
+                    <ResponsiveContainer width="100%" height={250}>
                         <PieChart>
                             <Pie
                                 data={logsByLevelData}
@@ -296,42 +516,64 @@ const OverviewTab = ({ metrics }) => {
                     </ResponsiveContainer>
                 </div>
 
-                <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
-                    <h3 className="font-bold text-slate-700 mb-4">Logs by Component</h3>
-                    <ResponsiveContainer width="100%" height={300}>
-                        <BarChart data={Object.entries(metrics.logs_by_component || {}).map(([name, value]) => ({ name, value }))}>
-                            <CartesianGrid strokeDasharray="3 3" />
-                            <XAxis dataKey="name" />
-                            <YAxis />
-                            <Tooltip />
-                            <Bar dataKey="value" fill="#6366f1" />
-                        </BarChart>
-                    </ResponsiveContainer>
-                </div>
-            </div>
-
-            {/* Invitation Status */}
-            <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
-                <h3 className="font-bold text-slate-700 mb-4">Invitations by Status</h3>
-                <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-                    {Object.entries(metrics.invitations_by_status || {}).map(([status, count]) => (
-                        <div key={status} className="text-center">
-                            <div className="text-2xl font-bold text-slate-900">{count}</div>
-                            <div className="text-sm text-slate-500 capitalize">{status}</div>
-                        </div>
-                    ))}
-                </div>
-            </div>
-
-            {/* Deployment Info */}
-            {metrics.deployment_version && (
-                <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
-                    <h3 className="font-bold text-slate-700 mb-2">Deployment Information</h3>
-                    <div className="text-sm text-slate-600">
-                        <strong>Version:</strong> {metrics.deployment_version}
+                {/* Requests by Hour Chart */}
+                {uxAnalytics?.requests_by_hour?.length > 0 && (
+                    <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+                        <h3 className="font-bold text-slate-700 mb-4">Requests by Hour (Last 24h)</h3>
+                        <ResponsiveContainer width="100%" height={250}>
+                            <AreaChart data={uxAnalytics.requests_by_hour}>
+                                <CartesianGrid strokeDasharray="3 3" />
+                                <XAxis dataKey="hour" tick={{ fontSize: 10 }} interval="preserveStartEnd" />
+                                <YAxis />
+                                <Tooltip />
+                                <Area type="monotone" dataKey="count" stroke="#6366f1" fill="#c7d2fe" />
+                            </AreaChart>
+                        </ResponsiveContainer>
                     </div>
+                )}
+            </div>
+
+            {/* Log Cleanup */}
+            <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+                <h3 className="font-bold text-slate-700 mb-4 flex items-center gap-2">
+                    <Trash2 size={18} />
+                    Log Cleanup
+                </h3>
+                <div className="flex items-center gap-4 flex-wrap">
+                    <div className="flex items-center gap-2">
+                        <label className="text-sm text-slate-600">Delete logs older than</label>
+                        <input
+                            type="number"
+                            min="1"
+                            max="365"
+                            value={cleanupDays}
+                            onChange={(e) => setCleanupDays(parseInt(e.target.value) || 30)}
+                            className="w-20 p-2 border border-slate-200 rounded-lg text-sm"
+                        />
+                        <span className="text-sm text-slate-600">days</span>
+                    </div>
+                    <button
+                        onClick={previewCleanup}
+                        className="px-4 py-2 bg-slate-100 text-slate-700 rounded-lg font-medium text-sm hover:bg-slate-200 transition"
+                    >
+                        Preview
+                    </button>
+                    {cleanupPreview && (
+                        <div className="flex items-center gap-3">
+                            <span className="text-sm text-slate-600">
+                                <strong>{cleanupPreview.logs_to_delete}</strong> logs will be deleted
+                            </span>
+                            <button
+                                onClick={executeCleanup}
+                                disabled={isCleaningUp || cleanupPreview.logs_to_delete === 0}
+                                className="px-4 py-2 bg-red-600 text-white rounded-lg font-medium text-sm hover:bg-red-700 transition disabled:opacity-50"
+                            >
+                                {isCleaningUp ? 'Deleting...' : 'Delete Now'}
+                            </button>
+                        </div>
+                    )}
                 </div>
-            )}
+            </div>
         </div>
     )
 }
@@ -451,37 +693,87 @@ const LogsTab = ({
                         </thead>
                         <tbody className="divide-y divide-slate-100">
                             {logs.map((log) => (
-                                <tr key={log.id} className="hover:bg-slate-50/50">
-                                    <td className="p-4 text-slate-500 whitespace-nowrap text-xs">
-                                        {formatDate(log.created_at)}
-                                    </td>
-                                    <td className="p-4">
-                                        <span className={`px-2 py-1 rounded text-xs font-bold ${getLevelColor(log.level)}`}>
-                                            {log.level}
-                                        </span>
-                                    </td>
-                                    <td className="p-4 text-slate-600 font-mono text-xs">{log.component}</td>
-                                    <td className="p-4 text-slate-600 text-xs">{log.action}</td>
-                                    <td className="p-4 text-slate-700 max-w-md truncate">{log.message}</td>
-                                    <td className="p-4 text-slate-500 text-xs">{log.user_email || "-"}</td>
-                                    <td className="p-4">
-                                        {log.http_status && (
-                                            <span className={`px-2 py-1 rounded text-xs font-bold ${log.http_status < 400 ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"
-                                                }`}>
-                                                {log.http_status}
+                                <React.Fragment key={log.id}>
+                                    <tr className="hover:bg-slate-50/50">
+                                        <td className="p-4 text-slate-500 whitespace-nowrap text-xs">
+                                            {formatDate(log.created_at)}
+                                        </td>
+                                        <td className="p-4">
+                                            <span className={`px-2 py-1 rounded text-xs font-bold ${getLevelColor(log.level)}`}>
+                                                {log.level}
                                             </span>
-                                        )}
-                                    </td>
-                                    <td className="p-4 text-slate-500 text-xs">{log.response_time_ms || "-"}</td>
-                                    <td className="p-4">
-                                        <button
-                                            onClick={() => toggleLogExpand(log.id)}
-                                            className="text-indigo-600 hover:text-indigo-700"
-                                        >
-                                            {expandedLogs.has(log.id) ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
-                                        </button>
-                                    </td>
-                                </tr>
+                                        </td>
+                                        <td className="p-4 text-slate-600 font-mono text-xs">{log.component}</td>
+                                        <td className="p-4 text-slate-600 text-xs">{log.action}</td>
+                                        <td className="p-4 text-slate-700 max-w-md truncate">{log.message}</td>
+                                        <td className="p-4 text-slate-500 text-xs">{log.user_email || "-"}</td>
+                                        <td className="p-4">
+                                            {log.http_status && (
+                                                <span className={`px-2 py-1 rounded text-xs font-bold ${log.http_status < 400 ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"
+                                                    }`}>
+                                                    {log.http_status}
+                                                </span>
+                                            )}
+                                        </td>
+                                        <td className="p-4 text-slate-500 text-xs">{log.response_time_ms || "-"}</td>
+                                        <td className="p-4">
+                                            <button
+                                                onClick={() => toggleLogExpand(log.id)}
+                                                className="text-indigo-600 hover:text-indigo-700"
+                                            >
+                                                {expandedLogs.has(log.id) ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                                            </button>
+                                        </td>
+                                    </tr>
+                                    {/* Expanded detail row */}
+                                    {expandedLogs.has(log.id) && (
+                                        <tr className="bg-slate-50">
+                                            <td colSpan={9} className="p-4">
+                                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                                                    {/* Request Details */}
+                                                    <div className="space-y-2">
+                                                        <h4 className="font-bold text-slate-700">Request Details</h4>
+                                                        <div className="grid grid-cols-2 gap-2 text-xs">
+                                                            <div><span className="text-slate-500">Request ID:</span></div>
+                                                            <div className="font-mono text-slate-700">{log.request_id || "-"}</div>
+                                                            <div><span className="text-slate-500">Method:</span></div>
+                                                            <div className="font-mono text-slate-700">{log.http_method || "-"}</div>
+                                                            <div><span className="text-slate-500">Path:</span></div>
+                                                            <div className="font-mono text-slate-700">{log.http_path || "-"}</div>
+                                                            <div><span className="text-slate-500">IP Address:</span></div>
+                                                            <div className="font-mono text-slate-700">{log.ip_address || "-"}</div>
+                                                            <div><span className="text-slate-500">Company:</span></div>
+                                                            <div className="text-slate-700">{log.company_name || "-"}</div>
+                                                        </div>
+                                                    </div>
+
+                                                    {/* Error Details (if present) */}
+                                                    {log.error_type && (
+                                                        <div className="space-y-2">
+                                                            <h4 className="font-bold text-red-700">Error Details</h4>
+                                                            <div className="text-xs">
+                                                                <div className="text-slate-500">Type:</div>
+                                                                <div className="font-mono text-red-600">{log.error_type}</div>
+                                                                <div className="text-slate-500 mt-1">Message:</div>
+                                                                <div className="text-red-600">{log.error_message}</div>
+                                                            </div>
+                                                        </div>
+                                                    )}
+
+                                                    {/* Metadata (if present) */}
+                                                    {log.metadata && (
+                                                        <div className="md:col-span-2 space-y-2">
+                                                            <h4 className="font-bold text-slate-700">Metadata</h4>
+                                                            <pre className="bg-white p-2 rounded text-xs overflow-x-auto border border-slate-200">
+                                                                {JSON.stringify(log.metadata, null, 2)}
+                                                            </pre>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    )}
+                                </React.Fragment>
                             ))}
                         </tbody>
                     </table>

@@ -148,7 +148,6 @@ async def invite_user(
     company_name = current_user.company.name if current_user.company else "Headhunter"
     sender_name = current_user.full_name or "A colleague"
     
-    email_sent = False
     email_error = None
     try:
         await send_team_invite_email(
@@ -158,7 +157,6 @@ async def invite_user(
             company_name=company_name,
             role=new_user.role
         )
-        email_sent = True
         invitation.email_sent = True
         invitation.email_sent_at = datetime.now(timezone.utc)
         invitation.sent_at = datetime.now(timezone.utc)

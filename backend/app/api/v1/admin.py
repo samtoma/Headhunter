@@ -16,7 +16,7 @@ from typing import List, Optional, Dict, Any
 from datetime import datetime, timedelta, timezone
 from pydantic import BaseModel, ConfigDict
 from app.core.database import get_db
-from app.models.models import SystemLog, UserInvitation, User, Company, ActivityLog, UserRole
+from app.models.models import SystemLog, UserInvitation, User, Company, UserRole
 from app.api.deps import get_current_user
 import json
 
@@ -82,6 +82,43 @@ class SystemMetrics(BaseModel):
     api_requests_24h: int
     deployment_version: Optional[str] = None
 
+class ServiceHealth(BaseModel):
+    """Health status for a single service"""
+    name: str
+    status: str  # "healthy", "degraded", "unhealthy"
+    response_time_ms: Optional[float] = None
+    message: Optional[str] = None
+    details: Optional[Dict[str, Any]] = None
+
+class SystemHealthResponse(BaseModel):
+    """Overall system health status"""
+    overall_status: str  # "healthy", "degraded", "unhealthy"
+    services: List[ServiceHealth]
+    timestamp: datetime
+
+class UXAnalyticsResponse(BaseModel):
+    """UX analytics metrics"""
+    period_hours: int
+    total_requests: int
+    error_count: int
+    error_rate_percent: float
+    response_time_p50_ms: float
+    response_time_p95_ms: float
+    response_time_p99_ms: float
+    slow_endpoints: List[Dict[str, Any]]
+    error_endpoints: List[Dict[str, Any]]
+    requests_by_hour: List[Dict[str, Any]]
+
+class DatabaseStatsResponse(BaseModel):
+    """Database statistics"""
+    connection_pool_size: int
+    connections_in_use: int
+    connections_available: int
+    pool_overflow: int
+    total_tables: int
+    table_sizes: List[Dict[str, Any]]
+    total_db_size_mb: float
+    
 class LogSearchParams(BaseModel):
     level: Optional[List[str]] = None
     component: Optional[List[str]] = None
@@ -130,7 +167,7 @@ def get_system_logs(
     
     # Apply filters
     if level:
-        levels = [l.strip().upper() for l in level.split(",")]
+        levels = [lvl.strip().upper() for lvl in level.split(",")]
         query = query.filter(SystemLog.level.in_(levels))
     
     if component:
@@ -172,10 +209,23 @@ def get_system_logs(
     query = query.order_by(desc(SystemLog.created_at))
     
     # Pagination
-    total = query.count()
     logs = query.offset(offset).limit(limit).all()
     
-    # Enrich with user and company info
+    # Batch-fetch users and companies to avoid N+1 queries
+    user_ids = {log.user_id for log in logs if log.user_id}
+    company_ids = {log.company_id for log in logs if log.company_id}
+    
+    users_map = {}
+    if user_ids:
+        users = db.query(User).filter(User.id.in_(user_ids)).all()
+        users_map = {u.id: u.email for u in users}
+    
+    companies_map = {}
+    if company_ids:
+        companies = db.query(Company).filter(Company.id.in_(company_ids)).all()
+        companies_map = {c.id: c.name for c in companies}
+    
+    # Build result with pre-fetched data
     result = []
     for log in logs:
         log_dict = {
@@ -198,20 +248,9 @@ def get_system_logs(
             "deployment_environment": log.deployment_environment,
             "metadata": json.loads(log.extra_metadata) if log.extra_metadata else None,
             "created_at": log.created_at,
-            "user_email": None,
-            "company_name": None
+            "user_email": users_map.get(log.user_id),
+            "company_name": companies_map.get(log.company_id)
         }
-        
-        if log.user_id:
-            user = db.query(User).filter(User.id == log.user_id).first()
-            if user:
-                log_dict["user_email"] = user.email
-        
-        if log.company_id:
-            company = db.query(Company).filter(Company.id == log.company_id).first()
-            if company:
-                log_dict["company_name"] = company.name
-        
         result.append(log_dict)
     
     return result
@@ -306,9 +345,23 @@ def get_user_invitations(
     
     query = query.order_by(desc(UserInvitation.created_at))
     
-    total = query.count()
     invitations = query.offset(offset).limit(limit).all()
     
+    # Batch-fetch users and companies to avoid N+1 queries
+    inviter_ids = {inv.invited_by for inv in invitations}
+    company_ids = {inv.company_id for inv in invitations}
+    
+    users_map = {}
+    if inviter_ids:
+        users = db.query(User).filter(User.id.in_(inviter_ids)).all()
+        users_map = {u.id: u.email for u in users}
+    
+    companies_map = {}
+    if company_ids:
+        companies = db.query(Company).filter(Company.id.in_(company_ids)).all()
+        companies_map = {c.id: c.name for c in companies}
+    
+    # Build result with pre-fetched data
     result = []
     for inv in invitations:
         inv_dict = {
@@ -321,25 +374,14 @@ def get_user_invitations(
             "expires_at": inv.expires_at,
             "accepted_at": inv.accepted_at,
             "invited_by": inv.invited_by,
-            "invited_by_email": None,
+            "invited_by_email": users_map.get(inv.invited_by),
             "company_id": inv.company_id,
-            "company_name": None,
+            "company_name": companies_map.get(inv.company_id),
             "email_sent": inv.email_sent,
             "email_sent_at": inv.email_sent_at,
             "email_error": inv.email_error,
             "created_at": inv.created_at
         }
-        
-        # Get inviter email
-        inviter = db.query(User).filter(User.id == inv.invited_by).first()
-        if inviter:
-            inv_dict["invited_by_email"] = inviter.email
-        
-        # Get company name
-        company = db.query(Company).filter(Company.id == inv.company_id).first()
-        if company:
-            inv_dict["company_name"] = company.name
-        
         result.append(inv_dict)
     
     return result
@@ -513,25 +555,54 @@ def get_system_metrics(
 def get_recent_errors(
     limit: int = Query(50, ge=1, le=500),
     company_id: Optional[int] = Query(None),
+    include_4xx: bool = Query(True, description="Include 4xx client errors"),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
     """
     Get recent errors for debugging.
+    Includes both exceptions (error_type set) and HTTP 4xx/5xx responses.
     Super admin only.
     """
     require_super_admin(current_user)
     
-    query = db.query(SystemLog).filter(
-        SystemLog.error_type.isnot(None)
-    )
+    # Include both exceptions and HTTP error responses
+    if include_4xx:
+        query = db.query(SystemLog).filter(
+            or_(
+                SystemLog.error_type.isnot(None),
+                SystemLog.http_status >= 400
+            )
+        )
+    else:
+        # Only 5xx server errors and exceptions
+        query = db.query(SystemLog).filter(
+            or_(
+                SystemLog.error_type.isnot(None),
+                SystemLog.http_status >= 500
+            )
+        )
     
     if company_id:
         query = query.filter(SystemLog.company_id == company_id)
     
     errors = query.order_by(desc(SystemLog.created_at)).limit(limit).all()
     
-    # Enrich with user and company info
+    # Batch-fetch users and companies to avoid N+1 queries
+    user_ids = {log.user_id for log in errors if log.user_id}
+    company_ids = {log.company_id for log in errors if log.company_id}
+    
+    users_map = {}
+    if user_ids:
+        users = db.query(User).filter(User.id.in_(user_ids)).all()
+        users_map = {u.id: u.email for u in users}
+    
+    companies_map = {}
+    if company_ids:
+        companies = db.query(Company).filter(Company.id.in_(company_ids)).all()
+        companies_map = {c.id: c.name for c in companies}
+    
+    # Build result with pre-fetched data
     result = []
     for log in errors:
         log_dict = {
@@ -554,21 +625,339 @@ def get_recent_errors(
             "deployment_environment": log.deployment_environment,
             "metadata": json.loads(log.extra_metadata) if log.extra_metadata else None,
             "created_at": log.created_at,
-            "user_email": None,
-            "company_name": None
+            "user_email": users_map.get(log.user_id),
+            "company_name": companies_map.get(log.company_id)
         }
-        
-        if log.user_id:
-            user = db.query(User).filter(User.id == log.user_id).first()
-            if user:
-                log_dict["user_email"] = user.email
-        
-        if log.company_id:
-            company = db.query(Company).filter(Company.id == log.company_id).first()
-            if company:
-                log_dict["company_name"] = company.name
-        
         result.append(log_dict)
     
     return result
 
+# ==================== System Health Endpoint ====================
+
+@router.get("/health", response_model=SystemHealthResponse)
+def get_system_health(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Get comprehensive system health status.
+    Checks Database, Redis, Celery, and ChromaDB.
+    Super admin only.
+    """
+    require_super_admin(current_user)
+    
+    import time
+    import os
+    from sqlalchemy import text
+    
+    services = []
+    
+    # Check Database
+    try:
+        start = time.time()
+        db.execute(text("SELECT 1"))
+        db_time = (time.time() - start) * 1000
+        
+        # Get pool status
+        pool = db.get_bind().pool
+        pool_status = pool.status()
+        
+        services.append(ServiceHealth(
+            name="Database",
+            status="healthy" if db_time < 100 else "degraded",
+            response_time_ms=round(db_time, 2),
+            message="PostgreSQL connection OK",
+            details={"pool_status": pool_status}
+        ))
+    except Exception as e:
+        services.append(ServiceHealth(
+            name="Database",
+            status="unhealthy",
+            message=str(e)
+        ))
+    
+    # Check Redis
+    try:
+        import redis
+        redis_url = os.getenv("REDIS_URL", "redis://redis:6379/0")
+        start = time.time()
+        r = redis.from_url(redis_url)
+        r.ping()
+        redis_time = (time.time() - start) * 1000
+        
+        services.append(ServiceHealth(
+            name="Redis",
+            status="healthy" if redis_time < 100 else "degraded",
+            response_time_ms=round(redis_time, 2),
+            message="Redis connection OK"
+        ))
+    except Exception as e:
+        services.append(ServiceHealth(
+            name="Redis",
+            status="unhealthy",
+            message=str(e)
+        ))
+    
+    # Check Celery (via Redis queue)
+    try:
+        import redis
+        redis_url = os.getenv("REDIS_URL", "redis://redis:6379/0")
+        r = redis.from_url(redis_url)
+        queue_length = r.llen("celery")
+        
+        services.append(ServiceHealth(
+            name="Celery",
+            status="healthy",
+            message=f"Queue length: {queue_length}",
+            details={"queue_length": queue_length}
+        ))
+    except Exception as e:
+        services.append(ServiceHealth(
+            name="Celery",
+            status="unhealthy",
+            message=str(e)
+        ))
+    
+    # Check ChromaDB
+    try:
+        start = time.time()
+        import chromadb
+        chroma_host = os.getenv("CHROMA_HOST", "vector_db")
+        chroma_port = int(os.getenv("CHROMA_PORT", "8000"))
+        client = chromadb.HttpClient(host=chroma_host, port=chroma_port)
+        collections = client.list_collections()
+        chroma_time = (time.time() - start) * 1000
+        
+        services.append(ServiceHealth(
+            name="ChromaDB",
+            status="healthy" if chroma_time < 500 else "degraded",
+            response_time_ms=round(chroma_time, 2),
+            message=f"Collections: {len(collections)}",
+            details={"collections": [c.name for c in collections]}
+        ))
+    except Exception as e:
+        services.append(ServiceHealth(
+            name="ChromaDB",
+            status="degraded",
+            message=str(e)
+        ))
+    
+    # Determine overall status
+    statuses = [s.status for s in services]
+    if "unhealthy" in statuses:
+        overall = "unhealthy"
+    elif "degraded" in statuses:
+        overall = "degraded"
+    else:
+        overall = "healthy"
+    
+    return SystemHealthResponse(
+        overall_status=overall,
+        services=services,
+        timestamp=datetime.now(timezone.utc)
+    )
+
+# ==================== UX Analytics Endpoint ====================
+
+@router.get("/ux-analytics", response_model=UXAnalyticsResponse)
+def get_ux_analytics(
+    hours: int = Query(24, ge=1, le=168, description="Analysis period in hours"),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Get UX analytics including response times and error rates.
+    Super admin only.
+    """
+    require_super_admin(current_user)
+    
+    now = datetime.now(timezone.utc)
+    start_time = now - timedelta(hours=hours)
+    
+    # Get all logs in period with response times
+    logs = db.query(SystemLog).filter(
+        SystemLog.created_at >= start_time,
+        SystemLog.response_time_ms.isnot(None)
+    ).all()
+    
+    total_requests = len(logs)
+    error_logs = [log for log in logs if log.http_status and log.http_status >= 400]
+    error_count = len(error_logs)
+    error_rate = (error_count / total_requests * 100) if total_requests > 0 else 0
+    
+    # Calculate percentiles
+    response_times = sorted([log.response_time_ms for log in logs if log.response_time_ms])
+    
+    def percentile(data, p):
+        if not data:
+            return 0
+        k = (len(data) - 1) * p / 100
+        f = int(k)
+        c = f + 1 if f + 1 < len(data) else f
+        return data[f] + (data[c] - data[f]) * (k - f) if c != f else data[f]
+    
+    p50 = percentile(response_times, 50)
+    p95 = percentile(response_times, 95)
+    p99 = percentile(response_times, 99)
+    
+    # Slow endpoints (avg > 500ms)
+    from collections import defaultdict
+    endpoint_times = defaultdict(list)
+    endpoint_errors = defaultdict(int)
+    
+    for log in logs:
+        if log.http_path:
+            endpoint_times[log.http_path].append(log.response_time_ms or 0)
+            if log.http_status and log.http_status >= 400:
+                endpoint_errors[log.http_path] += 1
+    
+    slow_endpoints = []
+    for path, times in endpoint_times.items():
+        avg_time = sum(times) / len(times)
+        if avg_time > 200:  # More than 200ms average
+            slow_endpoints.append({
+                "path": path,
+                "avg_response_ms": round(avg_time, 2),
+                "request_count": len(times),
+                "max_response_ms": max(times)
+            })
+    slow_endpoints.sort(key=lambda x: x["avg_response_ms"], reverse=True)
+    
+    # Error endpoints
+    error_endpoints = []
+    for path, err_count in endpoint_errors.items():
+        total = len(endpoint_times[path])
+        error_endpoints.append({
+            "path": path,
+            "error_count": err_count,
+            "total_requests": total,
+            "error_rate": round(err_count / total * 100, 2)
+        })
+    error_endpoints.sort(key=lambda x: x["error_count"], reverse=True)
+    
+    # Requests by hour
+    from collections import Counter
+    hours_counter = Counter()
+    for log in logs:
+        hour_key = log.created_at.strftime("%Y-%m-%d %H:00")
+        hours_counter[hour_key] += 1
+    
+    requests_by_hour = [
+        {"hour": k, "count": v}
+        for k, v in sorted(hours_counter.items())
+    ]
+    
+    return UXAnalyticsResponse(
+        period_hours=hours,
+        total_requests=total_requests,
+        error_count=error_count,
+        error_rate_percent=round(error_rate, 2),
+        response_time_p50_ms=round(p50, 2),
+        response_time_p95_ms=round(p95, 2),
+        response_time_p99_ms=round(p99, 2),
+        slow_endpoints=slow_endpoints[:10],
+        error_endpoints=error_endpoints[:10],
+        requests_by_hour=requests_by_hour[-24:]  # Last 24 hours
+    )
+
+# ==================== Database Stats Endpoint ====================
+
+@router.get("/database/stats", response_model=DatabaseStatsResponse)
+def get_database_stats(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Get database statistics including connection pool and table sizes.
+    Super admin only.
+    """
+    require_super_admin(current_user)
+    
+    from sqlalchemy import text
+    
+    # Get connection pool stats
+    pool = db.get_bind().pool
+    
+    # Get table sizes
+    table_sizes_query = text("""
+        SELECT 
+            tablename as table_name,
+            pg_size_pretty(pg_total_relation_size(schemaname || '.' || tablename)) as total_size,
+            pg_total_relation_size(schemaname || '.' || tablename) as size_bytes
+        FROM pg_tables 
+        WHERE schemaname = 'public'
+        ORDER BY pg_total_relation_size(schemaname || '.' || tablename) DESC
+        LIMIT 20
+    """)
+    
+    try:
+        table_sizes_result = db.execute(table_sizes_query).fetchall()
+        table_sizes = [
+            {"table": row[0], "size": row[1], "size_bytes": row[2]}
+            for row in table_sizes_result
+        ]
+    except Exception:
+        table_sizes = []
+    
+    # Get total database size
+    db_size_query = text("SELECT pg_database_size(current_database())")
+    try:
+        db_size = db.execute(db_size_query).scalar() or 0
+        db_size_mb = db_size / (1024 * 1024)
+    except Exception:
+        db_size_mb = 0
+    
+    return DatabaseStatsResponse(
+        connection_pool_size=pool.size(),
+        connections_in_use=pool.checkedout(),
+        connections_available=pool.size() - pool.checkedout(),
+        pool_overflow=pool.overflow(),
+        total_tables=len(table_sizes),
+        table_sizes=table_sizes,
+        total_db_size_mb=round(db_size_mb, 2)
+    )
+
+# ==================== Log Cleanup Endpoint ====================
+
+@router.delete("/logs/cleanup")
+def cleanup_old_logs(
+    older_than_days: int = Query(30, ge=1, le=365, description="Delete logs older than N days"),
+    confirm: bool = Query(False, description="Must be true to execute deletion"),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Delete system logs older than specified days.
+    Requires confirm=true to execute.
+    Super admin only.
+    """
+    require_super_admin(current_user)
+    
+    cutoff_date = datetime.now(timezone.utc) - timedelta(days=older_than_days)
+    
+    # Count logs to be deleted
+    count = db.query(func.count(SystemLog.id)).filter(
+        SystemLog.created_at < cutoff_date
+    ).scalar() or 0
+    
+    if not confirm:
+        return {
+            "action": "preview",
+            "logs_to_delete": count,
+            "older_than_days": older_than_days,
+            "cutoff_date": cutoff_date.isoformat(),
+            "message": "Set confirm=true to delete these logs"
+        }
+    
+    # Execute deletion
+    deleted = db.query(SystemLog).filter(
+        SystemLog.created_at < cutoff_date
+    ).delete(synchronize_session=False)
+    db.commit()
+    
+    return {
+        "action": "deleted",
+        "logs_deleted": deleted,
+        "older_than_days": older_than_days,
+        "cutoff_date": cutoff_date.isoformat()
+    }

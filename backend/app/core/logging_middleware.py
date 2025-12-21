@@ -6,21 +6,27 @@ Tracks all API requests and responses, including:
 - Response status, timing
 - User context
 - Errors and exceptions
+
+Uses background threading to avoid blocking request processing.
 """
 
 import time
 import uuid
 import json
 from typing import Callable
+from concurrent.futures import ThreadPoolExecutor
 from fastapi import Request, Response
 from starlette.middleware.base import BaseHTTPMiddleware
-from starlette.responses import StreamingResponse
 from sqlalchemy.orm import Session
 from app.core.database import SessionLocal
 from app.models.models import SystemLog
 from app.core.logging import get_logger
 
 logger = get_logger(__name__)
+
+# Thread pool for non-blocking database writes
+# Using max 2 workers to limit concurrent DB connections
+_log_executor = ThreadPoolExecutor(max_workers=2, thread_name_prefix="log_writer")
 
 
 class LoggingMiddleware(BaseHTTPMiddleware):
@@ -157,8 +163,40 @@ class LoggingMiddleware(BaseHTTPMiddleware):
         metadata: str = None
     ):
         """
-        Write log entry to SystemLog table.
-        Uses a separate database session to avoid transaction issues.
+        Write log entry to SystemLog table asynchronously.
+        Uses a thread pool to avoid blocking request processing.
+        """
+        # Submit to thread pool for non-blocking execution
+        _log_executor.submit(
+            self._write_log_sync,
+            level, component, action, message, user_id, company_id,
+            request_id, http_method, http_path, http_status,
+            response_time_ms, ip_address, user_agent,
+            error_type, error_message, stack_trace, metadata
+        )
+    
+    def _write_log_sync(
+        self,
+        level: str,
+        component: str,
+        action: str,
+        message: str,
+        user_id: int,
+        company_id: int,
+        request_id: str,
+        http_method: str,
+        http_path: str,
+        http_status: int,
+        response_time_ms: int,
+        ip_address: str,
+        user_agent: str,
+        error_type: str,
+        error_message: str,
+        stack_trace: str,
+        metadata: str
+    ):
+        """
+        Synchronous database write - runs in background thread.
         """
         try:
             db: Session = SessionLocal()
@@ -199,4 +237,3 @@ class LoggingMiddleware(BaseHTTPMiddleware):
         except Exception as e:
             # Fallback to file logging if database logging fails
             logger.error(f"Failed to create database session for logging: {e}", exc_info=True)
-

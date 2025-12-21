@@ -48,18 +48,24 @@ def test_company_super_admin(client, db):
     db.add(c2)
     db.commit()
     
-    # 1. List Companies
+    # 1. Super Admin without company_id gets null from /companies/me
+    # This is the fix for noisy 404 error logs
+    res = client.get("/companies/me")
+    assert res.status_code == 200
+    assert res.json() is None, "Super Admin should get null, not 404"
+    
+    # 2. List Companies
     res = client.get("/companies/")
     assert res.status_code == 200
     data = res.json()
     assert len(data) >= 2
     
-    # 2. Update Company by ID
+    # 3. Update Company by ID
     res = client.patch(f"/companies/{c1.id}", json={"name": "C1 Updated"})
     assert res.status_code == 200
     assert res.json()["name"] == "C1 Updated"
     
-    # 3. Get Company Users
+    # 4. Get Company Users
     # Add user to C1
     u1 = User(email="u1@c1.com", hashed_password="pw", company_id=c1.id, role="recruiter")
     db.add(u1)
@@ -69,7 +75,7 @@ def test_company_super_admin(client, db):
     assert res.status_code == 200
     assert len(res.json()) >= 1
     
-    # 4. Get Company Jobs
+    # 5. Get Company Jobs
     res = client.get(f"/companies/{c1.id}/jobs")
     assert res.status_code == 200
 
@@ -83,8 +89,11 @@ def test_company_edge_cases(client, db):
     token = create_access_token(data={"sub": "nocomp@test.com"})
     client.headers = {"Authorization": f"Bearer {token}"}
     
+    # Users without company now get 200 with null (not 404)
+    # This prevents noisy error logs for Super Admins
     res = client.get("/companies/me")
-    assert res.status_code == 404
+    assert res.status_code == 200
+    assert res.json() is None
     
     res = client.patch("/companies/me", json={"name": "New"})
     assert res.status_code == 404

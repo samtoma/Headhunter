@@ -4,7 +4,6 @@ Tests for company profile extraction and regeneration functionality.
 import pytest
 from unittest.mock import patch, AsyncMock, MagicMock
 import json
-from app.models.models import UserRole
 
 
 # Mock HTML content for testing

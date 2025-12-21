@@ -12,13 +12,14 @@ router = APIRouter(
     tags=["companies"]
 )
 
-@router.get("/me", response_model=schemas.CompanyOut)
+@router.get("/me", response_model=schemas.CompanyOut | None)
 def get_my_company(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user)
 ):
+    # Super Admin users don't belong to any company - return None instead of 404
     if not current_user.company_id:
-        raise HTTPException(status_code=404, detail="User does not belong to any company")
+        return None
     
     company = db.query(models.Company).filter(models.Company.id == current_user.company_id).first()
     if not company:

@@ -252,7 +252,7 @@ class AuditLogger:
                 )
                 db.add(system_log)
                 db.commit()
-            except Exception as e:
+            except Exception:
                 db.rollback()
                 # Don't log to avoid recursion - just fail silently
                 pass

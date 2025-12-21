@@ -1,3 +1,49 @@
+# Release Notes - v1.16.0 (Developer Dashboard & Monitoring)
+
+**Release Date:** 2025-12-21
+
+## Summary
+
+This release introduces a comprehensive **Developer & Support Monitoring Dashboard** with real-time system health checks, UX analytics, database statistics, and log management capabilities. It also includes a fix for Super Admin users accessing company endpoints.
+
+## 🚀 Key Features
+
+### 🖥️ Enhanced Admin Dashboard
+
+- **System Health Monitoring:** Real-time health checks for Database, Redis, Celery, and ChromaDB with status indicators and response times.
+- **UX Analytics:** Response time percentiles (p50, p95, p99), error rates, slow endpoint detection, and hourly request distribution charts.
+- **Database Statistics:** Connection pool monitoring, table sizes, and total database size metrics.
+- **Log Cleanup:** Preview and execute cleanup of old logs to manage database size.
+
+### 📊 New API Endpoints (Super Admin Only)
+
+| Endpoint | Description |
+|----------|-------------|
+| `GET /admin/health` | System-wide health check for all services |
+| `GET /admin/ux-analytics` | Response time percentiles and error analytics |
+| `GET /admin/database/stats` | Connection pool and table size statistics |
+| `DELETE /admin/logs/cleanup` | Preview and execute old log deletion |
+
+### 🐛 Bug Fixes
+
+- **Super Admin 404 Fix:** `/companies/me` now returns `null` with 200 OK for Super Admin users instead of throwing a 404 error, eliminating noisy error logs.
+
+## 🛠️ Technical Details
+
+- **Backend:**
+  - New endpoints in `admin.py` for health, UX analytics, and database monitoring.
+  - Enhanced `logging_middleware.py` for comprehensive request tracking.
+  - New database migration for SystemLog composite indexes.
+- **Frontend:**
+  - Enhanced `AdminLogsDashboard.jsx` with health status cards, percentile gauges, and area charts.
+
+## ✅ Verification
+
+- **Unit Tests:** Updated `test_companies.py` to reflect new null response behavior.
+- **Manual Verification:** Tested health endpoints and dashboard rendering.
+
+---
+
 # Release Notes - v1.15.0 (Auto Invitations & Cancellations)
 
 **Release Date:** 2025-12-19
