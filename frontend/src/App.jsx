@@ -15,44 +15,43 @@ const API_URL = '/api'; // Use relative path to leverage Vite proxy
 
 function VersionCheck() {
     useEffect(() => {
+        const token = localStorage.getItem('token')
+        
+        // If authenticated, use WebSocket (handled by sync WebSocket in useHeadhunterData)
+        // Otherwise, do initial check via HTTP
         const checkVersion = async () => {
             try {
-                // Add timestamp to prevent browser caching of the version endpoint
                 const response = await axios.get(`${API_URL}/version?t=${new Date().getTime()}`);
                 const serverVersion = response.data.version;
                 const localVersion = localStorage.getItem('app_version');
 
-                console.log(`Version Check: Local=${localVersion}, Server=${serverVersion}`);
-
                 if (localVersion && localVersion !== serverVersion) {
                     console.log(`Version mismatch! Forcing hard reload...`);
-
-                    // Clear all caches
                     localStorage.clear();
                     sessionStorage.clear();
-
-                    // Clear service worker caches if available
                     if ('caches' in window) {
                         caches.keys().then(names => {
                             names.forEach(name => caches.delete(name));
                         });
                     }
-
-                    // Set new version and force hard reload
                     localStorage.setItem('app_version', serverVersion);
-                    window.location.reload(true); // Force hard reload from server
+                    window.location.reload(true);
                 } else if (!localVersion) {
                     localStorage.setItem('app_version', serverVersion);
                 }
             } catch (error) {
-                console.error("Failed to check version:", error);
+                // Silently fail - version check is not critical for initial load
             }
         };
 
-        checkVersion();
-        // Check every 5 minutes
-        const interval = setInterval(checkVersion, 5 * 60 * 1000);
-        return () => clearInterval(interval);
+        // Only do initial check if not authenticated (WebSocket will handle updates when authenticated)
+        if (!token) {
+            checkVersion();
+            // Fallback: check every 5 minutes if not authenticated
+            const interval = setInterval(checkVersion, 5 * 60 * 1000);
+            return () => clearInterval(interval);
+        }
+        // If authenticated, WebSocket in useHeadhunterData will handle version updates
     }, []);
 
     return null;

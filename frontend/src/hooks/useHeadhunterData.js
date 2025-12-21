@@ -43,8 +43,10 @@ export const useHeadhunterData = () => {
     const [sortBy, setSortBy] = useState("newest")
     const [selectedJobId, setSelectedJobId] = useState(null)
 
-    // Polling State
+    // WebSocket State
     const processingIdsRef = useRef(new Set())
+    const wsRef = useRef(null)
+    const reconnectTimeoutRef = useRef(null)
 
     const fetchJobs = useCallback(async () => {
         if (!token) {
@@ -170,53 +172,133 @@ export const useHeadhunterData = () => {
         fetchSettings()
     }, [fetchJobs, fetchStats, fetchSettings])
 
-    // Smart Polling with Versioning
+    // WebSocket-based Real-time Sync (replaces polling)
     useEffect(() => {
-        const pollStatus = async () => {
-            if (!token) return
-            try {
-                // Check version
-                const versionRes = await axios.get('/api/sync/version')
-                const serverVersion = versionRes.data.version
-                const localVersion = localStorage.getItem('data_version')
+        if (!token) return
 
-                if (serverVersion !== localVersion) {
-                    console.log("New version detected, refreshing...", serverVersion)
-                    localStorage.setItem('data_version', serverVersion)
-                    fetchProfiles(page, false)
-                    fetchJobs()
-                    fetchStats()
-                    fetchSettings() // Refresh settings too
-                }
+        // Determine WebSocket URL
+        const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
+        const wsHost = window.location.host
+        const isDev = import.meta.env.DEV
+        const wsPath = isDev 
+            ? '/api/api/sync/ws/sync'  // Vite proxy will rewrite /api to empty
+            : '/api/sync/ws/sync'       // Direct path in production
+        const wsUrl = `${wsProtocol}//${wsHost}${wsPath}?token=${encodeURIComponent(token)}`
 
-                // Also check processing status for specific CVs
-                const res = await axios.get('/api/cv/status')
-                const currentIds = new Set(res.data.processing_ids)
-                const prevIds = processingIdsRef.current
+        try {
+            wsRef.current = new WebSocket(wsUrl)
 
-                // Check if any ID finished processing
-                let somethingFinished = false
-                for (let id of prevIds) {
-                    if (!currentIds.has(id)) {
-                        somethingFinished = true
-                        break
-                    }
-                }
-
-                if (somethingFinished) {
-                    fetchProfiles(1, false)
-                    fetchJobs()
-                }
-
-                processingIdsRef.current = currentIds
-            } catch (e) {
-                console.error("Polling error", e)
+            wsRef.current.onopen = () => {
+                console.log('✅ Sync WebSocket connected')
             }
+
+            wsRef.current.onmessage = (event) => {
+                try {
+                    const data = JSON.parse(event.data)
+                    
+                    if (data.type === 'initial_state') {
+                        // Set initial state
+                        if (data.data_version) {
+                            localStorage.setItem('data_version', data.data_version)
+                        }
+                        if (data.processing_ids) {
+                            processingIdsRef.current = new Set(data.processing_ids)
+                        }
+                        if (data.app_version) {
+                            const localAppVersion = localStorage.getItem('app_version')
+                            if (localAppVersion && localAppVersion !== data.app_version) {
+                                // App version changed, force reload
+                                console.log('App version changed, reloading...')
+                                localStorage.clear()
+                                sessionStorage.clear()
+                                window.location.reload()
+                            }
+                        }
+                    } else if (data.type === 'update') {
+                        // Handle data version change
+                        if (data.data_version) {
+                            const localVersion = localStorage.getItem('data_version')
+                            if (data.data_version !== localVersion) {
+                                console.log("Data version changed, refreshing...", data.data_version)
+                                localStorage.setItem('data_version', data.data_version)
+                                fetchProfiles(page, false)
+                                fetchJobs()
+                                fetchStats()
+                                fetchSettings()
+                            }
+                        }
+                        
+                        // Handle CV processing status changes
+                        if (data.processing_ids !== undefined) {
+                            const currentIds = new Set(data.processing_ids)
+                            const prevIds = processingIdsRef.current
+                            
+                            // Check if any CV finished processing
+                            const finishedIds = Array.from(prevIds).filter(id => !currentIds.has(id))
+                            if (finishedIds.length > 0) {
+                                console.log("CVs finished processing:", finishedIds)
+                                fetchProfiles(1, false)
+                                fetchJobs()
+                            }
+                            
+                            processingIdsRef.current = currentIds
+                        }
+                        
+                        // Handle CV finished notifications
+                        if (data.cv_finished && data.cv_finished.length > 0) {
+                            console.log("CVs finished processing:", data.cv_finished)
+                            fetchProfiles(1, false)
+                            fetchJobs()
+                        }
+                        
+                        // Handle app version change
+                        if (data.app_version) {
+                            const localAppVersion = localStorage.getItem('app_version')
+                            if (localAppVersion && localAppVersion !== data.app_version) {
+                                console.log('App version changed, reloading...')
+                                localStorage.clear()
+                                sessionStorage.clear()
+                                window.location.reload()
+                            }
+                        }
+                    } else if (data.type === 'error') {
+                        console.error('Sync WebSocket error:', data.message)
+                    }
+                } catch (e) {
+                    console.error('Error parsing WebSocket message:', e)
+                }
+            }
+
+            wsRef.current.onerror = (error) => {
+                console.error('❌ Sync WebSocket error:', error)
+            }
+
+            wsRef.current.onclose = (event) => {
+                console.log('Sync WebSocket disconnected. Code:', event.code)
+                // Attempt to reconnect after 5 seconds if it wasn't a normal closure
+                if (event.code !== 1000) {
+                    reconnectTimeoutRef.current = setTimeout(() => {
+                        console.log('Attempting to reconnect sync WebSocket...')
+                        // Trigger reconnection by clearing wsRef
+                        wsRef.current = null
+                        // Force re-render by updating a dependency
+                        // This will be handled by the useEffect re-running
+                    }, 5000)
+                }
+            }
+        } catch (error) {
+            console.error('Failed to create sync WebSocket:', error)
         }
 
-        const i = setInterval(pollStatus, 4000) // Poll every 4s
-        return () => clearInterval(i)
-    }, [fetchProfiles, fetchJobs, fetchStats, fetchSettings, page, token])
+        return () => {
+            if (wsRef.current) {
+                wsRef.current.close()
+            }
+            if (reconnectTimeoutRef.current) {
+                clearTimeout(reconnectTimeoutRef.current)
+            }
+        }
+    }, [token, fetchProfiles, fetchJobs, fetchStats, fetchSettings, page])
 
     // Actions
     const updateApp = useCallback(async (appId, data) => {

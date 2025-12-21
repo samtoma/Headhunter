@@ -64,19 +64,61 @@ const DashboardView = ({ onOpenMobileSidebar }) => {
     const [pendingCount, setPendingCount] = useState(0)
     const [resuming, setResuming] = useState(false)
 
-    // Fetch pending CV count
+    // WebSocket-based CV status updates (replaces polling)
     useEffect(() => {
-        const fetchPending = async () => {
-            try {
-                const res = await axios.get('/api/cv/status')
-                setPendingCount(res.data.processing_ids?.length || 0)
-            } catch (e) {
-                console.error("Failed to fetch pending CVs", e)
+        const token = localStorage.getItem('token')
+        if (!token) return
+
+        // Determine WebSocket URL
+        const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
+        const wsHost = window.location.host
+        const isDev = import.meta.env.DEV
+        const wsPath = isDev 
+            ? '/api/api/sync/ws/sync'
+            : '/api/sync/ws/sync'
+        const wsUrl = `${wsProtocol}//${wsHost}${wsPath}?token=${encodeURIComponent(token)}`
+
+        let ws = null
+        try {
+            ws = new WebSocket(wsUrl)
+
+            ws.onopen = () => {
+                console.log('✅ Dashboard sync WebSocket connected')
+            }
+
+            ws.onmessage = (event) => {
+                try {
+                    const data = JSON.parse(event.data)
+                    
+                    if (data.type === 'initial_state' || data.type === 'update') {
+                        if (data.processing_ids !== undefined) {
+                            setPendingCount(data.processing_ids.length)
+                        }
+                    }
+                } catch (e) {
+                    console.error('Error parsing sync WebSocket message:', e)
+                }
+            }
+
+            ws.onerror = (error) => {
+                console.error('❌ Dashboard sync WebSocket error:', error)
+            }
+
+            ws.onclose = () => {
+                // Silently reconnect after 5 seconds
+                setTimeout(() => {
+                    // Reconnection will be handled by useEffect re-running
+                }, 5000)
+            }
+        } catch (error) {
+            console.error('Failed to create dashboard sync WebSocket:', error)
+        }
+
+        return () => {
+            if (ws) {
+                ws.close()
             }
         }
-        fetchPending()
-        const interval = setInterval(fetchPending, 5000) // Poll every 5s
-        return () => clearInterval(interval)
     }, [])
 
     // Handle resume all processing
