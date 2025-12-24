@@ -10,6 +10,9 @@ from app.models import models
 from app.models.models import User
 from app.api.deps import get_current_user, get_current_user_flexible
 from app.tasks.cv_tasks import process_cv_task
+import logging
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/cv", tags=["CV"])
 RAW_DIR = Path("data/raw")
@@ -88,7 +91,7 @@ def delete_cv(cv_id: int, db: Session = Depends(get_db), current_user: User = De
         if os.path.exists(cv.filepath):
             os.remove(cv.filepath)
     except Exception as e:
-        print(f"Error deleting file: {e}")
+        logger.error(f"Error deleting file: {e}")
 
     db.delete(cv)
     db.commit()

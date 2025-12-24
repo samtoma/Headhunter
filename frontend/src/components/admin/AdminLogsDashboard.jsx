@@ -43,7 +43,9 @@ const AdminLogsDashboard = () => {
     })
     const [wsConnected, setWsConnected] = useState(false)
     const [reconnectTrigger, setReconnectTrigger] = useState(0)
-    const [showAboutSection, setShowAboutSection] = useState(true)
+    const [showAboutSection, setShowAboutSection] = useState(() => {
+        return localStorage.getItem('admin_dashboard_show_about') !== 'false'
+    })
     const wsRef = useRef(null)
     const reconnectTimeoutRef = useRef(null)
 
@@ -176,7 +178,9 @@ const AdminLogsDashboard = () => {
                     fetchHealth(),
                     fetchUxAnalytics(),
                     fetchDbStats(),
-                    fetchInvitations()
+                    fetchInvitations(),
+                    fetchLlmMetrics(), // Add LLM Metrics to initial load
+                    fetchHealthHistory() // Add Health History to initial load
                 ])
             } catch (err) {
                 console.error("Failed to fetch initial admin data", err)
@@ -186,7 +190,7 @@ const AdminLogsDashboard = () => {
         }
 
         fetchInitialData()
-    }, [fetchMetrics, fetchHealth, fetchUxAnalytics, fetchDbStats, fetchInvitations])
+    }, [fetchMetrics, fetchHealth, fetchUxAnalytics, fetchDbStats, fetchInvitations, fetchLlmMetrics, fetchHealthHistory])
 
     // Re-fetch logs when filters or pagination change
     useEffect(() => {
@@ -195,8 +199,10 @@ const AdminLogsDashboard = () => {
 
     // Re-fetch LLM metrics when company filter changes
     useEffect(() => {
-        fetchLlmMetrics()
-    }, [fetchLlmMetrics])
+        if (llmCompanyFilter) {
+            fetchLlmMetrics()
+        }
+    }, [fetchLlmMetrics, llmCompanyFilter])
 
     // Re-fetch health history when period or interval changes
     useEffect(() => {
@@ -320,11 +326,11 @@ const AdminLogsDashboard = () => {
     return (
         <div className="h-full flex flex-col bg-slate-50">
             {/* Header */}
-            <div className="bg-white border-b border-slate-200 px-8 py-4">
+            <div className="bg-white border-b border-slate-200 px-8 py-6">
                 <div className="flex items-center justify-between">
-                    <div>
-                        <h1 className="text-2xl font-bold text-slate-900">Admin Dashboard</h1>
-                        <p className="text-sm text-slate-500 mt-1">System monitoring, logs, and analytics</p>
+                    <div className="flex flex-col">
+                        <h1 className="text-2xl font-bold text-slate-900 leading-tight">Admin Dashboard</h1>
+                        <p className="text-sm text-slate-500 mt-1">Real-time system health, logs, and diagnostic analytics</p>
                     </div>
                     <div className="flex items-center gap-4">
                         {/* WebSocket Status */}
@@ -362,27 +368,38 @@ const AdminLogsDashboard = () => {
 
             {/* Description Section */}
             {activeTab === "overview" && showAboutSection && (
-                <div className="bg-indigo-50 border-b border-indigo-200 px-8 py-4 relative">
+                <div className="bg-indigo-50 border-b border-indigo-100 px-8 py-6 relative animate-in fade-in duration-300">
                     <button
-                        onClick={() => setShowAboutSection(false)}
-                        className="absolute top-4 right-4 text-indigo-600 hover:text-indigo-700"
+                        onClick={() => {
+                            setShowAboutSection(false);
+                            localStorage.setItem('admin_dashboard_show_about', 'false');
+                        }}
+                        className="absolute top-6 right-8 p-1.5 text-indigo-400 hover:text-indigo-600 hover:bg-white rounded-full transition"
+                        title="Dismiss"
                     >
-                        ×
+                        <span className="text-xl leading-none">×</span>
                     </button>
                     <div className="max-w-4xl">
-                        <h2 className="text-lg font-bold text-indigo-900 mb-2">System Administration Dashboard</h2>
-                        <p className="text-indigo-800 mb-4">
-                            Monitor your application&apos;s health, performance, and usage patterns in real-time.
-                            Track API performance, error rates, database statistics, and AI/LLM operations.
+                        <h2 className="text-lg font-bold text-indigo-900 mb-2">Master Control Center</h2>
+                        <p className="text-indigo-800/80 leading-relaxed mb-6">
+                            This workspace provides administrative oversight of the Headhunter engine.
+                            Monitor service health via high-frequency WebSockets, analyze API throughput,
+                            and perform deep-dive diagnostic logging to ensure peak system reliability.
                         </p>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-sm">
                             <div>
-                                <h3 className="font-bold text-indigo-900 mb-1">Real-time Monitoring</h3>
-                                <p className="text-indigo-700">Live WebSocket updates for instant alerts and status changes.</p>
+                                <h3 className="font-bold text-indigo-900 mb-1 flex items-center gap-2">
+                                    <div className="w-1.5 h-1.5 bg-indigo-500 rounded-full" />
+                                    Real-time Observability
+                                </h3>
+                                <p className="text-indigo-700/80">Low-latency WebSocket infrastructure for immediate alerts and state synchronization.</p>
                             </div>
                             <div>
-                                <h3 className="font-bold text-indigo-900 mb-1">Performance Analytics</h3>
-                                <p className="text-indigo-700">Response times, error rates, and throughput metrics.</p>
+                                <h3 className="font-bold text-indigo-900 mb-1 flex items-center gap-2">
+                                    <div className="w-1.5 h-1.5 bg-indigo-500 rounded-full" />
+                                    Unified Orchestration
+                                </h3>
+                                <p className="text-indigo-700/80">Integrated diagnostics for LLM operations, database clusters, and distributed worker queues.</p>
                             </div>
                         </div>
                     </div>
@@ -390,58 +407,58 @@ const AdminLogsDashboard = () => {
             )}
 
             {/* Tab Navigation */}
-            <div className="bg-white border-b border-slate-200 px-8">
-                <nav className="flex space-x-8">
+            <div className="bg-white border-b border-slate-200 px-8 flex items-end">
+                <nav className="flex space-x-10 h-14">
                     <button
                         onClick={() => setActiveTab("overview")}
-                        className={`pb-4 text-sm font-medium border-b-2 transition ${activeTab === "overview"
-                            ? "border-indigo-500 text-indigo-600"
-                            : "border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300"
+                        className={`px-1 h-full text-sm font-bold border-b-2 transition-all duration-200 outline-none flex items-center ${activeTab === "overview"
+                            ? "border-indigo-600 text-indigo-600"
+                            : "border-transparent text-slate-400 hover:text-slate-600 hover:border-slate-300"
                             }`}
                     >
                         Overview
                     </button>
                     <button
                         onClick={() => setActiveTab("logs")}
-                        className={`pb-4 text-sm font-medium border-b-2 transition ${activeTab === "logs"
-                            ? "border-indigo-500 text-indigo-600"
-                            : "border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300"
+                        className={`px-1 h-full text-sm font-bold border-b-2 transition-all duration-200 outline-none flex items-center ${activeTab === "logs"
+                            ? "border-indigo-600 text-indigo-600"
+                            : "border-transparent text-slate-400 hover:text-slate-600 hover:border-slate-300"
                             }`}
                     >
                         System Logs
                     </button>
                     <button
                         onClick={() => setActiveTab("invitations")}
-                        className={`pb-4 text-sm font-medium border-b-2 transition ${activeTab === "invitations"
-                            ? "border-indigo-500 text-indigo-600"
-                            : "border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300"
+                        className={`px-1 h-full text-sm font-bold border-b-2 transition-all duration-200 outline-none flex items-center ${activeTab === "invitations"
+                            ? "border-indigo-600 text-indigo-600"
+                            : "border-transparent text-slate-400 hover:text-slate-600 hover:border-slate-300"
                             }`}
                     >
                         Invitations
                     </button>
                     <button
                         onClick={() => setActiveTab("errors")}
-                        className={`pb-4 text-sm font-medium border-b-2 transition ${activeTab === "errors"
-                            ? "border-indigo-500 text-indigo-600"
-                            : "border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300"
+                        className={`px-1 h-full text-sm font-bold border-b-2 transition-all duration-200 outline-none flex items-center ${activeTab === "errors"
+                            ? "border-indigo-600 text-indigo-600"
+                            : "border-transparent text-slate-400 hover:text-slate-600 hover:border-slate-300"
                             }`}
                     >
                         Errors
                     </button>
                     <button
                         onClick={() => setActiveTab("health-history")}
-                        className={`pb-4 text-sm font-medium border-b-2 transition ${activeTab === "health-history"
-                            ? "border-indigo-500 text-indigo-600"
-                            : "border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300"
+                        className={`px-1 h-full text-sm font-bold border-b-2 transition-all duration-200 outline-none flex items-center ${activeTab === "health-history"
+                            ? "border-indigo-600 text-indigo-600"
+                            : "border-transparent text-slate-400 hover:text-slate-600 hover:border-slate-300"
                             }`}
                     >
                         Health History
                     </button>
                     <button
                         onClick={() => setActiveTab("llm")}
-                        className={`pb-4 text-sm font-medium border-b-2 transition ${activeTab === "llm"
-                            ? "border-indigo-500 text-indigo-600"
-                            : "border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300"
+                        className={`px-1 h-full text-sm font-bold border-b-2 transition-all duration-200 outline-none flex items-center ${activeTab === "llm"
+                            ? "border-indigo-600 text-indigo-600"
+                            : "border-transparent text-slate-400 hover:text-slate-600 hover:border-slate-300"
                             }`}
                     >
                         LLM Monitoring

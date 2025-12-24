@@ -5,7 +5,10 @@ from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.models.models import User
 from app.core.security import SECRET_KEY, ALGORITHM
+import logging
 from typing import Optional
+
+logger = logging.getLogger(__name__)
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
 
@@ -19,12 +22,15 @@ def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
         email: str = payload.get("sub")
         if email is None:
+            logger.warning("Token validation failed: 'sub' (email) missing in payload")
             raise credentials_exception
-    except JWTError:
+    except JWTError as e:
+        logger.warning(f"Token validation failed: {str(e)}")
         raise credentials_exception
     
     user = db.query(User).filter(User.email == email).first()
     if user is None:
+        logger.warning(f"Token validation failed: User {email} not found")
         raise credentials_exception
     return user
 

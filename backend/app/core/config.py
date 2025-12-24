@@ -1,5 +1,8 @@
 import os
 from typing import Optional
+import logging
+
+logger = logging.getLogger(__name__)
 
 class Settings:
     # Service Information
@@ -17,7 +20,7 @@ class Settings:
         # Fallback for CI/Test environments if explicitly allowed, otherwise RAISE
         if os.getenv("ALLOW_MISSING_LOGS_DB", "false").lower() == "true":
             LOGS_DATABASE_URL = DATABASE_URL # Dangerous fallback, only for dev/test
-            print("⚠️ WARNING: LOGS_DATABASE_URL invalid. Using DATABASE_URL fallback (Dev Mode).")
+            logger.warning("LOGS_DATABASE_URL invalid. Using DATABASE_URL fallback (Dev Mode).")
         else:
             raise ValueError("CRITICAL: LOGS_DATABASE_URL is not set. Architecture requires separate logs DB.")
     else:

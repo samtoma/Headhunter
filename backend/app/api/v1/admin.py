@@ -863,28 +863,46 @@ def get_services_health_data(db: Session):
             "message": str(e)
         })
 
-    # Check Log Worker
+    # Check Log Worker (Redis Heartbeat)
     try:
-        import subprocess
-        result = subprocess.run(['pgrep', '-f', 'unified_log_worker'], capture_output=True, text=True, timeout=2)
-        worker_running = result.returncode == 0
-        if worker_running:
-            services.append({
-                "name": "Log Worker",
-                "status": "healthy",
-                "message": f"Worker running (PIDs: {result.stdout.strip().replace('\\n', ', ')})"
-            })
+        # Use existing Redis client 'r' if available, or create one
+        # 'r' is defined above in the "Logging Queue" check
+        heartbeat = r.get("heartbeat:log_worker")
+        
+        if heartbeat:
+            try:
+                last_heartbeat = float(heartbeat)
+                time_diff = time.time() - last_heartbeat
+                
+                if time_diff < 30:
+                    services.append({
+                        "name": "Log Worker",
+                        "status": "healthy",
+                        "message": f"Worker active (heartbeat: {int(time_diff)}s ago)"
+                    })
+                else:
+                    services.append({
+                        "name": "Log Worker",
+                        "status": "unhealthy",
+                        "message": f"Worker inactive (last heartbeat: {int(time_diff)}s ago)"
+                    })
+            except (ValueError, TypeError):
+                services.append({
+                    "name": "Log Worker",
+                    "status": "degraded",
+                    "message": "Invalid heartbeat data"
+                })
         else:
             services.append({
                 "name": "Log Worker",
                 "status": "unhealthy",
-                "message": "Log worker process not found"
+                "message": "Log worker process not found (no heartbeat)"
             })
     except Exception as e:
         services.append({
             "name": "Log Worker",
             "status": "degraded",
-            "message": f"Check failed: {str(e)}"
+            "message": f"Heartbeat check failed: {str(e)}"
         })
 
     return services
@@ -1516,9 +1534,14 @@ async def websocket_monitoring(websocket: WebSocket):
     active_connections[connection_id] = websocket
     refresh_interval = 5  # Default 5 seconds
     
+    db_gen = get_db()
+    db_logs_gen = get_logs_db()
+    db = next(db_gen)
+    db_logs = next(db_logs_gen)
+    
     try:
         # Send initial data
-        await send_monitoring_update(websocket, user)
+        await send_monitoring_update(websocket, db, db_logs)
         
         # Keep connection alive and send periodic updates
         while True:
@@ -1531,69 +1554,67 @@ async def websocket_monitoring(websocket: WebSocket):
                         await websocket.send_json({"type": "refresh_rate_updated", "interval": refresh_interval})
                 except asyncio.TimeoutError:
                     # Timeout - send update
-                    await send_monitoring_update(websocket, user)
+                    await send_monitoring_update(websocket, db, db_logs)
             except WebSocketDisconnect:
                 break
+            except Exception as e:
+                logger.error(f"Error in monitoring loop: {e}")
+                # Don't break on transient errors, just wait and try again
+                await asyncio.sleep(refresh_interval)
     except WebSocketDisconnect:
         pass
     finally:
         if connection_id in active_connections:
             del active_connections[connection_id]
-
-async def send_monitoring_update(websocket: WebSocket, user: User):
-    """Send monitoring data update via WebSocket"""
-    db_gen = None
-    try:
-        # Get database session - properly consume the generator
-        db_gen = get_db()
-        db = next(db_gen)
         
-        # Get Logs DB session
-        db_logs_gen = get_logs_db()
-        db_logs = next(db_logs_gen)
-        
+        # Clean up database sessions
         try:
-            # Get metrics
-            now = datetime.now(timezone.utc)
-            last_24h = now - timedelta(hours=24)
-            
-            # Quick metrics calculation
-            total_logs = db_logs.query(func.count(SystemLog.id)).scalar() or 0
-            errors_24h = db_logs.query(func.count(SystemLog.id)).filter(
-                and_(
-                    SystemLog.error_type.isnot(None),
-                    SystemLog.created_at >= last_24h
-                )
-            ).scalar() or 0
-            logs_24h = db_logs.query(func.count(SystemLog.id)).filter(
+            next(db_gen, None)
+        except StopIteration:
+            pass
+        try:
+            next(db_logs_gen, None)
+        except StopIteration:
+            pass
+
+async def send_monitoring_update(websocket: WebSocket, db: Session, db_logs: Session):
+    """Send monitoring data update via WebSocket"""
+    try:
+        # Get metrics
+        now = datetime.now(timezone.utc)
+        last_24h = now - timedelta(hours=24)
+        
+        # Quick metrics calculation
+        total_logs = db_logs.query(func.count(SystemLog.id)).scalar() or 0
+        errors_24h = db_logs.query(func.count(SystemLog.id)).filter(
+            and_(
+                SystemLog.error_type.isnot(None),
                 SystemLog.created_at >= last_24h
-            ).scalar() or 1
-            error_rate = (errors_24h / logs_24h * 100) if logs_24h > 0 else 0
-            
-            # Get health status - check all services
-            services = get_services_health_data(db)
-            
-            update_data = {
-                "type": "monitoring_update",
-                "timestamp": datetime.now(timezone.utc).isoformat(),
-                "metrics": {
-                    "total_logs": total_logs,
-                    "error_rate_24h": round(error_rate, 2),
-                    "api_requests_24h": logs_24h
-                },
-                "health": {
-                    "services": services,
-                    "overall_status": "healthy" if all(s.get("status") == "healthy" for s in services) else "degraded"
-                }
+            )
+        ).scalar() or 0
+        logs_24h = db_logs.query(func.count(SystemLog.id)).filter(
+            SystemLog.created_at >= last_24h
+        ).scalar() or 1
+        error_rate = (errors_24h / logs_24h * 100) if logs_24h > 0 else 0
+        
+        # Get health status - check all services
+        services = get_services_health_data(db)
+        
+        update_data = {
+            "type": "monitoring_update",
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "metrics": {
+                "total_logs": total_logs,
+                "error_rate_24h": round(error_rate, 2),
+                "api_requests_24h": logs_24h
+            },
+            "health": {
+                "services": services,
+                "overall_status": "healthy" if all(s.get("status") == "healthy" for s in services) else "degraded"
             }
-            
-            await websocket.send_json(update_data)
-        finally:
-            # Properly exhaust the generator to trigger its finally block
-            try:
-                next(db_gen, None)
-            except StopIteration:
-                pass
+        }
+        
+        await websocket.send_json(update_data)
     except Exception as e:
         logger.exception("Error in send_monitoring_update")
         try:
@@ -1603,13 +1624,6 @@ async def send_monitoring_update(websocket: WebSocket, user: User):
             })
         except Exception:
             pass  # Connection might be closed
-    finally:
-        # Ensure generator is exhausted even if exception occurred
-        if db_gen:
-            try:
-                next(db_gen, None)
-            except StopIteration:
-                pass
 
 # ==================== Threshold Configuration ====================
 

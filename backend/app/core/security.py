@@ -4,6 +4,9 @@ import os
 from cryptography.fernet import Fernet
 from jose import jwt
 from passlib.context import CryptContext
+import logging
+
+logger = logging.getLogger(__name__)
 
 # SECRET_KEY should be in env vars in production
 SECRET_KEY = "supersecretkey" 
@@ -17,7 +20,7 @@ ENCRYPTION_KEY = os.getenv("ENCRYPTION_KEY", DEV_KEY)
 try:
     fernet = Fernet(ENCRYPTION_KEY)
 except Exception as e:
-    print(f"Warning: Invalid ENCRYPTION_KEY, using default dev key. Error: {e}")
+    logger.warning(f"Invalid ENCRYPTION_KEY, using default dev key. Error: {e}")
     fernet = Fernet(DEV_KEY)
 
 def encrypt_token(token: str) -> str:

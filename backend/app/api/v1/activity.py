@@ -1,10 +1,13 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 from typing import Optional, Dict, Any
+import logging
 from app.core.database import get_db
 from app.models.models import ActivityLog, User, Interview
 from app.api.deps import get_current_user
 import json
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/activity", tags=["Activity"])
 
@@ -28,7 +31,7 @@ def log_application_activity(
         db.add(log)
         db.commit()
     except Exception as e:
-        print(f"Failed to log activity: {e}")
+        logger.error(f"Failed to log activity: {e}")
 
 
 def log_system_activity(
@@ -53,7 +56,7 @@ def log_system_activity(
         db.add(log)
         db.commit()
     except Exception as e:
-        print(f"Failed to log system activity: {e}")
+        logger.error(f"Failed to log system activity: {e}")
 
 def _get_user_display_name(db: Session, user_id: Optional[int]) -> Optional[str]:
     """

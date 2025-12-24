@@ -16,16 +16,46 @@ export const AuthProvider = ({ children }) => {
     });
     const [loading, setLoading] = useState(true);
 
-    // Set global axios header
+    // Set global axios interceptors
     useEffect(() => {
+        // Request interceptor to attach token dynamically
+        const requestInterceptor = axios.interceptors.request.use(
+            (config) => {
+                const currentToken = localStorage.getItem('token');
+                if (currentToken) {
+                    config.headers['Authorization'] = `Bearer ${currentToken}`;
+                }
+                return config;
+            },
+            (error) => Promise.reject(error)
+        );
+
+        // Response interceptor to handle 401s centrally
+        const responseInterceptor = axios.interceptors.response.use(
+            (response) => response,
+            (error) => {
+                // If we get a 401 and it's not from the login endpoint itself
+                if (error.response && error.response.status === 401 && !error.config.url.includes('/auth/login')) {
+                    console.warn("Unauthorized (401) detected - logging out");
+                    logout();
+                }
+                return Promise.reject(error);
+            }
+        );
+
         if (token) {
-            axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
             localStorage.setItem('token', token);
         } else {
-            delete axios.defaults.headers.common['Authorization'];
             localStorage.removeItem('token');
         }
+
         setLoading(false);
+
+        // Cleanup interceptors on unmount or token change
+        return () => {
+            axios.interceptors.request.eject(requestInterceptor);
+            axios.interceptors.response.eject(responseInterceptor);
+        };
     }, [token]);
 
     const login = useCallback((newToken, userData) => {

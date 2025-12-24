@@ -9,6 +9,9 @@ from app.models.models import User, CalendarConnection
 from app.core.security import encrypt_token, decrypt_token
 from app.services.calendar.google_calendar import GoogleCalendarProvider
 from app.services.calendar.microsoft_calendar import MicrosoftCalendarProvider
+import logging
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 providers = {
@@ -83,7 +86,7 @@ def calendar_callback(
              
         user_email = cal_provider.get_user_email(tokens["access_token"], target_refresh or "")
     except Exception as e:
-        print(f"Failed to fetch user email: {e}")
+        logger.error(f"Failed to fetch user email: {e}")
 
     if existing:
         existing.access_token = encrypted_access

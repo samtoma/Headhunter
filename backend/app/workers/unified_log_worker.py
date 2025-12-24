@@ -261,9 +261,24 @@ def run_worker():
 
     batch = []
     last_flush_time = time.time()
+    last_heartbeat_time = 0
+
+    def update_heartbeat(client: redis.Redis):
+        """Update heartbeat key in Redis with 30s TTL."""
+        try:
+            client.set("heartbeat:log_worker", str(time.time()), ex=30)
+        except Exception as e:
+            logger.error(f"Failed to update heartbeat: {e}")
 
     while running:
         try:
+            current_time = time.time()
+            
+            # Update heartbeat every 10 seconds
+            if current_time - last_heartbeat_time >= 10:
+                update_heartbeat(redis_client)
+                last_heartbeat_time = current_time
+            
             # Non-blocking pop to allow periodic flush based on time
             # Using lpop/rpop? Middleware uses lpush, so we should rpop.
             # Using basic pop with short logic or brpop with timeout.
