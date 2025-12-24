@@ -16,7 +16,6 @@ import time
 from typing import Optional, Dict, Any
 from concurrent.futures import ThreadPoolExecutor
 import redis
-from sqlalchemy.orm import Session
 from app.core.config import settings
 from app.core.logging import get_logger
 

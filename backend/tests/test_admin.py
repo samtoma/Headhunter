@@ -9,7 +9,6 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 from fastapi.testclient import TestClient
-from datetime import datetime, timedelta
 
 from app.main import app
 from app.core.database import get_db, Base

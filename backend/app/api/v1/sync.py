@@ -199,7 +199,7 @@ async def websocket_sync(websocket: WebSocket):
                             "type": "error",
                             "message": str(e)
                         })
-                    except:
+                    except Exception:
                         pass  # Connection might be closed
             except WebSocketDisconnect:
                 break

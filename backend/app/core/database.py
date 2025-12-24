@@ -1,4 +1,3 @@
-import os
 import logging
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, declarative_base
@@ -10,7 +9,7 @@ logger = logging.getLogger(__name__)
 # Use Environment variable from Docker, fallback to localhost for testing
 DATABASE_URL = settings.DATABASE_URL
 
-logger.debug(f"Initializing database connection pool with pool_size=20, max_overflow=40")
+logger.debug("Initializing database connection pool with pool_size=20, max_overflow=40")
 
 try:
     engine = create_engine(

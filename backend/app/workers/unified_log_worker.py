@@ -18,12 +18,9 @@ Usage:
     python -m app.workers.unified_log_worker
 """
 
-import os
 import json
 import time
-import logging
 import signal
-import sys
 from typing import Dict, List, Any, Optional
 import redis
 from sqlalchemy.orm import Session
