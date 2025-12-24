@@ -17,35 +17,27 @@ depends_on = None
 
 
 def upgrade():
-    """Add composite indexes for common query patterns in system_logs table."""
-    # Index for filtering by level and ordering by created_at (most common query pattern)
-    op.create_index(
-        'idx_system_logs_level_created',
-        'system_logs',
-        ['level', sa.text('created_at DESC')],
-        unique=False
-    )
+    """
+    Add composite indexes for common query patterns in system_logs table.
     
-    # Index for filtering by component and ordering by created_at
-    op.create_index(
-        'idx_system_logs_component_created',
-        'system_logs',
-        ['component', sa.text('created_at DESC')],
-        unique=False
-    )
+    NOTE: This migration is a no-op because system_logs table is in the logs database,
+    not the main database. The composite indexes are created by the unified_log_worker
+    in its create_tables() function when it starts up.
     
-    # Index for error queries (filtering by error_type IS NOT NULL and created_at)
-    op.create_index(
-        'idx_system_logs_errors',
-        'system_logs',
-        ['error_type', 'created_at'],
-        unique=False,
-        postgresql_where=sa.text('error_type IS NOT NULL')
-    )
+    This migration is kept for historical reference and to maintain migration chain,
+    but it does not execute any operations.
+    """
+    # No-op: Indexes are created by unified_log_worker.create_tables()
+    # which runs against the logs database, not the main database
+    pass
 
 
 def downgrade():
-    """Remove the composite indexes."""
-    op.drop_index('idx_system_logs_errors', table_name='system_logs')
-    op.drop_index('idx_system_logs_component_created', table_name='system_logs')
-    op.drop_index('idx_system_logs_level_created', table_name='system_logs')
+    """
+    Remove the composite indexes.
+    
+    NOTE: This is a no-op because system_logs table is in the logs database.
+    Indexes are managed by the unified_log_worker, not by Alembic migrations.
+    """
+    # No-op: Indexes are managed by unified_log_worker, not Alembic
+    pass

@@ -248,6 +248,19 @@ def get_system_logs(
     # Build result with pre-fetched data
     result = []
     for log in logs:
+        # Handle extra_metadata - JSONB returns dict, but handle string for backward compatibility
+        metadata = None
+        if log.extra_metadata:
+            if isinstance(log.extra_metadata, dict):
+                metadata = log.extra_metadata
+            elif isinstance(log.extra_metadata, str):
+                try:
+                    metadata = json.loads(log.extra_metadata)
+                except (json.JSONDecodeError, TypeError):
+                    metadata = {"raw": log.extra_metadata}  # Fallback for malformed JSON
+            else:
+                metadata = log.extra_metadata
+        
         log_dict = {
             "id": log.id,
             "level": log.level,
@@ -266,7 +279,7 @@ def get_system_logs(
             "error_message": log.error_message,
             "deployment_version": log.deployment_version,
             "deployment_environment": log.deployment_environment,
-            "metadata": log.extra_metadata if log.extra_metadata else None,
+            "metadata": metadata,
             "created_at": log.created_at,
             "user_email": users_map.get(log.user_id),
             "company_name": companies_map.get(log.company_id)
@@ -536,9 +549,14 @@ def get_system_metrics(
     for row in status_counts:
         invitations_by_status[row.status] = row.count
     
-    # Active users (users who logged in within 24h)
-    active_users_24h = db.query(func.count(User.id)).filter(
-        User.login_count > 0  # Simplified - in production, track last_login_at
+    # Active users (users who made API requests within 24h)
+    # Note: Using SystemLog to count distinct users who made requests in last 24h
+    # This is more accurate than login_count which doesn't track time
+    active_users_24h = db_logs.query(func.count(func.distinct(SystemLog.user_id))).filter(
+        and_(
+            SystemLog.user_id.isnot(None),
+            SystemLog.created_at >= last_24h
+        )
     ).scalar() or 0
     
     # API requests in last 24h (exclude LLM operations - LLM has its own component)
@@ -627,6 +645,19 @@ def get_recent_errors(
     # Build result with pre-fetched data
     result = []
     for log in errors:
+        # Handle extra_metadata - JSONB returns dict, but handle string for backward compatibility
+        metadata = None
+        if log.extra_metadata:
+            if isinstance(log.extra_metadata, dict):
+                metadata = log.extra_metadata
+            elif isinstance(log.extra_metadata, str):
+                try:
+                    metadata = json.loads(log.extra_metadata)
+                except (json.JSONDecodeError, TypeError):
+                    metadata = {"raw": log.extra_metadata}  # Fallback for malformed JSON
+            else:
+                metadata = log.extra_metadata
+        
         log_dict = {
             "id": log.id,
             "level": log.level,
@@ -645,7 +676,7 @@ def get_recent_errors(
             "error_message": log.error_message,
             "deployment_version": log.deployment_version,
             "deployment_environment": log.deployment_environment,
-            "metadata": log.extra_metadata if log.extra_metadata else None,
+            "metadata": metadata,
             "created_at": log.created_at,
             "user_email": users_map.get(log.user_id),
             "company_name": companies_map.get(log.company_id)
@@ -762,6 +793,126 @@ def get_system_health(
             name="ChromaDB",
             status="degraded",
             message=str(e)
+        ))
+    
+    # Check Logs Database (separate from main DB)
+    try:
+        from app.core.database_logs import get_logs_db
+        db_logs_gen = get_logs_db()
+        db_logs = next(db_logs_gen)
+        try:
+            start = time.time()
+            db_logs.execute(text("SELECT 1"))
+            logs_db_time = (time.time() - start) * 1000
+            
+            # Check if tables exist
+            tables_exist = db_logs.execute(text("""
+                SELECT EXISTS (
+                    SELECT FROM information_schema.tables 
+                    WHERE table_schema = 'public' 
+                    AND table_name IN ('system_logs', 'llm_logs')
+                )
+            """)).scalar()
+            
+            # Get recent log count (last hour) to verify writes
+            recent_logs = db_logs.query(func.count(SystemLog.id)).filter(
+                SystemLog.created_at >= datetime.now(timezone.utc) - timedelta(hours=1)
+            ).scalar() or 0
+            
+            services.append(ServiceHealth(
+                name="Logs Database",
+                status="healthy" if logs_db_time < 100 and tables_exist else "degraded",
+                response_time_ms=round(logs_db_time, 2),
+                message=f"Logs DB connection OK, {recent_logs} logs in last hour",
+                details={
+                    "tables_exist": tables_exist,
+                    "recent_logs_1h": recent_logs
+                }
+            ))
+        finally:
+            try:
+                next(db_logs_gen, None)
+            except StopIteration:
+                pass
+    except Exception as e:
+        services.append(ServiceHealth(
+            name="Logs Database",
+            status="unhealthy",
+            message=str(e)
+        ))
+    
+    # Check Logging Queue (Redis logs_queue)
+    try:
+        import redis
+        redis_url = os.getenv("REDIS_URL", "redis://redis:6379/0")
+        r = redis.from_url(redis_url)
+        logs_queue_length = r.llen("logs_queue")
+        
+        # Determine queue health
+        queue_status = "healthy"
+        if logs_queue_length > 1000:
+            queue_status = "unhealthy"
+            queue_message = f"CRITICAL: Queue backlog {logs_queue_length} - worker may be down"
+        elif logs_queue_length > 100:
+            queue_status = "degraded"
+            queue_message = f"WARNING: Queue backlog {logs_queue_length} - worker may be slow"
+        else:
+            queue_message = f"Queue depth: {logs_queue_length}"
+        
+        services.append(ServiceHealth(
+            name="Logging Queue",
+            status=queue_status,
+            message=queue_message,
+            details={
+                "queue_name": "logs_queue",
+                "queue_length": logs_queue_length,
+                "threshold_warning": 100,
+                "threshold_critical": 1000
+            }
+        ))
+    except Exception as e:
+        services.append(ServiceHealth(
+            name="Logging Queue",
+            status="unhealthy",
+            message=str(e)
+        ))
+    
+    # Check Log Worker Status (check if process is running)
+    try:
+        import subprocess
+        # Check for unified_log_worker process
+        result = subprocess.run(
+            ['pgrep', '-f', 'unified_log_worker'],
+            capture_output=True,
+            text=True,
+            timeout=2
+        )
+        
+        worker_running = result.returncode == 0
+        worker_pids = result.stdout.strip().split('\n') if worker_running else []
+        worker_pids = [pid for pid in worker_pids if pid]  # Remove empty strings
+        
+        if worker_running:
+            services.append(ServiceHealth(
+                name="Log Worker",
+                status="healthy",
+                message=f"Worker running (PIDs: {', '.join(worker_pids) if worker_pids else 'unknown'})",
+                details={"pids": worker_pids, "process_name": "unified_log_worker"}
+            ))
+        else:
+            services.append(ServiceHealth(
+                name="Log Worker",
+                status="unhealthy",
+                message="Log worker process not found - logs may not be written to database",
+                details={"process_name": "unified_log_worker"}
+            ))
+    except (subprocess.TimeoutExpired, FileNotFoundError, Exception) as e:
+        # pgrep not available or timeout - mark as unknown but not unhealthy
+        services.append(ServiceHealth(
+            name="Log Worker",
+            status="degraded",
+            message=f"Unable to check worker status: {str(e)}",
+            details={"note": "Worker status check unavailable (pgrep not found or timeout)"}
         ))
     
     # Determine overall status
@@ -1559,7 +1710,13 @@ def get_llm_metrics(
     
     for log in llm_logs:
         try:
-            metadata = json.loads(log.extra_metadata) if isinstance(log.extra_metadata, str) else log.extra_metadata
+            # Handle extra_metadata - JSONB returns dict, but handle string for backward compatibility
+            if isinstance(log.extra_metadata, dict):
+                metadata = log.extra_metadata
+            elif isinstance(log.extra_metadata, str):
+                metadata = json.loads(log.extra_metadata)
+            else:
+                metadata = log.extra_metadata if log.extra_metadata else {}
             
             # Token tracking
             tokens = metadata.get("tokens_used", 0)
@@ -1698,9 +1855,15 @@ def get_llm_metrics(
         metadata = {}
         try:
             if log.extra_metadata:
-                metadata = json.loads(log.extra_metadata) if isinstance(log.extra_metadata, str) else log.extra_metadata
-        except:
-            pass
+                # Handle extra_metadata - JSONB returns dict, but handle string for backward compatibility
+                if isinstance(log.extra_metadata, dict):
+                    metadata = log.extra_metadata
+                elif isinstance(log.extra_metadata, str):
+                    metadata = json.loads(log.extra_metadata)
+                else:
+                    metadata = log.extra_metadata
+        except (json.JSONDecodeError, TypeError):
+            metadata = {"raw": str(log.extra_metadata)} if log.extra_metadata else {}
         
         recent_operations.append({
             "id": log.id,

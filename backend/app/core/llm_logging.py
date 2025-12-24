@@ -40,7 +40,11 @@ except Exception as e:
     redis_available = False
 
 # Thread pool for non-blocking Redis writes
-_llm_log_executor = ThreadPoolExecutor(max_workers=2, thread_name_prefix="llm_log_writer")
+# Size is configurable via LOG_THREAD_POOL_SIZE env var (default: 2)
+_llm_log_executor = ThreadPoolExecutor(
+    max_workers=settings.LOG_THREAD_POOL_SIZE, 
+    thread_name_prefix="llm_log_writer"
+)
 
 
 class LLMLogger:
@@ -112,6 +116,11 @@ class LLMLogger:
         # Determine log level
         level = "ERROR" if error_type else "INFO"
         
+        # Get deployment tracking info
+        import os
+        deployment_version = os.getenv("DEPLOYMENT_VERSION", os.getenv("GIT_COMMIT", None))
+        deployment_environment = os.getenv("DEPLOYMENT_ENV", "development")
+        
         # Submit to Redis queue for non-blocking execution
         log_data = {
             "log_type": "llm",  # Explicitly mark as LLM log for unified worker
@@ -124,6 +133,8 @@ class LLMLogger:
             "error_type": error_type,
             "error_message": error_message,
             "metadata": json.dumps(llm_metadata),
+            "deployment_version": deployment_version,
+            "deployment_environment": deployment_environment,
             "timestamp": time.time()
         }
 

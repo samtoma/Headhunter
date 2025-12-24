@@ -224,18 +224,21 @@ class AuditLogger:
     ):
         """
         Write log entry to SystemLog table.
-        Uses a separate database session to avoid transaction issues.
+        Uses a separate database session to the logs database to avoid transaction issues.
+        Note: This should write to Redis queue instead for async processing, but keeping
+        this as fallback for direct writes if needed.
         """
         try:
-            from app.core.database import SessionLocal
-            from app.models.models import SystemLog
+            from app.core.database_logs import LogsSessionLocal
+            from app.models.log_models import SystemLog
             import os
             
-            db = SessionLocal()
+            db = LogsSessionLocal()
             try:
                 deployment_version = os.getenv("DEPLOYMENT_VERSION", os.getenv("GIT_COMMIT", None))
                 deployment_environment = os.getenv("DEPLOYMENT_ENV", "development")
                 
+                # extra_metadata is JSONB, so pass dict directly (SQLAlchemy handles conversion)
                 system_log = SystemLog(
                     level=level,
                     component=self.component,
@@ -246,7 +249,7 @@ class AuditLogger:
                     error_type=error_type,
                     error_message=error_message,
                     stack_trace=stack_trace,
-                    extra_metadata=json.dumps(metadata) if metadata else None,
+                    extra_metadata=metadata if metadata else None,  # JSONB accepts dict directly
                     deployment_version=deployment_version,
                     deployment_environment=deployment_environment
                 )

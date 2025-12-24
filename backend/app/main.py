@@ -56,6 +56,15 @@ async def lifespan(app: FastAPI):
         logger.error(f"Failed to start embedding sync: {e}")
     
     yield
+    
+    # Shutdown cleanup
+    logger.info("Shutting down Headhunter API...")
+    try:
+        from app.core.logging_middleware import shutdown_log_executor
+        shutdown_log_executor()
+        logger.info("Log executor shut down gracefully")
+    except Exception as e:
+        logger.error(f"Error shutting down log executor: {e}")
 
 # Read version from centralized VERSION file
 def get_app_version():

@@ -39,7 +39,15 @@ except Exception as e:
 LOGS_QUEUE = "logs_queue"
 
 # Thread pool for non-blocking Redis ops
-_log_executor = ThreadPoolExecutor(max_workers=2, thread_name_prefix="log_producer")
+# Size is configurable via LOG_THREAD_POOL_SIZE env var (default: 2)
+_log_executor = ThreadPoolExecutor(
+    max_workers=settings.LOG_THREAD_POOL_SIZE, 
+    thread_name_prefix="log_producer"
+)
+
+def shutdown_log_executor():
+    """Gracefully shutdown the log executor. Called during application shutdown."""
+    _log_executor.shutdown(wait=True, timeout=5)
 
 
 class LoggingMiddleware(BaseHTTPMiddleware):
@@ -60,6 +68,7 @@ class LoggingMiddleware(BaseHTTPMiddleware):
         method = request.method
         path = request.url.path
         client_ip = request.client.host if request.client else None
+        user_agent = request.headers.get("user-agent", None)
         
         # Get user from request state (set by auth middleware if authenticated)
         user_id = None
@@ -116,10 +125,16 @@ class LoggingMiddleware(BaseHTTPMiddleware):
             
             # Log success/failure (HTTP level)
             if should_log:
+                # Generate action name - sanitize and limit length
+                action_name = f"{method.lower()}_{path.replace('/', '_').strip('_')}"
+                # Limit action name to 100 chars to prevent issues
+                if len(action_name) > 100:
+                    action_name = action_name[:97] + "..."
+                
                 self._queue_log(
                     level="INFO" if http_status < 400 else "ERROR",
                     component="api",
-                    action=f"{method.lower()}_{path.replace('/', '_').strip('_')}",
+                    action=action_name,
                     message=f"{method} {path} - {http_status}",
                     user_id=user_id,
                     company_id=company_id,
@@ -129,6 +144,7 @@ class LoggingMiddleware(BaseHTTPMiddleware):
                     http_status=http_status,
                     response_time_ms=int(process_time),
                     ip_address=client_ip,
+                    user_agent=user_agent,
                     extra_metadata=json.dumps(metadata),
                     timestamp=time.time()
                 )
@@ -148,10 +164,16 @@ class LoggingMiddleware(BaseHTTPMiddleware):
             
             # Log error
             if should_log:
+                # Generate action name for errors
+                action_name = f"{method.lower()}_error"
+                # Limit action name to 100 chars
+                if len(action_name) > 100:
+                    action_name = action_name[:97] + "..."
+                
                 self._queue_log(
                     level="ERROR",
                     component="api",
-                    action=f"{method.lower()}_error",
+                    action=action_name,
                     message=f"{method} {path} - Error: {error_message}",
                     user_id=user_id,
                     company_id=company_id,
@@ -161,6 +183,7 @@ class LoggingMiddleware(BaseHTTPMiddleware):
                     http_status=http_status,
                     response_time_ms=int(process_time),
                     ip_address=client_ip,
+                    user_agent=user_agent,
                     error_type=error_type,
                     error_message=error_message,
                     stack_trace=stack_trace,
@@ -179,12 +202,14 @@ class LoggingMiddleware(BaseHTTPMiddleware):
             return
 
         # Prepare payload
-        deployment_version = settings.VERSION # Using static version from settings for now
+        import os
+        deployment_version = os.getenv("DEPLOYMENT_VERSION", os.getenv("GIT_COMMIT", settings.VERSION))
+        deployment_environment = os.getenv("DEPLOYMENT_ENV", "development")
         
         payload = {
             "log_type": "system", # Distinguish from "llm" if needed, though structure is similar
             "deployment_version": deployment_version,
-            "deployment_environment": "production", # TODO: Get from env
+            "deployment_environment": deployment_environment,
             **kwargs
         }
 
