@@ -22,17 +22,14 @@ def process_cv_task(self, cv_id: int):
         
         msg_start = f"🚀 [Task] Starting CV {cv_id} | Active: {active_count}/5 | Queue: {queue_depth}"
         logger.info(msg_start)
-        print(msg_start, flush=True)  # Force output to stdout
         
         process_cv(cv_id)
         
         msg_end = f"✅ [Task] Finished CV {cv_id}"
         logger.info(msg_end)
-        print(msg_end, flush=True)
     except Exception as e:
         msg_err = f"❌ [Task] Error CV {cv_id}: {e}"
         logger.error(msg_err)
-        print(msg_err, flush=True)
         raise self.retry(exc=e)
     finally:
         # Always decrement active count

@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, WebSocket, WebSocketDisconnect
+from fastapi import APIRouter, Depends, HTTPException, WebSocket
 from sqlalchemy.orm import Session, joinedload
 from typing import List, Optional
 from pydantic import BaseModel
@@ -425,5 +425,5 @@ async def stream_department_generation(websocket: WebSocket):
                 pass
         try:
             await websocket.close()
-        except:
+        except Exception:
             pass

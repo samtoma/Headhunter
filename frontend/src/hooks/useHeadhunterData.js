@@ -148,6 +148,11 @@ export const useHeadhunterData = () => {
         if (!token) return
         try {
             const res = await axios.get('/api/companies/me')
+            // Super admin users may have null company data
+            if (!res.data) {
+                setCompany(null)
+                return
+            }
             setCompany(res.data)
             if (res.data.interview_stages) {
                 try {
@@ -180,10 +185,10 @@ export const useHeadhunterData = () => {
         const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
         const wsHost = window.location.host
         const isDev = import.meta.env.DEV
-        const wsPath = isDev 
-            ? '/api/api/sync/ws/sync'  // Vite proxy will rewrite /api to empty
+        const wsPath = isDev
+            ? '/api/sync/ws/sync'  // Vite proxy will rewrite /api to empty
             : '/api/sync/ws/sync'       // Direct path in production
-        const wsUrl = `${wsProtocol}//${wsHost}${wsPath}?token=${encodeURIComponent(token)}`
+        const wsUrl = `${wsProtocol}//${wsHost}${wsPath}?token=${token}`
 
         try {
             wsRef.current = new WebSocket(wsUrl)
@@ -195,7 +200,7 @@ export const useHeadhunterData = () => {
             wsRef.current.onmessage = (event) => {
                 try {
                     const data = JSON.parse(event.data)
-                    
+
                     if (data.type === 'initial_state') {
                         // Set initial state
                         if (data.data_version) {
@@ -227,12 +232,12 @@ export const useHeadhunterData = () => {
                                 fetchSettings()
                             }
                         }
-                        
+
                         // Handle CV processing status changes
                         if (data.processing_ids !== undefined) {
                             const currentIds = new Set(data.processing_ids)
                             const prevIds = processingIdsRef.current
-                            
+
                             // Check if any CV finished processing
                             const finishedIds = Array.from(prevIds).filter(id => !currentIds.has(id))
                             if (finishedIds.length > 0) {
@@ -240,17 +245,17 @@ export const useHeadhunterData = () => {
                                 fetchProfiles(1, false)
                                 fetchJobs()
                             }
-                            
+
                             processingIdsRef.current = currentIds
                         }
-                        
+
                         // Handle CV finished notifications
                         if (data.cv_finished && data.cv_finished.length > 0) {
                             console.log("CVs finished processing:", data.cv_finished)
                             fetchProfiles(1, false)
                             fetchJobs()
                         }
-                        
+
                         // Handle app version change
                         if (data.app_version) {
                             const localAppVersion = localStorage.getItem('app_version')

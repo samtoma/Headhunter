@@ -8,8 +8,7 @@ Provides real-time updates during job analysis.
 import json
 import os
 import time
-from typing import AsyncGenerator, Dict, Any, Optional
-from openai import AsyncOpenAI
+from typing import AsyncGenerator, Dict, Any
 from app.core.logging import get_logger
 from app.services.parser import get_openai_client
 

@@ -9,6 +9,9 @@ from app.core.security import verify_password, get_password_hash, create_access_
 from app.core.logging import auth_logger
 from pydantic import BaseModel
 from typing import Optional
+import logging
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["Authentication"])
 
@@ -287,7 +290,7 @@ async def forgot_password(email: str, db: Session = Depends(get_db)):
         )
     except Exception as e:
         # Log but don't expose email errors
-        print(f"Failed to send reset email: {e}")
+        logger.error(f"Failed to send reset email: {e}")
     
     return {"message": "If an account exists with that email, a password reset link has been sent."}
 

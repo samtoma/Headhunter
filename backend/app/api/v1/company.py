@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, WebSocket, WebSocketDisconnect
+from fastapi import APIRouter, Depends, HTTPException, WebSocket
 from sqlalchemy.orm import Session, joinedload
 from app.core.database import get_db
 from app.api.deps import get_current_user
@@ -707,5 +707,5 @@ Website Text:
                 pass
         try:
             await websocket.close()
-        except:
+        except Exception:
             pass

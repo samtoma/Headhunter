@@ -17,13 +17,19 @@ from datetime import datetime, timedelta, timezone
 from pydantic import BaseModel, ConfigDict
 from app.core.database import get_db
 from app.core.database_logs import get_logs_db
-from app.models.models import UserInvitation, User, Company, UserRole
+from app.models.models import UserInvitation, User, Company, UserRole, ActivityLog
 from app.models.log_models import SystemLog, LLMLog
 from app.api.deps import get_current_user
 from jose import jwt, JWTError
 from app.core.security import SECRET_KEY, ALGORITHM
 import json
 import asyncio
+import logging
+import time
+import os
+from sqlalchemy import text
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/admin", tags=["Admin"])
 
@@ -114,8 +120,8 @@ class UXAnalyticsResponse(BaseModel):
     error_endpoints: List[Dict[str, Any]]
     requests_by_hour: List[Dict[str, Any]]
 
-class DatabaseStatsResponse(BaseModel):
-    """Database statistics"""
+class SingleDbStats(BaseModel):
+    """Stats for a single database"""
     connection_pool_size: int
     connections_in_use: int
     connections_available: int
@@ -123,11 +129,32 @@ class DatabaseStatsResponse(BaseModel):
     total_tables: int
     table_sizes: List[Dict[str, Any]]
     total_db_size_mb: float
+    db_name: str
+
+
+class DatabaseStatsResponse(BaseModel):
+    """Database statistics for both production and logs databases"""
+    production: SingleDbStats
+    logs: SingleDbStats
+
+class BusinessFlowMetric(BaseModel):
+    name: str # e.g. "Talent Acquisition"
+    status: str # "healthy", "degraded", "unknown"
+    volume_24h: int
+    volume_prev_24h: int
+    trend_percent: float
+    success_rate: Optional[float] = None
+    last_event_at: Optional[datetime] = None
+
+class BusinessMetricsResponse(BaseModel):
+    flows: List[BusinessFlowMetric]
+    timestamp: datetime
 
 class HealthHistoryPoint(BaseModel):
     """Single point in health history"""
     timestamp: datetime
     services: List[ServiceHealth]
+    overall_status: str
     error_rate_percent: float
     response_time_p50_ms: float
     response_time_p95_ms: float
@@ -248,6 +275,19 @@ def get_system_logs(
     # Build result with pre-fetched data
     result = []
     for log in logs:
+        # Handle extra_metadata - JSONB returns dict, but handle string for backward compatibility
+        metadata = None
+        if log.extra_metadata:
+            if isinstance(log.extra_metadata, dict):
+                metadata = log.extra_metadata
+            elif isinstance(log.extra_metadata, str):
+                try:
+                    metadata = json.loads(log.extra_metadata)
+                except (json.JSONDecodeError, TypeError):
+                    metadata = {"raw": log.extra_metadata}  # Fallback for malformed JSON
+            else:
+                metadata = log.extra_metadata
+        
         log_dict = {
             "id": log.id,
             "level": log.level,
@@ -266,7 +306,7 @@ def get_system_logs(
             "error_message": log.error_message,
             "deployment_version": log.deployment_version,
             "deployment_environment": log.deployment_environment,
-            "metadata": log.extra_metadata if log.extra_metadata else None,
+            "metadata": metadata,
             "created_at": log.created_at,
             "user_email": users_map.get(log.user_id),
             "company_name": companies_map.get(log.company_id)
@@ -536,9 +576,14 @@ def get_system_metrics(
     for row in status_counts:
         invitations_by_status[row.status] = row.count
     
-    # Active users (users who logged in within 24h)
-    active_users_24h = db.query(func.count(User.id)).filter(
-        User.login_count > 0  # Simplified - in production, track last_login_at
+    # Active users (users who made API requests within 24h)
+    # Note: Using SystemLog to count distinct users who made requests in last 24h
+    # This is more accurate than login_count which doesn't track time
+    active_users_24h = db_logs.query(func.count(func.distinct(SystemLog.user_id))).filter(
+        and_(
+            SystemLog.user_id.isnot(None),
+            SystemLog.created_at >= last_24h
+        )
     ).scalar() or 0
     
     # API requests in last 24h (exclude LLM operations - LLM has its own component)
@@ -627,6 +672,19 @@ def get_recent_errors(
     # Build result with pre-fetched data
     result = []
     for log in errors:
+        # Handle extra_metadata - JSONB returns dict, but handle string for backward compatibility
+        metadata = None
+        if log.extra_metadata:
+            if isinstance(log.extra_metadata, dict):
+                metadata = log.extra_metadata
+            elif isinstance(log.extra_metadata, str):
+                try:
+                    metadata = json.loads(log.extra_metadata)
+                except (json.JSONDecodeError, TypeError):
+                    metadata = {"raw": log.extra_metadata}  # Fallback for malformed JSON
+            else:
+                metadata = log.extra_metadata
+        
         log_dict = {
             "id": log.id,
             "level": log.level,
@@ -645,7 +703,7 @@ def get_recent_errors(
             "error_message": log.error_message,
             "deployment_version": log.deployment_version,
             "deployment_environment": log.deployment_environment,
-            "metadata": log.extra_metadata if log.extra_metadata else None,
+            "metadata": metadata,
             "created_at": log.created_at,
             "user_email": users_map.get(log.user_id),
             "company_name": companies_map.get(log.company_id)
@@ -653,6 +711,221 @@ def get_recent_errors(
         result.append(log_dict)
     
     return result
+
+# ==================== System Health Helpers ====================
+
+def get_services_health_data(db: Session):
+    services = []
+    
+    # Check Database
+    try:
+        start = time.time()
+        db.execute(text("SELECT 1"))
+        db_time = (time.time() - start) * 1000
+        
+        # Get pool status
+        pool = db.get_bind().pool
+        pool_status = pool.status()
+        
+        services.append({
+            "name": "Database",
+            "status": "healthy" if db_time < 100 else "degraded",
+            "response_time_ms": round(db_time, 2),
+            "message": "PostgreSQL connection OK",
+            "details": {"pool_status": pool_status}
+        })
+    except Exception as e:
+        services.append({
+            "name": "Database",
+            "status": "unhealthy",
+            "message": str(e)
+        })
+    
+    # Check Redis
+    try:
+        import redis
+        redis_url = os.getenv("REDIS_URL", "redis://redis:6379/0")
+        start = time.time()
+        r = redis.from_url(redis_url)
+        r.ping()
+        redis_time = (time.time() - start) * 1000
+        
+        services.append({
+            "name": "Redis",
+            "status": "healthy" if redis_time < 100 else "degraded",
+            "response_time_ms": round(redis_time, 2),
+            "message": "Redis connection OK"
+        })
+    except Exception as e:
+        services.append({
+            "name": "Redis",
+            "status": "unhealthy",
+            "message": str(e)
+        })
+    
+    # Check Celery (via Redis queue)
+    try:
+        import redis
+        redis_url = os.getenv("REDIS_URL", "redis://redis:6379/0")
+        r = redis.from_url(redis_url)
+        queue_length = r.llen("celery")
+        
+        services.append({
+            "name": "Celery",
+            "status": "healthy",
+            "message": f"Queue length: {queue_length}",
+            "details": {"queue_length": queue_length}
+        })
+    except Exception as e:
+        services.append({
+            "name": "Celery",
+            "status": "unhealthy",
+            "message": str(e)
+        })
+    
+    # Check ChromaDB
+    try:
+        start = time.time()
+        import chromadb
+        chroma_host = os.getenv("CHROMA_HOST", "vector_db")
+        chroma_port = int(os.getenv("CHROMA_PORT", "8000"))
+        client = chromadb.HttpClient(host=chroma_host, port=chroma_port)
+        collections = client.list_collections()
+        chroma_time = (time.time() - start) * 1000
+        
+        services.append({
+            "name": "ChromaDB",
+            "status": "healthy" if chroma_time < 500 else "degraded",
+            "response_time_ms": round(chroma_time, 2),
+            "message": f"Collections: {len(collections)}",
+            "details": {"collections": [c.name for c in collections]}
+        })
+    except Exception as e:
+        services.append({
+            "name": "ChromaDB",
+            "status": "degraded",
+            "message": str(e)
+        })
+
+    # Check Logs Database (separate from main DB)
+    try:
+        from app.core.database_logs import get_logs_db
+        db_logs_gen = get_logs_db()
+        db_logs = next(db_logs_gen)
+        try:
+            start = time.time()
+            db_logs.execute(text("SELECT 1"))
+            logs_db_time = (time.time() - start) * 1000
+            
+            # Check if tables exist
+            tables_exist = db_logs.execute(text("""
+                SELECT EXISTS (
+                    SELECT FROM information_schema.tables 
+                    WHERE table_schema = 'public' 
+                    AND table_name IN ('system_logs', 'llm_logs')
+                )
+            """)).scalar()
+            
+            # Get recent log count
+            recent_logs = db_logs.query(func.count(SystemLog.id)).filter(
+                SystemLog.created_at >= datetime.now(timezone.utc) - timedelta(hours=1)
+            ).scalar() or 0
+            
+            services.append({
+                "name": "Logs Database",
+                "status": "healthy" if logs_db_time < 100 and tables_exist else "degraded",
+                "response_time_ms": round(logs_db_time, 2),
+                "message": f"Logs DB connection OK, {recent_logs} logs in last hour",
+                "details": {
+                    "tables_exist": tables_exist,
+                    "recent_logs_1h": recent_logs
+                }
+            })
+        finally:
+            try:
+                next(db_logs_gen, None)
+            except StopIteration:
+                pass
+    except Exception as e:
+        services.append({
+            "name": "Logs Database",
+            "status": "unhealthy",
+            "message": str(e)
+        })
+
+    # Check Logging Queue
+    try:
+        import redis
+        redis_url = os.getenv("REDIS_URL", "redis://redis:6379/0")
+        r = redis.from_url(redis_url)
+        logs_queue_length = r.llen("logs_queue")
+        
+        queue_status = "healthy"
+        if logs_queue_length > 1000:
+            queue_status = "unhealthy"
+            queue_message = f"CRITICAL: Queue backlog {logs_queue_length}"
+        elif logs_queue_length > 100:
+            queue_status = "degraded"
+            queue_message = f"WARNING: Queue backlog {logs_queue_length}"
+        else:
+            queue_message = f"Queue depth: {logs_queue_length}"
+        
+        services.append({
+            "name": "Logging Queue",
+            "status": queue_status,
+            "message": queue_message,
+            "details": {"queue_length": logs_queue_length}
+        })
+    except Exception as e:
+        services.append({
+            "name": "Logging Queue",
+            "status": "unhealthy",
+            "message": str(e)
+        })
+
+    # Check Log Worker (Redis Heartbeat)
+    try:
+        # Use existing Redis client 'r' if available, or create one
+        # 'r' is defined above in the "Logging Queue" check
+        heartbeat = r.get("heartbeat:log_worker")
+        
+        if heartbeat:
+            try:
+                last_heartbeat = float(heartbeat)
+                time_diff = time.time() - last_heartbeat
+                
+                if time_diff < 30:
+                    services.append({
+                        "name": "Log Worker",
+                        "status": "healthy",
+                        "message": f"Worker active (heartbeat: {int(time_diff)}s ago)"
+                    })
+                else:
+                    services.append({
+                        "name": "Log Worker",
+                        "status": "unhealthy",
+                        "message": f"Worker inactive (last heartbeat: {int(time_diff)}s ago)"
+                    })
+            except (ValueError, TypeError):
+                services.append({
+                    "name": "Log Worker",
+                    "status": "degraded",
+                    "message": "Invalid heartbeat data"
+                })
+        else:
+            services.append({
+                "name": "Log Worker",
+                "status": "unhealthy",
+                "message": "Log worker process not found (no heartbeat)"
+            })
+    except Exception as e:
+        services.append({
+            "name": "Log Worker",
+            "status": "degraded",
+            "message": f"Heartbeat check failed: {str(e)}"
+        })
+
+    return services
 
 # ==================== System Health Endpoint ====================
 
@@ -668,100 +941,99 @@ def get_system_health(
     """
     require_super_admin(current_user)
     
-    import time
-    import os
-    from sqlalchemy import text
+    services_data = get_services_health_data(db)
     
-    services = []
+    # Map to ServiceHealth objects (Pydantic)
+    services = [ServiceHealth(**s) for s in services_data]
     
-    # Check Database
-    try:
-        start = time.time()
-        db.execute(text("SELECT 1"))
-        db_time = (time.time() - start) * 1000
-        
-        # Get pool status
-        pool = db.get_bind().pool
-        pool_status = pool.status()
-        
-        services.append(ServiceHealth(
-            name="Database",
-            status="healthy" if db_time < 100 else "degraded",
-            response_time_ms=round(db_time, 2),
-            message="PostgreSQL connection OK",
-            details={"pool_status": pool_status}
-        ))
-    except Exception as e:
-        services.append(ServiceHealth(
-            name="Database",
-            status="unhealthy",
-            message=str(e)
-        ))
+    # Determine overall status
+    statuses = [s.status for s in services]
+    if "unhealthy" in statuses:
+        overall = "unhealthy"
+    elif "degraded" in statuses:
+        overall = "degraded"
+    else:
+        overall = "healthy"
     
-    # Check Redis
-    try:
-        import redis
-        redis_url = os.getenv("REDIS_URL", "redis://redis:6379/0")
-        start = time.time()
-        r = redis.from_url(redis_url)
-        r.ping()
-        redis_time = (time.time() - start) * 1000
-        
-        services.append(ServiceHealth(
-            name="Redis",
-            status="healthy" if redis_time < 100 else "degraded",
-            response_time_ms=round(redis_time, 2),
-            message="Redis connection OK"
-        ))
-    except Exception as e:
-        services.append(ServiceHealth(
-            name="Redis",
-            status="unhealthy",
-            message=str(e)
-        ))
+    return SystemHealthResponse(
+        overall_status=overall,
+        services=services,
+        timestamp=datetime.now(timezone.utc)
+    )
+
     
-    # Check Celery (via Redis queue)
+    # Check Logging Queue (Redis logs_queue)
     try:
         import redis
         redis_url = os.getenv("REDIS_URL", "redis://redis:6379/0")
         r = redis.from_url(redis_url)
-        queue_length = r.llen("celery")
+        logs_queue_length = r.llen("logs_queue")
+        
+        # Determine queue health
+        queue_status = "healthy"
+        if logs_queue_length > 1000:
+            queue_status = "unhealthy"
+            queue_message = f"CRITICAL: Queue backlog {logs_queue_length} - worker may be down"
+        elif logs_queue_length > 100:
+            queue_status = "degraded"
+            queue_message = f"WARNING: Queue backlog {logs_queue_length} - worker may be slow"
+        else:
+            queue_message = f"Queue depth: {logs_queue_length}"
         
         services.append(ServiceHealth(
-            name="Celery",
-            status="healthy",
-            message=f"Queue length: {queue_length}",
-            details={"queue_length": queue_length}
+            name="Logging Queue",
+            status=queue_status,
+            message=queue_message,
+            details={
+                "queue_name": "logs_queue",
+                "queue_length": logs_queue_length,
+                "threshold_warning": 100,
+                "threshold_critical": 1000
+            }
         ))
     except Exception as e:
         services.append(ServiceHealth(
-            name="Celery",
+            name="Logging Queue",
             status="unhealthy",
             message=str(e)
         ))
     
-    # Check ChromaDB
+    # Check Log Worker Status (check if process is running)
     try:
-        start = time.time()
-        import chromadb
-        chroma_host = os.getenv("CHROMA_HOST", "vector_db")
-        chroma_port = int(os.getenv("CHROMA_PORT", "8000"))
-        client = chromadb.HttpClient(host=chroma_host, port=chroma_port)
-        collections = client.list_collections()
-        chroma_time = (time.time() - start) * 1000
+        import subprocess
+        # Check for unified_log_worker process
+        result = subprocess.run(
+            ['pgrep', '-f', 'unified_log_worker'],
+            capture_output=True,
+            text=True,
+            timeout=2
+        )
         
+        worker_running = result.returncode == 0
+        worker_pids = result.stdout.strip().split('\n') if worker_running else []
+        worker_pids = [pid for pid in worker_pids if pid]  # Remove empty strings
+        
+        if worker_running:
+            services.append(ServiceHealth(
+                name="Log Worker",
+                status="healthy",
+                message=f"Worker running (PIDs: {', '.join(worker_pids) if worker_pids else 'unknown'})",
+                details={"pids": worker_pids, "process_name": "unified_log_worker"}
+            ))
+        else:
+            services.append(ServiceHealth(
+                name="Log Worker",
+                status="unhealthy",
+                message="Log worker process not found - logs may not be written to database",
+                details={"process_name": "unified_log_worker"}
+            ))
+    except (subprocess.TimeoutExpired, FileNotFoundError, Exception) as e:
+        # pgrep not available or timeout - mark as unknown but not unhealthy
         services.append(ServiceHealth(
-            name="ChromaDB",
-            status="healthy" if chroma_time < 500 else "degraded",
-            response_time_ms=round(chroma_time, 2),
-            message=f"Collections: {len(collections)}",
-            details={"collections": [c.name for c in collections]}
-        ))
-    except Exception as e:
-        services.append(ServiceHealth(
-            name="ChromaDB",
+            name="Log Worker",
             status="degraded",
-            message=str(e)
+            message=f"Unable to check worker status: {str(e)}",
+            details={"note": "Worker status check unavailable (pgrep not found or timeout)"}
         ))
     
     # Determine overall status
@@ -894,56 +1166,69 @@ def get_ux_analytics(
 @router.get("/database/stats", response_model=DatabaseStatsResponse)
 def get_database_stats(
     db: Session = Depends(get_db),
+    db_logs: Session = Depends(get_logs_db),
     current_user: User = Depends(get_current_user)
 ):
     """
-    Get database statistics including connection pool and table sizes.
+    Get database statistics for both production and logs databases.
+    Includes connection pool info, table sizes, and total size.
     Super admin only.
     """
     require_super_admin(current_user)
     
     from sqlalchemy import text
     
-    # Get connection pool stats
-    pool = db.get_bind().pool
+    def get_db_stats(session: Session, db_name: str) -> SingleDbStats:
+        """Helper to get stats for a single database"""
+        pool = session.get_bind().pool
+        
+        # Get table sizes
+        table_sizes_query = text("""
+            SELECT 
+                tablename as table_name,
+                pg_size_pretty(pg_total_relation_size(schemaname || '.' || tablename)) as total_size,
+                pg_total_relation_size(schemaname || '.' || tablename) as size_bytes
+            FROM pg_tables 
+            WHERE schemaname = 'public'
+            ORDER BY pg_total_relation_size(schemaname || '.' || tablename) DESC
+            LIMIT 10
+        """)
+        
+        try:
+            table_sizes_result = session.execute(table_sizes_query).fetchall()
+            table_sizes = [
+                {"table": row[0], "size": row[1], "size_bytes": row[2]}
+                for row in table_sizes_result
+            ]
+        except Exception:
+            table_sizes = []
+        
+        # Get total database size
+        db_size_query = text("SELECT pg_database_size(current_database())")
+        try:
+            db_size = session.execute(db_size_query).scalar() or 0
+            db_size_mb = db_size / (1024 * 1024)
+        except Exception:
+            db_size_mb = 0
+        
+        return SingleDbStats(
+            connection_pool_size=pool.size(),
+            connections_in_use=pool.checkedout(),
+            connections_available=pool.size() - pool.checkedout(),
+            pool_overflow=pool.overflow(),
+            total_tables=len(table_sizes),
+            table_sizes=table_sizes,
+            total_db_size_mb=round(db_size_mb, 2),
+            db_name=db_name
+        )
     
-    # Get table sizes
-    table_sizes_query = text("""
-        SELECT 
-            tablename as table_name,
-            pg_size_pretty(pg_total_relation_size(schemaname || '.' || tablename)) as total_size,
-            pg_total_relation_size(schemaname || '.' || tablename) as size_bytes
-        FROM pg_tables 
-        WHERE schemaname = 'public'
-        ORDER BY pg_total_relation_size(schemaname || '.' || tablename) DESC
-        LIMIT 20
-    """)
-    
-    try:
-        table_sizes_result = db.execute(table_sizes_query).fetchall()
-        table_sizes = [
-            {"table": row[0], "size": row[1], "size_bytes": row[2]}
-            for row in table_sizes_result
-        ]
-    except Exception:
-        table_sizes = []
-    
-    # Get total database size
-    db_size_query = text("SELECT pg_database_size(current_database())")
-    try:
-        db_size = db.execute(db_size_query).scalar() or 0
-        db_size_mb = db_size / (1024 * 1024)
-    except Exception:
-        db_size_mb = 0
+    # Get stats for both databases
+    production_stats = get_db_stats(db, "headhunter_db")
+    logs_stats = get_db_stats(db_logs, "headhunter_logs")
     
     return DatabaseStatsResponse(
-        connection_pool_size=pool.size(),
-        connections_in_use=pool.checkedout(),
-        connections_available=pool.size() - pool.checkedout(),
-        pool_overflow=pool.overflow(),
-        total_tables=len(table_sizes),
-        table_sizes=table_sizes,
-        total_db_size_mb=round(db_size_mb, 2)
+        production=production_stats,
+        logs=logs_stats
     )
 
 # ==================== Log Cleanup Endpoint ====================
@@ -1008,9 +1293,6 @@ def get_health_history(
     """
     require_super_admin(current_user)
     
-    import time
-    import os
-    from sqlalchemy import text
     from collections import defaultdict
     
     now = datetime.now(timezone.utc)
@@ -1083,16 +1365,18 @@ def get_health_history(
         # For historical data, we'll infer health from response times and errors
         services = []
         
-        # Database health - check for database-related errors
-        db_errors = sum(1 for log in bucket_logs if 'database' in log.component.lower() or 'db' in log.component.lower())
-        db_response_times = [log.response_time_ms for log in bucket_logs 
-                            if log.http_path and ('/api' in log.http_path or '/admin' in log.http_path) 
-                            and log.response_time_ms]
-        avg_db_time = sum(db_response_times) / len(db_response_times) if db_response_times else 0
-        
+        # Database health
+        db_errors = sum(1 for log in bucket_logs if 'sqlalchemy' in log.component.lower() or 'psycopg' in log.component.lower())
+        # For average DB time, we'll use the general response times for now, as specific DB-related response times are harder to isolate from logs
+        avg_db_time = sum(response_times) / len(response_times) if response_times else 0
+            
         db_status = "healthy"
-        if db_errors > len(bucket_logs) * 0.1:  # More than 10% errors
-            db_status = "unhealthy"
+        if db_errors > 0:
+             # If low volume, be lenient. If high volume, check percentage.
+             if len(bucket_logs) < 20: 
+                 db_status = "degraded" if db_errors < 5 else "unhealthy"
+             else:
+                 db_status = "degraded" if db_errors < len(bucket_logs) * 0.2 else "unhealthy"
         elif avg_db_time > 500:  # Average response > 500ms
             db_status = "degraded"
         
@@ -1107,7 +1391,10 @@ def get_health_history(
         redis_errors = sum(1 for log in bucket_logs if 'redis' in log.component.lower())
         redis_status = "healthy"
         if redis_errors > 0:
-            redis_status = "degraded" if redis_errors < len(bucket_logs) * 0.1 else "unhealthy"
+             if len(bucket_logs) < 20:
+                 redis_status = "degraded" if redis_errors < 5 else "unhealthy"
+             else:
+                 redis_status = "degraded" if redis_errors < len(bucket_logs) * 0.2 else "unhealthy"
         
         services.append(ServiceHealth(
             name="Redis",
@@ -1120,7 +1407,11 @@ def get_health_history(
         celery_errors = sum(1 for log in bucket_logs if 'celery' in log.component.lower())
         celery_status = "healthy"
         if celery_errors > 0:
-            celery_status = "degraded" if celery_errors < len(bucket_logs) * 0.1 else "unhealthy"
+             # Celery logs heavily, so we can be stricter on count but lenient on single failures
+             if len(bucket_logs) < 20:
+                 celery_status = "degraded" if celery_errors < 3 else "unhealthy"
+             else:
+                 celery_status = "degraded" if celery_errors < len(bucket_logs) * 0.15 else "unhealthy"
         
         services.append(ServiceHealth(
             name="Celery",
@@ -1133,7 +1424,10 @@ def get_health_history(
         chroma_errors = sum(1 for log in bucket_logs if 'chroma' in log.component.lower() or 'vector' in log.component.lower())
         chroma_status = "healthy"
         if chroma_errors > 0:
-            chroma_status = "degraded" if chroma_errors < len(bucket_logs) * 0.1 else "unhealthy"
+             if len(bucket_logs) < 20:
+                 chroma_status = "degraded" if chroma_errors < 3 else "unhealthy"
+             else:
+                 chroma_status = "degraded" if chroma_errors < len(bucket_logs) * 0.2 else "unhealthy"
         
         services.append(ServiceHealth(
             name="ChromaDB",
@@ -1142,9 +1436,19 @@ def get_health_history(
             message=f"{chroma_errors} chroma-related issues"
         ))
         
+        # Determine overall status for this bucket
+        bucket_statuses = [s.status for s in services]
+        if "unhealthy" in bucket_statuses:
+            overall = "unhealthy"
+        elif "degraded" in bucket_statuses:
+            overall = "degraded"
+        else:
+            overall = "healthy"
+            
         time_series.append(HealthHistoryPoint(
             timestamp=bucket_time,
             services=services,
+            overall_status=overall,
             error_rate_percent=round(error_rate, 2),
             response_time_p50_ms=round(p50, 2),
             response_time_p95_ms=round(p95, 2),
@@ -1154,6 +1458,149 @@ def get_health_history(
     return HealthHistoryResponse(
         period_hours=hours,
         time_series=time_series
+    )
+
+@router.get("/business-metrics", response_model=BusinessMetricsResponse)
+def get_business_flow_metrics(
+    db: Session = Depends(get_db),
+    logs_db: Session = Depends(get_logs_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Calculate KPIs for core business flows:
+    1. Talent Acquisition (Invitations/Signups)
+    2. Interview Operations (Scheduling)
+    3. CV Pipeline (Manual Uploads)
+    4. CV Pipeline (Landing Page)
+    """
+    require_super_admin(current_user)
+    
+    now = datetime.now(timezone.utc)
+    one_day_ago = now - timedelta(hours=24)
+    two_days_ago = now - timedelta(hours=48)
+    one_hour_ago = now - timedelta(hours=1)
+    
+    flows = []
+    
+    # helper to calculate volume stats
+    def get_flow_stats(action_filter, source_filter=None):
+        # Current 24h
+        q_curr = db.query(ActivityLog).filter(
+            ActivityLog.created_at >= one_day_ago,
+            ActivityLog.action == action_filter
+        )
+        if source_filter:
+            q_curr = q_curr.filter(ActivityLog.details.like(f'%{source_filter}%'))
+        curr_vol = q_curr.count()
+        
+        # Previous 24h
+        q_prev = db.query(ActivityLog).filter(
+            ActivityLog.created_at >= two_days_ago,
+            ActivityLog.created_at < one_day_ago,
+            ActivityLog.action == action_filter
+        )
+        if source_filter:
+            q_prev = q_prev.filter(ActivityLog.details.like(f'%{source_filter}%'))
+        prev_vol = q_prev.count()
+
+        # Last event
+        last_event = db.query(ActivityLog).filter(
+             ActivityLog.action == action_filter
+        )
+        if source_filter:
+             last_event = last_event.filter(ActivityLog.details.like(f'%{source_filter}%'))
+        last_event = last_event.order_by(ActivityLog.created_at.desc()).first()
+        
+        # Trend
+        if prev_vol == 0:
+            trend = 100.0 if curr_vol > 0 else 0.0
+        else:
+            trend = ((curr_vol - prev_vol) / prev_vol) * 100
+
+        return curr_vol, prev_vol, trend, last_event.created_at if last_event else None
+
+    # helper to check health (error rate in last hour)
+    def check_health(component_name):
+        error_count = logs_db.query(SystemLog).filter(
+            SystemLog.created_at >= one_hour_ago,
+            SystemLog.level.in_(['ERROR', 'CRITICAL']),
+            SystemLog.component == component_name
+        ).count()
+        return "healthy" if error_count == 0 else "degraded"
+
+    # 1. Talent Acquisition
+    inv_curr, inv_prev, inv_trend, inv_last = get_flow_stats("signup") # or user_invited
+    # Also check user_invited for manually invited users
+    inv_curr_2, inv_prev_2, _, inv_last_2 = get_flow_stats("user_invited")
+    
+    total_inv_curr = inv_curr + inv_curr_2
+    total_inv_prev = inv_prev + inv_prev_2
+    
+    if total_inv_prev == 0:
+        total_inv_trend = 100.0 if total_inv_curr > 0 else 0.0
+    else:
+        total_inv_trend = ((total_inv_curr - total_inv_prev) / total_inv_prev) * 100
+        
+    last_inv = inv_last if (inv_last and (not inv_last_2 or inv_last > inv_last_2)) else inv_last_2
+    
+    flows.append(BusinessFlowMetric(
+        name="Talent Acquisition",
+        status=check_health("auth"), # Monitor auth component errors
+        volume_24h=total_inv_curr,
+        volume_prev_24h=total_inv_prev,
+        trend_percent=round(total_inv_trend, 1),
+        last_event_at=last_inv
+    ))
+
+    # 2. Interviews
+    int_curr, int_prev, int_trend, int_last = get_flow_stats("interview_scheduled")
+    flows.append(BusinessFlowMetric(
+        name="Interview Operations",
+        status=check_health("interviews"),
+        volume_24h=int_curr,
+        volume_prev_24h=int_prev,
+        trend_percent=round(int_trend, 1),
+        last_event_at=int_last
+    ))
+
+    # 3. CV Pipeline (Manual)
+    # Combine "manual" (direct upload to job) and "bulk_assign" (pool to job)
+    cv_man_1_curr, cv_man_1_prev, _, cv_man_1_last = get_flow_stats("added_to_pipeline", "manual")
+    cv_man_2_curr, cv_man_2_prev, _, cv_man_2_last = get_flow_stats("added_to_pipeline", "bulk_assign")
+    
+    cv_man_curr = cv_man_1_curr + cv_man_2_curr
+    cv_man_prev = cv_man_1_prev + cv_man_2_prev
+    
+    if cv_man_prev == 0:
+        cv_man_trend = 100.0 if cv_man_curr > 0 else 0.0
+    else:
+        cv_man_trend = ((cv_man_curr - cv_man_prev) / cv_man_prev) * 100
+        
+    last_cv_man = cv_man_1_last if (cv_man_1_last and (not cv_man_2_last or cv_man_1_last > cv_man_2_last)) else cv_man_2_last
+
+    flows.append(BusinessFlowMetric(
+        name="CV Pipeline (Manual)",
+        status=check_health("cv"),
+        volume_24h=cv_man_curr,
+        volume_prev_24h=cv_man_prev,
+        trend_percent=round(cv_man_trend, 1),
+        last_event_at=last_cv_man
+    ))
+
+    # 4. CV Pipeline (Landing Page)
+    cv_pub_curr, cv_pub_prev, cv_pub_trend, cv_pub_last = get_flow_stats("added_to_pipeline", "landing_page")
+    flows.append(BusinessFlowMetric(
+        name="CV Pipeline (Public)",
+        status=check_health("public"),
+        volume_24h=cv_pub_curr,
+        volume_prev_24h=cv_pub_prev,
+        trend_percent=round(cv_pub_trend, 1),
+        last_event_at=cv_pub_last
+    ))
+
+    return BusinessMetricsResponse(
+        flows=flows,
+        timestamp=now
     )
 
 # ==================== WebSocket for Real-time Monitoring ====================
@@ -1230,9 +1677,14 @@ async def websocket_monitoring(websocket: WebSocket):
     active_connections[connection_id] = websocket
     refresh_interval = 5  # Default 5 seconds
     
+    db_gen = get_db()
+    db_logs_gen = get_logs_db()
+    db = next(db_gen)
+    db_logs = next(db_logs_gen)
+    
     try:
         # Send initial data
-        await send_monitoring_update(websocket, user)
+        await send_monitoring_update(websocket, db, db_logs)
         
         # Keep connection alive and send periodic updates
         while True:
@@ -1245,167 +1697,76 @@ async def websocket_monitoring(websocket: WebSocket):
                         await websocket.send_json({"type": "refresh_rate_updated", "interval": refresh_interval})
                 except asyncio.TimeoutError:
                     # Timeout - send update
-                    await send_monitoring_update(websocket, user)
+                    await send_monitoring_update(websocket, db, db_logs)
             except WebSocketDisconnect:
                 break
+            except Exception as e:
+                logger.error(f"Error in monitoring loop: {e}")
+                # Don't break on transient errors, just wait and try again
+                await asyncio.sleep(refresh_interval)
     except WebSocketDisconnect:
         pass
     finally:
         if connection_id in active_connections:
             del active_connections[connection_id]
-
-async def send_monitoring_update(websocket: WebSocket, user: User):
-    """Send monitoring data update via WebSocket"""
-    db_gen = None
-    try:
-        # Get database session - properly consume the generator
-        db_gen = get_db()
-        db = next(db_gen)
         
-        # Get Logs DB session
-        db_logs_gen = get_logs_db()
-        db_logs = next(db_logs_gen)
-        
+        # Clean up database sessions
         try:
-            # Get metrics
-            now = datetime.now(timezone.utc)
-            last_24h = now - timedelta(hours=24)
-            
-            # Quick metrics calculation
-            total_logs = db_logs.query(func.count(SystemLog.id)).scalar() or 0
-            errors_24h = db_logs.query(func.count(SystemLog.id)).filter(
-                and_(
-                    SystemLog.error_type.isnot(None),
-                    SystemLog.created_at >= last_24h
-                )
-            ).scalar() or 0
-            logs_24h = db_logs.query(func.count(SystemLog.id)).filter(
+            next(db_gen, None)
+        except StopIteration:
+            pass
+        try:
+            next(db_logs_gen, None)
+        except StopIteration:
+            pass
+
+async def send_monitoring_update(websocket: WebSocket, db: Session, db_logs: Session):
+    """Send monitoring data update via WebSocket"""
+    try:
+        # Get metrics
+        now = datetime.now(timezone.utc)
+        last_24h = now - timedelta(hours=24)
+        
+        # Quick metrics calculation
+        total_logs = db_logs.query(func.count(SystemLog.id)).scalar() or 0
+        errors_24h = db_logs.query(func.count(SystemLog.id)).filter(
+            and_(
+                SystemLog.error_type.isnot(None),
                 SystemLog.created_at >= last_24h
-            ).scalar() or 1
-            error_rate = (errors_24h / logs_24h * 100) if logs_24h > 0 else 0
-            
-            # Get health status - check all services like the health endpoint
-            import time
-            import os
-            from sqlalchemy import text
-            
-            services = []
-            
-            # Check Database
-            try:
-                start = time.time()
-                db.execute(text("SELECT 1"))
-                db_time = (time.time() - start) * 1000
-                services.append({
-                    "name": "Database",
-                    "status": "healthy" if db_time < 100 else "degraded",
-                    "response_time_ms": round(db_time, 2),
-                    "message": "PostgreSQL connection OK"
-                })
-            except Exception as e:
-                services.append({
-                    "name": "Database",
-                    "status": "unhealthy",
-                    "message": str(e)
-                })
-            
-            # Check Redis
-            try:
-                import redis
-                redis_url = os.getenv("REDIS_URL", "redis://redis:6379/0")
-                start = time.time()
-                r = redis.from_url(redis_url)
-                r.ping()
-                redis_time = (time.time() - start) * 1000
-                services.append({
-                    "name": "Redis",
-                    "status": "healthy" if redis_time < 100 else "degraded",
-                    "response_time_ms": round(redis_time, 2),
-                    "message": "Redis connection OK"
-                })
-            except Exception as e:
-                services.append({
-                    "name": "Redis",
-                    "status": "unhealthy",
-                    "message": str(e)
-                })
-            
-            # Check Celery (via Redis queue)
-            try:
-                import redis
-                redis_url = os.getenv("REDIS_URL", "redis://redis:6379/0")
-                r = redis.from_url(redis_url)
-                queue_length = r.llen("celery")
-                services.append({
-                    "name": "Celery",
-                    "status": "healthy",
-                    "message": f"Queue length: {queue_length}"
-                })
-            except Exception as e:
-                services.append({
-                    "name": "Celery",
-                    "status": "unhealthy",
-                    "message": str(e)
-                })
-            
-            # Check ChromaDB
-            try:
-                start = time.time()
-                import chromadb
-                chroma_host = os.getenv("CHROMA_HOST", "vector_db")
-                chroma_port = int(os.getenv("CHROMA_PORT", "8000"))
-                client = chromadb.HttpClient(host=chroma_host, port=chroma_port)
-                collections = client.list_collections()
-                chroma_time = (time.time() - start) * 1000
-                services.append({
-                    "name": "ChromaDB",
-                    "status": "healthy" if chroma_time < 500 else "degraded",
-                    "response_time_ms": round(chroma_time, 2),
-                    "message": f"Collections: {len(collections)}"
-                })
-            except Exception as e:
-                services.append({
-                    "name": "ChromaDB",
-                    "status": "degraded",
-                    "message": str(e)
-                })
-            
-            update_data = {
-                "type": "monitoring_update",
-                "timestamp": datetime.now(timezone.utc).isoformat(),
-                "metrics": {
-                    "total_logs": total_logs,
-                    "error_rate_24h": round(error_rate, 2),
-                    "api_requests_24h": logs_24h
-                },
-                "health": {
-                    "services": services,
-                    "overall_status": "healthy" if all(s.get("status") == "healthy" for s in services) else "degraded"
-                }
+            )
+        ).scalar() or 0
+        logs_24h = db_logs.query(func.count(SystemLog.id)).filter(
+            SystemLog.created_at >= last_24h
+        ).scalar() or 1
+        error_rate = (errors_24h / logs_24h * 100) if logs_24h > 0 else 0
+        
+        # Get health status - check all services
+        services = get_services_health_data(db)
+        
+        update_data = {
+            "type": "monitoring_update",
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "metrics": {
+                "total_logs": total_logs,
+                "error_rate_24h": round(error_rate, 2),
+                "api_requests_24h": logs_24h
+            },
+            "health": {
+                "services": services,
+                "overall_status": "healthy" if all(s.get("status") == "healthy" for s in services) else "degraded"
             }
-            
-            await websocket.send_json(update_data)
-        finally:
-            # Properly exhaust the generator to trigger its finally block
-            try:
-                next(db_gen, None)
-            except StopIteration:
-                pass
+        }
+        
+        await websocket.send_json(update_data)
     except Exception as e:
+        logger.exception("Error in send_monitoring_update")
         try:
             await websocket.send_json({
                 "type": "error",
                 "message": str(e)
             })
-        except:
+        except Exception:
             pass  # Connection might be closed
-    finally:
-        # Ensure generator is exhausted even if exception occurred
-        if db_gen:
-            try:
-                next(db_gen, None)
-            except StopIteration:
-                pass
 
 # ==================== Threshold Configuration ====================
 
@@ -1559,7 +1920,13 @@ def get_llm_metrics(
     
     for log in llm_logs:
         try:
-            metadata = json.loads(log.extra_metadata) if isinstance(log.extra_metadata, str) else log.extra_metadata
+            # Handle extra_metadata - JSONB returns dict, but handle string for backward compatibility
+            if isinstance(log.extra_metadata, dict):
+                metadata = log.extra_metadata
+            elif isinstance(log.extra_metadata, str):
+                metadata = json.loads(log.extra_metadata)
+            else:
+                metadata = log.extra_metadata if log.extra_metadata else {}
             
             # Token tracking
             tokens = metadata.get("tokens_used", 0)
@@ -1698,9 +2065,15 @@ def get_llm_metrics(
         metadata = {}
         try:
             if log.extra_metadata:
-                metadata = json.loads(log.extra_metadata) if isinstance(log.extra_metadata, str) else log.extra_metadata
-        except:
-            pass
+                # Handle extra_metadata - JSONB returns dict, but handle string for backward compatibility
+                if isinstance(log.extra_metadata, dict):
+                    metadata = log.extra_metadata
+                elif isinstance(log.extra_metadata, str):
+                    metadata = json.loads(log.extra_metadata)
+                else:
+                    metadata = log.extra_metadata
+        except (json.JSONDecodeError, TypeError):
+            metadata = {"raw": str(log.extra_metadata)} if log.extra_metadata else {}
         
         recent_operations.append({
             "id": log.id,

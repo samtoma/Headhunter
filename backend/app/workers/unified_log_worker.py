@@ -18,12 +18,9 @@ Usage:
     python -m app.workers.unified_log_worker
 """
 
-import os
 import json
 import time
-import logging
 import signal
-import sys
 from typing import Dict, List, Any, Optional
 import redis
 from sqlalchemy.orm import Session
@@ -67,15 +64,66 @@ def init_redis() -> Optional[redis.Redis]:
         return None
 
 def create_tables():
-    """Create logs tables if they don't exist in the Logs DB."""
-    try:
-        Base.metadata.create_all(bind=engine)
-        logger.info("Logs database tables verified/created")
-    except Exception as e:
-        logger.error(f"Failed to create logs tables: {e}")
-        # We might want to exit here if DB is critical, but maybe retry loop is better
-        # For now, let's raise to fail fast during startup
-        raise
+    """
+    Create logs tables and indexes if they don't exist in the Logs DB.
+    
+    Uses retry logic for transient connection issues. This is important because:
+    - The logs database may be starting up when the worker starts
+    - Network issues can cause temporary connection failures
+    - We want the worker to be resilient to temporary database unavailability
+    
+    Note: This uses create_all() instead of Alembic migrations because:
+    - system_logs and llm_logs are in a separate database (logs DB)
+    - Alembic migrations only run against the main database
+    - This approach is simpler for the logs database schema
+    """
+    max_retries = 5
+    retry_delay = 2  # seconds
+    
+    for attempt in range(1, max_retries + 1):
+        try:
+            # Create tables
+            Base.metadata.create_all(bind=engine)
+            logger.info("Logs database tables verified/created")
+            
+            # Create composite indexes for performance (these are in logs DB, not main DB)
+            # These indexes improve query performance for common patterns
+            from sqlalchemy import text
+            
+            with engine.connect() as conn:
+                # Index for filtering by level and ordering by created_at (most common query pattern)
+                conn.execute(text("""
+                    CREATE INDEX IF NOT EXISTS idx_system_logs_level_created 
+                    ON system_logs(level, created_at DESC)
+                """))
+                
+                # Index for filtering by component and ordering by created_at
+                conn.execute(text("""
+                    CREATE INDEX IF NOT EXISTS idx_system_logs_component_created 
+                    ON system_logs(component, created_at DESC)
+                """))
+                
+                # Index for error queries (filtering by error_type IS NOT NULL and created_at)
+                conn.execute(text("""
+                    CREATE INDEX IF NOT EXISTS idx_system_logs_errors 
+                    ON system_logs(error_type, created_at) 
+                    WHERE error_type IS NOT NULL
+                """))
+                
+                conn.commit()
+            
+            logger.info("Logs database composite indexes verified/created")
+            return  # Success - exit function
+        except Exception as e:
+            if attempt < max_retries:
+                logger.warning(f"Failed to create logs tables/indexes (attempt {attempt}/{max_retries}): {e}")
+                logger.info(f"Retrying in {retry_delay} seconds...")
+                time.sleep(retry_delay)
+            else:
+                # Final attempt failed
+                logger.error(f"Failed to create logs tables/indexes after {max_retries} attempts: {e}")
+                logger.error("Worker cannot start without database tables. Exiting.")
+                raise
 
 def process_batch(batch: List[Dict[str, Any]]) -> None:
     """
@@ -119,7 +167,7 @@ def process_batch(batch: List[Dict[str, Any]]) -> None:
                 if isinstance(meta, str):
                     try:
                         llm_log.extra_metadata = json.loads(meta)
-                    except:
+                    except (json.JSONDecodeError, TypeError, ValueError):
                         llm_log.extra_metadata = {"raw": meta}
                 else:
                     llm_log.extra_metadata = meta
@@ -155,7 +203,7 @@ def process_batch(batch: List[Dict[str, Any]]) -> None:
                 if isinstance(meta, str):
                     try:
                         sys_log.extra_metadata = json.loads(meta)
-                    except:
+                    except (json.JSONDecodeError, TypeError, ValueError):
                         sys_log.extra_metadata = {"raw": meta}
                 else:
                     sys_log.extra_metadata = meta
@@ -210,9 +258,24 @@ def run_worker():
 
     batch = []
     last_flush_time = time.time()
+    last_heartbeat_time = 0
+
+    def update_heartbeat(client: redis.Redis):
+        """Update heartbeat key in Redis with 30s TTL."""
+        try:
+            client.set("heartbeat:log_worker", str(time.time()), ex=30)
+        except Exception as e:
+            logger.error(f"Failed to update heartbeat: {e}")
 
     while running:
         try:
+            current_time = time.time()
+            
+            # Update heartbeat every 10 seconds
+            if current_time - last_heartbeat_time >= 10:
+                update_heartbeat(redis_client)
+                last_heartbeat_time = current_time
+            
             # Non-blocking pop to allow periodic flush based on time
             # Using lpop/rpop? Middleware uses lpush, so we should rpop.
             # Using basic pop with short logic or brpop with timeout.

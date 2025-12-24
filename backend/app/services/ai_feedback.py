@@ -8,8 +8,7 @@ Provides real-time updates during feedback generation.
 import json
 import os
 import time
-from typing import AsyncGenerator, Dict, Any, Optional
-from openai import AsyncOpenAI
+from typing import AsyncGenerator, Dict, Any
 from app.core.logging import get_logger
 from app.services.parser import get_openai_client
 
@@ -63,7 +62,7 @@ async def generate_interview_feedback_stream(
         if isinstance(candidate_skills, str):
             try:
                 candidate_skills = json.loads(candidate_skills)
-            except:
+            except Exception:
                 candidate_skills = []
         
         job_title = job_data.get("title", "Position")
@@ -72,7 +71,7 @@ async def generate_interview_feedback_stream(
         if isinstance(job_requirements, str):
             try:
                 job_requirements = json.loads(job_requirements)
-            except:
+            except Exception:
                 job_requirements = []
         
         interview_step = interview_data.get("step", "Interview")

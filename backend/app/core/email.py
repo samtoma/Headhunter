@@ -1,6 +1,9 @@
 import os
 from fastapi_mail import FastMail, MessageSchema, ConnectionConfig, MessageType
 from pydantic import EmailStr
+import logging
+
+logger = logging.getLogger(__name__)
 
 # Email Configuration
 is_testing = os.getenv("TESTING", "false").lower() == "true"
@@ -149,7 +152,7 @@ END:VCALENDAR"""
             with open(ics_path, "w") as f:
                 f.write(ics_content)
         except Exception as e:
-            print(f"Failed to create ICS file: {e}")
+            logger.error(f"Failed to create ICS file: {e}")
             ics_path = None
     
     html = f"""
@@ -236,7 +239,7 @@ END:VCALENDAR"""
             shutil.copy(cv_path, temp_cv_path)
             attachments.append(temp_cv_path)
         except Exception as e:
-            print(f"Failed to rename CV: {e}")
+            logger.error(f"Failed to rename CV: {e}")
             # Fallback to original path if copy fails
             attachments.append(cv_path)
 

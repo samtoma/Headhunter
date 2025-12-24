@@ -1,13 +1,8 @@
-import React, { useState, useEffect, useRef } from 'react'
+import React, { useState, useEffect, useRef, useCallback } from 'react'
 import axios from 'axios'
-import {
-    Activity, AlertCircle, RefreshCw, Clock, Server, TrendingUp, AlertTriangle,
-    CheckCircle, XCircle, Database, Trash2, Zap, Gauge, Wifi, WifiOff
-} from 'lucide-react'
-import { XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, AreaChart, Area, LineChart, Line, Legend, ReferenceLine } from 'recharts'
+import { Wifi, WifiOff } from 'lucide-react'
 
-import { isAiEndpoint, formatDate, getLevelColor, getStatusColor, getHealthColor, getStatusValue, getServiceStatusColor } from './utils/adminDashboardUtils'
-import MetricCard from './shared/MetricCard'
+import { getStatusValue, getServiceStatusColor } from './utils/adminDashboardUtils'
 import OverviewTab from './tabs/OverviewTab'
 import LogsTab from './tabs/LogsTab'
 import InvitationsTab from './tabs/InvitationsTab'
@@ -34,6 +29,7 @@ const AdminLogsDashboard = () => {
     const [historyHours, setHistoryHours] = useState(24)
     const [historyInterval, setHistoryInterval] = useState(1)
     const [refreshRate, setRefreshRate] = useState(5)
+    const [businessMetrics, setBusinessMetrics] = useState(null)
     const [llmMetrics, setLlmMetrics] = useState(null)
     const [llmCompanyFilter, setLlmCompanyFilter] = useState('')
     const [thresholds, setThresholds] = useState({
@@ -48,7 +44,6 @@ const AdminLogsDashboard = () => {
     })
     const [wsConnected, setWsConnected] = useState(false)
     const [reconnectTrigger, setReconnectTrigger] = useState(0)
-    const [showAboutSection, setShowAboutSection] = useState(true)
     const wsRef = useRef(null)
     const reconnectTimeoutRef = useRef(null)
 
@@ -71,23 +66,249 @@ const AdminLogsDashboard = () => {
 
     const [expandedLogs, setExpandedLogs] = useState(new Set())
 
-    // Mock data loading for now - will be replaced with actual API calls
-    useEffect(() => {
-        // Simulate loading
-        setTimeout(() => {
-            setLoading(false)
-        }, 1000)
+    // Real API functions
+    const fetchMetrics = useCallback(async () => {
+        try {
+            const res = await axios.get('/api/admin/metrics')
+            setMetrics(res.data)
+        } catch (err) {
+            console.error('Failed to fetch metrics', err)
+        }
     }, [])
 
-    // Mock WebSocket connection
+    const fetchHealth = useCallback(async () => {
+        try {
+            const res = await axios.get('/api/admin/health')
+            setHealth(res.data)
+        } catch (err) {
+            console.error('Failed to fetch health', err)
+        }
+    }, [])
+
+    const fetchErrors = useCallback(async () => {
+        try {
+            // Fetch ERROR and CRITICAL logs specifically for the Errors tab
+            const res = await axios.get('/api/admin/logs', {
+                params: { level: 'ERROR,CRITICAL', limit: 100 }
+            })
+            setErrors(res.data)
+        } catch (err) {
+            console.error('Failed to fetch errors', err)
+        }
+    }, [])
+
+    const fetchUxAnalytics = useCallback(async () => {
+        try {
+            const res = await axios.get('/api/admin/ux-analytics')
+            setUxAnalytics(res.data)
+        } catch (err) {
+            console.error('Failed to fetch UX analytics', err)
+        }
+    }, [])
+
+    const fetchDbStats = useCallback(async () => {
+        try {
+            const res = await axios.get('/api/admin/database/stats')
+            setDbStats(res.data)
+        } catch (err) {
+            console.error('Failed to fetch DB stats', err)
+        }
+    }, [])
+
+    const fetchLogs = useCallback(async () => {
+        try {
+            const params = {
+                limit: pagination.limit,
+                offset: pagination.offset,
+                ...filters
+            }
+            // Remove empty filters
+            Object.keys(params).forEach(key => {
+                if (params[key] === "" || params[key] === null) delete params[key]
+            })
+
+            const res = await axios.get('/api/admin/logs', { params })
+            setLogs(res.data)
+            // Note: Currently backend doesn't return total count in a wrapper,
+            // so we set total based on returned length if it's less than limit
+            setPagination(prev => ({
+                ...prev,
+                total: res.data.length < prev.limit ? prev.offset + res.data.length : prev.offset + prev.limit + 1
+            }))
+        } catch (err) {
+            console.error('Failed to fetch logs', err)
+        }
+    }, [pagination.limit, pagination.offset, filters])
+
+    const fetchInvitations = useCallback(async () => {
+        try {
+            const res = await axios.get('/api/admin/invitations')
+            setInvitations(res.data)
+        } catch (err) {
+            console.error('Failed to fetch invitations', err)
+        }
+    }, [])
+
+    const fetchHealthHistory = useCallback(async () => {
+        try {
+            const res = await axios.get('/api/admin/health/history', {
+                params: {
+                    hours: historyHours,
+                    interval_minutes: historyInterval
+                }
+            })
+            setHealthHistory(res.data.time_series)
+        } catch (err) {
+            console.error('Failed to fetch health history', err)
+        }
+    }, [historyHours, historyInterval])
+
+    const fetchLlmMetrics = useCallback(async () => {
+        try {
+            const params = {}
+            if (llmCompanyFilter) params.company_id = llmCompanyFilter
+            const res = await axios.get('/api/admin/llm/metrics', { params })
+            setLlmMetrics(res.data)
+        } catch (err) {
+            console.error('Failed to fetch LLM metrics', err)
+        }
+    }, [llmCompanyFilter])
+
+    const fetchBusinessMetrics = useCallback(async () => {
+        try {
+            const res = await axios.get('/api/admin/business-metrics')
+            setBusinessMetrics(res.data)
+        } catch (err) {
+            console.error('Failed to fetch business metrics', err)
+        }
+    }, [])
+
+    // Real data loading
     useEffect(() => {
-        setWsConnected(true)
+        const fetchInitialData = async () => {
+            setLoading(true)
+            try {
+                // Fetch statics and things that don't depend on complex filters
+                await Promise.all([
+                    fetchMetrics(),
+                    fetchHealth(),
+                    fetchUxAnalytics(),
+                    fetchDbStats(),
+                    fetchInvitations(),
+                    fetchErrors(), // Dedicated error logs fetch
+                    fetchLlmMetrics(), // Add LLM Metrics to initial load
+                    fetchHealthHistory(), // Add Health History to initial load
+                    fetchBusinessMetrics() // Add Business Metrics to initial load
+                ])
+            } catch (err) {
+                console.error("Failed to fetch initial admin data", err)
+            } finally {
+                setLoading(false)
+            }
+        }
+
+        fetchInitialData()
+    }, [fetchMetrics, fetchHealth, fetchUxAnalytics, fetchDbStats, fetchInvitations, fetchErrors, fetchLlmMetrics, fetchHealthHistory, fetchBusinessMetrics])
+
+    // Re-fetch logs when filters or pagination change
+    useEffect(() => {
+        fetchLogs()
+    }, [fetchLogs])
+
+    // Re-fetch LLM metrics when company filter changes
+    useEffect(() => {
+        if (llmCompanyFilter) {
+            fetchLlmMetrics()
+        }
+    }, [fetchLlmMetrics, llmCompanyFilter])
+
+    // Re-fetch health history when period or interval changes
+    useEffect(() => {
+        fetchHealthHistory()
+        fetchBusinessMetrics()
+    }, [fetchHealthHistory, fetchBusinessMetrics])
+
+    // WebSocket connection for live updates
+    useEffect(() => {
+        const token = localStorage.getItem('token')
+        if (!token) return
+
+        // Cleanup flag to prevent connecting after unmount (React StrictMode)
+        let isCleanedUp = false
+
+        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
+        const host = window.location.host
+        const wsUrl = `${protocol}//${host}/api/admin/ws/monitoring?token=${token}`
+
+        const connect = () => {
+            // Don't connect if already cleaned up (StrictMode double-invoke)
+            if (isCleanedUp) return
+
+            console.log('Connecting to monitoring WebSocket...')
+            const ws = new WebSocket(wsUrl)
+            wsRef.current = ws
+
+            ws.onopen = () => {
+                if (isCleanedUp) {
+                    ws.close()
+                    return
+                }
+                console.log('Monitoring WebSocket connected')
+                setWsConnected(true)
+            }
+
+            ws.onmessage = (event) => {
+                if (isCleanedUp) return
+                try {
+                    const data = JSON.parse(event.data)
+                    if (data.type === 'monitoring_update') {
+                        setMetrics(prev => ({ ...prev, ...data.metrics }))
+                        setHealth(data.health)
+                    }
+                } catch (err) {
+                    console.error('Failed to parse WebSocket message', err)
+                }
+            }
+
+            ws.onclose = () => {
+                console.log('Monitoring WebSocket disconnected')
+                setWsConnected(false)
+                // Only attempt to reconnect if not cleaned up
+                if (!isCleanedUp) {
+                    reconnectTimeoutRef.current = setTimeout(() => {
+                        setReconnectTrigger(prev => prev + 1)
+                    }, 5000)
+                }
+            }
+
+            ws.onerror = (err) => {
+                console.error('Monitoring WebSocket error', err)
+                ws.close()
+            }
+        }
+
+        connect()
+
         return () => {
-            if (wsRef.current) {
+            isCleanedUp = true
+            if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
                 wsRef.current.close()
+            }
+            if (reconnectTimeoutRef.current) {
+                clearTimeout(reconnectTimeoutRef.current)
             }
         }
     }, [reconnectTrigger])
+
+    // Update refresh rate via WebSocket if connected
+    useEffect(() => {
+        if (wsConnected && wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+            wsRef.current.send(JSON.stringify({
+                type: 'set_refresh_rate',
+                refresh_interval: refreshRate
+            }))
+        }
+    }, [refreshRate, wsConnected])
 
     const toggleLogExpand = (logId) => {
         const newExpanded = new Set(expandedLogs)
@@ -99,30 +320,57 @@ const AdminLogsDashboard = () => {
         setExpandedLogs(newExpanded)
     }
 
-    // Mock API functions
-    const fetchLogs = async () => {
-        // Mock implementation
-        console.log('Fetching logs...')
-    }
-
-    const fetchHealthHistory = async () => {
-        // Mock implementation
-        console.log('Fetching health history...')
-    }
-
-    const fetchLlmMetrics = async () => {
-        // Mock implementation
-        console.log('Fetching LLM metrics...')
-    }
+    // Real API functions - already defined above with useCallback
 
     const previewCleanup = async () => {
-        // Mock implementation
-        console.log('Previewing cleanup...')
+        try {
+            const res = await axios.delete('/api/admin/logs/cleanup', {
+                params: { older_than_days: cleanupDays, confirm: false }
+            })
+            setCleanupPreview(res.data)
+        } catch (err) {
+            console.error('Failed to preview cleanup', err)
+        }
     }
 
     const executeCleanup = async () => {
-        // Mock implementation
-        console.log('Executing cleanup...')
+        if (!window.confirm(`Are you sure you want to delete logs older than ${cleanupDays} days?`)) return
+        setIsCleaningUp(true)
+        try {
+            await axios.delete('/api/admin/logs/cleanup', {
+                params: { older_than_days: cleanupDays, confirm: true }
+            })
+            setCleanupPreview(null)
+            fetchMetrics()
+            fetchLogs()
+            alert('Cleanup executed successfully')
+        } catch (err) {
+            console.error('Failed to execute cleanup', err)
+            alert('Cleanup failed')
+        } finally {
+            setIsCleaningUp(false)
+        }
+    }
+
+    // Handler for clicking on incidents in Health History tab
+    // Navigates to Logs tab with appropriate filters
+    const handleIncidentClick = (timestamp, type) => {
+        const incidentTime = new Date(timestamp)
+        // Show logs from 5 minutes before to 5 minutes after the incident
+        const startTime = new Date(incidentTime.getTime() - 5 * 60 * 1000)
+        const endTime = new Date(incidentTime.getTime() + 5 * 60 * 1000)
+
+        setFilters({
+            ...filters,
+            level: type === 'critical' ? 'ERROR,CRITICAL' : 'WARNING,ERROR,CRITICAL',
+            startDate: startTime.toISOString().slice(0, 16), // Format for datetime-local input
+            endDate: endTime.toISOString().slice(0, 16),
+            searchText: '',
+            component: ''
+        })
+        setActiveTab('logs')
+        // Trigger fetch after tab switch
+        setTimeout(() => fetchLogs(), 100)
     }
 
     if (loading && !metrics) {
@@ -132,11 +380,11 @@ const AdminLogsDashboard = () => {
     return (
         <div className="h-full flex flex-col bg-slate-50">
             {/* Header */}
-            <div className="bg-white border-b border-slate-200 px-8 py-4">
+            <div className="bg-white border-b border-slate-200 px-8 py-6">
                 <div className="flex items-center justify-between">
-                    <div>
-                        <h1 className="text-2xl font-bold text-slate-900">Admin Dashboard</h1>
-                        <p className="text-sm text-slate-500 mt-1">System monitoring, logs, and analytics</p>
+                    <div className="flex flex-col">
+                        <h1 className="text-2xl font-bold text-slate-900 leading-tight">Admin Dashboard</h1>
+                        <p className="text-sm text-slate-500 mt-1">Real-time system health, logs, and diagnostic analytics</p>
                     </div>
                     <div className="flex items-center gap-4">
                         {/* WebSocket Status */}
@@ -172,95 +420,60 @@ const AdminLogsDashboard = () => {
                 </div>
             </div>
 
-            {/* Description Section */}
-            {activeTab === "overview" && showAboutSection && (
-                <div className="bg-indigo-50 border-b border-indigo-200 px-8 py-4 relative">
-                    <button
-                        onClick={() => setShowAboutSection(false)}
-                        className="absolute top-4 right-4 text-indigo-600 hover:text-indigo-700"
-                    >
-                        ×
-                    </button>
-                    <div className="max-w-4xl">
-                        <h2 className="text-lg font-bold text-indigo-900 mb-2">System Administration Dashboard</h2>
-                        <p className="text-indigo-800 mb-4">
-                            Monitor your application's health, performance, and usage patterns in real-time.
-                            Track API performance, error rates, database statistics, and AI/LLM operations.
-                        </p>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-                            <div>
-                                <h3 className="font-bold text-indigo-900 mb-1">Real-time Monitoring</h3>
-                                <p className="text-indigo-700">Live WebSocket updates for instant alerts and status changes.</p>
-                            </div>
-                            <div>
-                                <h3 className="font-bold text-indigo-900 mb-1">Performance Analytics</h3>
-                                <p className="text-indigo-700">Response times, error rates, and throughput metrics.</p>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            )}
-
             {/* Tab Navigation */}
-            <div className="bg-white border-b border-slate-200 px-8">
-                <nav className="flex space-x-8">
+            <div className="bg-white border-b border-slate-200 px-8 flex items-end">
+                <nav className="flex space-x-10 h-14">
                     <button
                         onClick={() => setActiveTab("overview")}
-                        className={`pb-4 text-sm font-medium border-b-2 transition ${
-                            activeTab === "overview"
-                                ? "border-indigo-500 text-indigo-600"
-                                : "border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300"
-                        }`}
+                        className={`px-1 h-full text-sm font-bold border-b-2 transition-all duration-200 outline-none flex items-center ${activeTab === "overview"
+                            ? "border-indigo-600 text-indigo-600"
+                            : "border-transparent text-slate-400 hover:text-slate-600 hover:border-slate-300"
+                            }`}
                     >
                         Overview
                     </button>
                     <button
                         onClick={() => setActiveTab("logs")}
-                        className={`pb-4 text-sm font-medium border-b-2 transition ${
-                            activeTab === "logs"
-                                ? "border-indigo-500 text-indigo-600"
-                                : "border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300"
-                        }`}
+                        className={`px-1 h-full text-sm font-bold border-b-2 transition-all duration-200 outline-none flex items-center ${activeTab === "logs"
+                            ? "border-indigo-600 text-indigo-600"
+                            : "border-transparent text-slate-400 hover:text-slate-600 hover:border-slate-300"
+                            }`}
                     >
                         System Logs
                     </button>
                     <button
                         onClick={() => setActiveTab("invitations")}
-                        className={`pb-4 text-sm font-medium border-b-2 transition ${
-                            activeTab === "invitations"
-                                ? "border-indigo-500 text-indigo-600"
-                                : "border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300"
-                        }`}
+                        className={`px-1 h-full text-sm font-bold border-b-2 transition-all duration-200 outline-none flex items-center ${activeTab === "invitations"
+                            ? "border-indigo-600 text-indigo-600"
+                            : "border-transparent text-slate-400 hover:text-slate-600 hover:border-slate-300"
+                            }`}
                     >
                         Invitations
                     </button>
                     <button
                         onClick={() => setActiveTab("errors")}
-                        className={`pb-4 text-sm font-medium border-b-2 transition ${
-                            activeTab === "errors"
-                                ? "border-indigo-500 text-indigo-600"
-                                : "border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300"
-                        }`}
+                        className={`px-1 h-full text-sm font-bold border-b-2 transition-all duration-200 outline-none flex items-center ${activeTab === "errors"
+                            ? "border-indigo-600 text-indigo-600"
+                            : "border-transparent text-slate-400 hover:text-slate-600 hover:border-slate-300"
+                            }`}
                     >
                         Errors
                     </button>
                     <button
                         onClick={() => setActiveTab("health-history")}
-                        className={`pb-4 text-sm font-medium border-b-2 transition ${
-                            activeTab === "health-history"
-                                ? "border-indigo-500 text-indigo-600"
-                                : "border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300"
-                        }`}
+                        className={`px-1 h-full text-sm font-bold border-b-2 transition-all duration-200 outline-none flex items-center ${activeTab === "health-history"
+                            ? "border-indigo-600 text-indigo-600"
+                            : "border-transparent text-slate-400 hover:text-slate-600 hover:border-slate-300"
+                            }`}
                     >
                         Health History
                     </button>
                     <button
                         onClick={() => setActiveTab("llm")}
-                        className={`pb-4 text-sm font-medium border-b-2 transition ${
-                            activeTab === "llm"
-                                ? "border-indigo-500 text-indigo-600"
-                                : "border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300"
-                        }`}
+                        className={`px-1 h-full text-sm font-bold border-b-2 transition-all duration-200 outline-none flex items-center ${activeTab === "llm"
+                            ? "border-indigo-600 text-indigo-600"
+                            : "border-transparent text-slate-400 hover:text-slate-600 hover:border-slate-300"
+                            }`}
                     >
                         LLM Monitoring
                     </button>
@@ -323,8 +536,10 @@ const AdminLogsDashboard = () => {
                         setHistoryInterval={setHistoryInterval}
                         fetchHealthHistory={fetchHealthHistory}
                         thresholds={thresholds}
+                        businessMetrics={businessMetrics}
                         getStatusValue={getStatusValue}
                         getServiceStatusColor={getServiceStatusColor}
+                        onIncidentClick={handleIncidentClick}
                     />
                 )}
 

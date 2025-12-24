@@ -1186,5 +1186,5 @@ async def stream_feedback_generation(websocket: WebSocket, interview_id: int):
                 pass
         try:
             await websocket.close()
-        except:
+        except Exception:
             pass

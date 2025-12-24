@@ -21,6 +21,7 @@ logger = get_logger(__name__)
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     logger.info("Starting up Headhunter API...")
+    logger.debug("Initializing database tables and cache...")
     # Ensure database tables are created
     models.Base.metadata.create_all(bind=engine)
     # Initialize Redis Cache
@@ -44,7 +45,7 @@ async def lifespan(app: FastAPI):
             
         db.close()
     except Exception as e:
-        logger.error(f"Failed to resume CV processing: {e}")
+        logger.critical(f"Failed to resume CV processing during startup: {e}")
         
     # Auto-Sync Embeddings (Background Task)
     try:
@@ -53,9 +54,18 @@ async def lifespan(app: FastAPI):
         # Run in background to not block startup
         asyncio.create_task(sync_embeddings(limit=500))
     except Exception as e:
-        logger.error(f"Failed to start embedding sync: {e}")
+        logger.critical(f"Failed to start embedding sync during startup: {e}")
     
     yield
+    
+    # Shutdown cleanup
+    logger.info("Shutting down Headhunter API...")
+    try:
+        from app.core.logging_middleware import shutdown_log_executor
+        shutdown_log_executor()
+        logger.info("Log executor shut down gracefully")
+    except Exception as e:
+        logger.error(f"Error shutting down log executor: {e}")
 
 # Read version from centralized VERSION file
 def get_app_version():
@@ -112,7 +122,7 @@ app.include_router(activity.router)
 app.include_router(search.router, prefix="/search", tags=["Search"])
 app.include_router(public.router)  # Public landing page endpoints (unauthenticated)
 app.include_router(calendars.router, prefix="/calendars", tags=["Calendars"])
-app.include_router(admin.router, prefix="/api/v1")  # Admin endpoints for monitoring
+app.include_router(admin.router)  # Admin endpoints for monitoring
 
 @app.get("/api/debug/db_check")
 def debug_db_check(db: Session = Depends(get_db)):

@@ -10,8 +10,8 @@ vi.mock('axios', () => {
     patch: vi.fn(() => Promise.resolve({ data: {} })),
     delete: vi.fn(() => Promise.resolve({ data: {} })),
     interceptors: {
-      request: { use: vi.fn() },
-      response: { use: vi.fn() },
+      request: { use: vi.fn(() => 1), eject: vi.fn() },
+      response: { use: vi.fn(() => 2), eject: vi.fn() },
     },
   };
   return {
@@ -22,8 +22,8 @@ vi.mock('axios', () => {
       patch: vi.fn(() => Promise.resolve({ data: {} })),
       delete: vi.fn(() => Promise.resolve({ data: {} })),
       interceptors: {
-        request: { use: vi.fn() },
-        response: { use: vi.fn() },
+        request: { use: vi.fn(() => 1), eject: vi.fn() },
+        response: { use: vi.fn(() => 2), eject: vi.fn() },
       },
       defaults: {
         headers: {

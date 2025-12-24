@@ -340,7 +340,7 @@ async def stream_job_analysis(websocket: WebSocket):
                 pass
         try:
             await websocket.close()
-        except:
+        except Exception:
             pass
 
 @router.post("/{job_id}/regenerate", response_model=Dict[str, Any])

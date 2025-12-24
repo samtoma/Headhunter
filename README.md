@@ -1,4 +1,4 @@
-# 🧠 Headhunter AI (v1.15.0)
+# 🧠 Headhunter AI (v1.18.1)
 
 **Headhunter AI** is a production-grade, self-hosted Applicant Tracking System (ATS) engineered for high-performance recruitment teams.
 
@@ -481,7 +481,7 @@ The CI/CD pipeline enforces:
 
 ## Roadmap
 
-### Current Status: v1.15.0 (Released)
+### Current Status: v1.18.1 (Released)
 
 The system is a fully functional, enterprise-grade Applicant Tracking System with:
 

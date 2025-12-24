@@ -9,7 +9,6 @@ the main database lightweight while using Redis for heavy operations.
 import os
 import sys
 import json
-from pathlib import Path
 
 def check_redis_status():
     """Check Redis availability and queue status"""
@@ -28,7 +27,7 @@ def check_redis_status():
         queue_length = client.llen('llm_logs')
 
         print("✅ Redis Status:")
-        print(f"   • Connection: OK")
+        print("   • Connection: OK")
         print(f"   • LLM Queue Length: {queue_length}")
 
         if queue_length > 100:
@@ -51,7 +50,7 @@ def check_databases():
     print("\n🗄️  Database Status:")
 
     if main_db:
-        print(f"   • Main DB: Configured")
+        print("   • Main DB: Configured")
     else:
         print("   ❌ Main DB: NOT CONFIGURED")
         return False
@@ -95,7 +94,7 @@ def check_llm_logging_behavior():
             print("   ⚠️  LLM logs: Redis queue test failed")
             return False
 
-    except Exception as e:
+    except Exception:
         print("   ❌ LLM logs: Redis unavailable - logs are intentionally lost")
         print("   💡 This protects main DB performance (expected behavior)")
         return False
@@ -157,7 +156,7 @@ def main():
 
     redis_ok, queue_length = check_redis_status()
     db_ok = check_databases()
-    llm_ok = check_llm_logging_behavior()
+    check_llm_logging_behavior()
     worker_ok = check_worker_status()
 
     provide_recommendations(redis_ok, db_ok, worker_ok, queue_length)
