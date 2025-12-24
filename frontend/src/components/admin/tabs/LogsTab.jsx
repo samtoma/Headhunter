@@ -134,12 +134,11 @@ const LogsTab = ({
                                         </td>
                                         <td className="p-4">
                                             {log.http_status && (
-                                                <span className={`px-2 py-1 rounded text-xs font-bold ${
-                                                    log.http_status >= 200 && log.http_status < 300 ? 'bg-green-100 text-green-700' :
-                                                    log.http_status >= 300 && log.http_status < 400 ? 'bg-blue-100 text-blue-700' :
-                                                    log.http_status >= 400 && log.http_status < 500 ? 'bg-yellow-100 text-yellow-700' :
-                                                    'bg-red-100 text-red-700'
-                                                }`}>
+                                                <span className={`px-2 py-1 rounded text-xs font-bold ${log.http_status >= 200 && log.http_status < 300 ? 'bg-green-100 text-green-700' :
+                                                        log.http_status >= 300 && log.http_status < 400 ? 'bg-blue-100 text-blue-700' :
+                                                            log.http_status >= 400 && log.http_status < 500 ? 'bg-yellow-100 text-yellow-700' :
+                                                                'bg-red-100 text-red-700'
+                                                    }`}>
                                                     {log.http_status}
                                                 </span>
                                             )}
@@ -159,32 +158,58 @@ const LogsTab = ({
                                     {expandedLogs.has(log.id) && (
                                         <tr>
                                             <td colSpan="9" className="bg-slate-50 p-4">
-                                                <div className="space-y-3">
-                                                    <div>
-                                                        <strong className="text-slate-700">Full Message:</strong>
-                                                        <pre className="mt-1 p-2 bg-white rounded text-sm text-slate-900 overflow-x-auto">
-                                                            {log.message}
-                                                        </pre>
-                                                    </div>
-                                                    {log.error_type && (
+                                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                                    <div className="space-y-3">
                                                         <div>
-                                                            <strong className="text-slate-700">Error Type:</strong>
-                                                            <span className="ml-2 text-red-600">{log.error_type}</span>
-                                                        </div>
-                                                    )}
-                                                    {log.error_message && (
-                                                        <div>
-                                                            <strong className="text-slate-700">Error Message:</strong>
-                                                            <pre className="mt-1 p-2 bg-white rounded text-sm text-red-700 overflow-x-auto">
-                                                                {log.error_message}
+                                                            <strong className="text-slate-700">Full Message:</strong>
+                                                            <pre className="mt-1 p-2 bg-white rounded text-sm text-slate-900 overflow-x-auto whitespace-pre-wrap">
+                                                                {log.message}
                                                             </pre>
                                                         </div>
-                                                    )}
-                                                    {log.stack_trace && (
+                                                        <div className="flex flex-wrap gap-4 text-xs">
+                                                            <div>
+                                                                <strong className="text-slate-700">Request ID:</strong>
+                                                                <span className="ml-1 font-mono text-slate-500">{log.request_id || "-"}</span>
+                                                            </div>
+                                                            <div>
+                                                                <strong className="text-slate-700">IP Address:</strong>
+                                                                <span className="ml-1 font-mono text-slate-500">{log.ip_address || "-"}</span>
+                                                            </div>
+                                                            {log.http_method && (
+                                                                <div>
+                                                                    <strong className="text-slate-700">Method:</strong>
+                                                                    <span className="ml-1 font-bold text-indigo-600">{log.http_method}</span>
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                        {log.error_type && (
+                                                            <div>
+                                                                <strong className="text-slate-700">Error Type:</strong>
+                                                                <span className="ml-2 text-red-600 font-bold">{log.error_type}</span>
+                                                            </div>
+                                                        )}
+                                                        {log.error_message && (
+                                                            <div>
+                                                                <strong className="text-slate-700">Error Message:</strong>
+                                                                <pre className="mt-1 p-2 bg-white rounded text-sm text-red-700 overflow-x-auto">
+                                                                    {log.error_message}
+                                                                </pre>
+                                                            </div>
+                                                        )}
+                                                        {log.stack_trace && (
+                                                            <div>
+                                                                <strong className="text-slate-700">Stack Trace:</strong>
+                                                                <pre className="mt-1 p-2 bg-white rounded text-xs text-slate-700 overflow-x-auto max-h-96">
+                                                                    {log.stack_trace}
+                                                                </pre>
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                    {log.metadata && Object.keys(log.metadata).length > 0 && (
                                                         <div>
-                                                            <strong className="text-slate-700">Stack Trace:</strong>
-                                                            <pre className="mt-1 p-2 bg-white rounded text-xs text-slate-700 overflow-x-auto max-h-96">
-                                                                {log.stack_trace}
+                                                            <strong className="text-slate-700">Additional Metadata:</strong>
+                                                            <pre className="mt-1 p-2 bg-slate-100 rounded text-xs text-slate-600 overflow-x-auto">
+                                                                {JSON.stringify(log.metadata, null, 2)}
                                                             </pre>
                                                         </div>
                                                     )}

@@ -121,7 +121,7 @@ app.include_router(activity.router)
 app.include_router(search.router, prefix="/search", tags=["Search"])
 app.include_router(public.router)  # Public landing page endpoints (unauthenticated)
 app.include_router(calendars.router, prefix="/calendars", tags=["Calendars"])
-app.include_router(admin.router, prefix="/api/v1")  # Admin endpoints for monitoring
+app.include_router(admin.router)  # Admin endpoints for monitoring
 
 @app.get("/api/debug/db_check")
 def debug_db_check(db: Session = Depends(get_db)):

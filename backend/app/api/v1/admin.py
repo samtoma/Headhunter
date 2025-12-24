@@ -24,6 +24,12 @@ from jose import jwt, JWTError
 from app.core.security import SECRET_KEY, ALGORITHM
 import json
 import asyncio
+import logging
+import time
+import os
+from sqlalchemy import text
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/admin", tags=["Admin"])
 
@@ -128,6 +134,7 @@ class HealthHistoryPoint(BaseModel):
     """Single point in health history"""
     timestamp: datetime
     services: List[ServiceHealth]
+    overall_status: str
     error_rate_percent: float
     response_time_p50_ms: float
     response_time_p95_ms: float
@@ -685,6 +692,203 @@ def get_recent_errors(
     
     return result
 
+# ==================== System Health Helpers ====================
+
+def get_services_health_data(db: Session):
+    services = []
+    
+    # Check Database
+    try:
+        start = time.time()
+        db.execute(text("SELECT 1"))
+        db_time = (time.time() - start) * 1000
+        
+        # Get pool status
+        pool = db.get_bind().pool
+        pool_status = pool.status()
+        
+        services.append({
+            "name": "Database",
+            "status": "healthy" if db_time < 100 else "degraded",
+            "response_time_ms": round(db_time, 2),
+            "message": "PostgreSQL connection OK",
+            "details": {"pool_status": pool_status}
+        })
+    except Exception as e:
+        services.append({
+            "name": "Database",
+            "status": "unhealthy",
+            "message": str(e)
+        })
+    
+    # Check Redis
+    try:
+        import redis
+        redis_url = os.getenv("REDIS_URL", "redis://redis:6379/0")
+        start = time.time()
+        r = redis.from_url(redis_url)
+        r.ping()
+        redis_time = (time.time() - start) * 1000
+        
+        services.append({
+            "name": "Redis",
+            "status": "healthy" if redis_time < 100 else "degraded",
+            "response_time_ms": round(redis_time, 2),
+            "message": "Redis connection OK"
+        })
+    except Exception as e:
+        services.append({
+            "name": "Redis",
+            "status": "unhealthy",
+            "message": str(e)
+        })
+    
+    # Check Celery (via Redis queue)
+    try:
+        import redis
+        redis_url = os.getenv("REDIS_URL", "redis://redis:6379/0")
+        r = redis.from_url(redis_url)
+        queue_length = r.llen("celery")
+        
+        services.append({
+            "name": "Celery",
+            "status": "healthy",
+            "message": f"Queue length: {queue_length}",
+            "details": {"queue_length": queue_length}
+        })
+    except Exception as e:
+        services.append({
+            "name": "Celery",
+            "status": "unhealthy",
+            "message": str(e)
+        })
+    
+    # Check ChromaDB
+    try:
+        start = time.time()
+        import chromadb
+        chroma_host = os.getenv("CHROMA_HOST", "vector_db")
+        chroma_port = int(os.getenv("CHROMA_PORT", "8000"))
+        client = chromadb.HttpClient(host=chroma_host, port=chroma_port)
+        collections = client.list_collections()
+        chroma_time = (time.time() - start) * 1000
+        
+        services.append({
+            "name": "ChromaDB",
+            "status": "healthy" if chroma_time < 500 else "degraded",
+            "response_time_ms": round(chroma_time, 2),
+            "message": f"Collections: {len(collections)}",
+            "details": {"collections": [c.name for c in collections]}
+        })
+    except Exception as e:
+        services.append({
+            "name": "ChromaDB",
+            "status": "degraded",
+            "message": str(e)
+        })
+
+    # Check Logs Database (separate from main DB)
+    try:
+        from app.core.database_logs import get_logs_db
+        db_logs_gen = get_logs_db()
+        db_logs = next(db_logs_gen)
+        try:
+            start = time.time()
+            db_logs.execute(text("SELECT 1"))
+            logs_db_time = (time.time() - start) * 1000
+            
+            # Check if tables exist
+            tables_exist = db_logs.execute(text("""
+                SELECT EXISTS (
+                    SELECT FROM information_schema.tables 
+                    WHERE table_schema = 'public' 
+                    AND table_name IN ('system_logs', 'llm_logs')
+                )
+            """)).scalar()
+            
+            # Get recent log count
+            recent_logs = db_logs.query(func.count(SystemLog.id)).filter(
+                SystemLog.created_at >= datetime.now(timezone.utc) - timedelta(hours=1)
+            ).scalar() or 0
+            
+            services.append({
+                "name": "Logs Database",
+                "status": "healthy" if logs_db_time < 100 and tables_exist else "degraded",
+                "response_time_ms": round(logs_db_time, 2),
+                "message": f"Logs DB connection OK, {recent_logs} logs in last hour",
+                "details": {
+                    "tables_exist": tables_exist,
+                    "recent_logs_1h": recent_logs
+                }
+            })
+        finally:
+            try:
+                next(db_logs_gen, None)
+            except StopIteration:
+                pass
+    except Exception as e:
+        services.append({
+            "name": "Logs Database",
+            "status": "unhealthy",
+            "message": str(e)
+        })
+
+    # Check Logging Queue
+    try:
+        import redis
+        redis_url = os.getenv("REDIS_URL", "redis://redis:6379/0")
+        r = redis.from_url(redis_url)
+        logs_queue_length = r.llen("logs_queue")
+        
+        queue_status = "healthy"
+        if logs_queue_length > 1000:
+            queue_status = "unhealthy"
+            queue_message = f"CRITICAL: Queue backlog {logs_queue_length}"
+        elif logs_queue_length > 100:
+            queue_status = "degraded"
+            queue_message = f"WARNING: Queue backlog {logs_queue_length}"
+        else:
+            queue_message = f"Queue depth: {logs_queue_length}"
+        
+        services.append({
+            "name": "Logging Queue",
+            "status": queue_status,
+            "message": queue_message,
+            "details": {"queue_length": logs_queue_length}
+        })
+    except Exception as e:
+        services.append({
+            "name": "Logging Queue",
+            "status": "unhealthy",
+            "message": str(e)
+        })
+
+    # Check Log Worker
+    try:
+        import subprocess
+        result = subprocess.run(['pgrep', '-f', 'unified_log_worker'], capture_output=True, text=True, timeout=2)
+        worker_running = result.returncode == 0
+        if worker_running:
+            services.append({
+                "name": "Log Worker",
+                "status": "healthy",
+                "message": f"Worker running (PIDs: {result.stdout.strip().replace('\\n', ', ')})"
+            })
+        else:
+            services.append({
+                "name": "Log Worker",
+                "status": "unhealthy",
+                "message": "Log worker process not found"
+            })
+    except Exception as e:
+        services.append({
+            "name": "Log Worker",
+            "status": "degraded",
+            "message": f"Check failed: {str(e)}"
+        })
+
+    return services
+
 # ==================== System Health Endpoint ====================
 
 @router.get("/health", response_model=SystemHealthResponse)
@@ -699,101 +903,25 @@ def get_system_health(
     """
     require_super_admin(current_user)
     
-    import time
-    import os
-    from sqlalchemy import text
+    services_data = get_services_health_data(db)
     
-    services = []
+    # Map to ServiceHealth objects (Pydantic)
+    services = [ServiceHealth(**s) for s in services_data]
     
-    # Check Database
-    try:
-        start = time.time()
-        db.execute(text("SELECT 1"))
-        db_time = (time.time() - start) * 1000
-        
-        # Get pool status
-        pool = db.get_bind().pool
-        pool_status = pool.status()
-        
-        services.append(ServiceHealth(
-            name="Database",
-            status="healthy" if db_time < 100 else "degraded",
-            response_time_ms=round(db_time, 2),
-            message="PostgreSQL connection OK",
-            details={"pool_status": pool_status}
-        ))
-    except Exception as e:
-        services.append(ServiceHealth(
-            name="Database",
-            status="unhealthy",
-            message=str(e)
-        ))
+    # Determine overall status
+    statuses = [s.status for s in services]
+    if "unhealthy" in statuses:
+        overall = "unhealthy"
+    elif "degraded" in statuses:
+        overall = "degraded"
+    else:
+        overall = "healthy"
     
-    # Check Redis
-    try:
-        import redis
-        redis_url = os.getenv("REDIS_URL", "redis://redis:6379/0")
-        start = time.time()
-        r = redis.from_url(redis_url)
-        r.ping()
-        redis_time = (time.time() - start) * 1000
-        
-        services.append(ServiceHealth(
-            name="Redis",
-            status="healthy" if redis_time < 100 else "degraded",
-            response_time_ms=round(redis_time, 2),
-            message="Redis connection OK"
-        ))
-    except Exception as e:
-        services.append(ServiceHealth(
-            name="Redis",
-            status="unhealthy",
-            message=str(e)
-        ))
-    
-    # Check Celery (via Redis queue)
-    try:
-        import redis
-        redis_url = os.getenv("REDIS_URL", "redis://redis:6379/0")
-        r = redis.from_url(redis_url)
-        queue_length = r.llen("celery")
-        
-        services.append(ServiceHealth(
-            name="Celery",
-            status="healthy",
-            message=f"Queue length: {queue_length}",
-            details={"queue_length": queue_length}
-        ))
-    except Exception as e:
-        services.append(ServiceHealth(
-            name="Celery",
-            status="unhealthy",
-            message=str(e)
-        ))
-    
-    # Check ChromaDB
-    try:
-        start = time.time()
-        import chromadb
-        chroma_host = os.getenv("CHROMA_HOST", "vector_db")
-        chroma_port = int(os.getenv("CHROMA_PORT", "8000"))
-        client = chromadb.HttpClient(host=chroma_host, port=chroma_port)
-        collections = client.list_collections()
-        chroma_time = (time.time() - start) * 1000
-        
-        services.append(ServiceHealth(
-            name="ChromaDB",
-            status="healthy" if chroma_time < 500 else "degraded",
-            response_time_ms=round(chroma_time, 2),
-            message=f"Collections: {len(collections)}",
-            details={"collections": [c.name for c in collections]}
-        ))
-    except Exception as e:
-        services.append(ServiceHealth(
-            name="ChromaDB",
-            status="degraded",
-            message=str(e)
-        ))
+    return SystemHealthResponse(
+        overall_status=overall,
+        services=services,
+        timestamp=datetime.now(timezone.utc)
+    )
     
     # Check Logs Database (separate from main DB)
     try:
@@ -1159,9 +1287,6 @@ def get_health_history(
     """
     require_super_admin(current_user)
     
-    import time
-    import os
-    from sqlalchemy import text
     from collections import defaultdict
     
     now = datetime.now(timezone.utc)
@@ -1293,9 +1418,19 @@ def get_health_history(
             message=f"{chroma_errors} chroma-related issues"
         ))
         
+        # Determine overall status for this bucket
+        bucket_statuses = [s.status for s in services]
+        if "unhealthy" in bucket_statuses:
+            overall = "unhealthy"
+        elif "degraded" in bucket_statuses:
+            overall = "degraded"
+        else:
+            overall = "healthy"
+            
         time_series.append(HealthHistoryPoint(
             timestamp=bucket_time,
             services=services,
+            overall_status=overall,
             error_rate_percent=round(error_rate, 2),
             response_time_p50_ms=round(p50, 2),
             response_time_p95_ms=round(p95, 2),
@@ -1435,91 +1570,8 @@ async def send_monitoring_update(websocket: WebSocket, user: User):
             ).scalar() or 1
             error_rate = (errors_24h / logs_24h * 100) if logs_24h > 0 else 0
             
-            # Get health status - check all services like the health endpoint
-            import time
-            import os
-            from sqlalchemy import text
-            
-            services = []
-            
-            # Check Database
-            try:
-                start = time.time()
-                db.execute(text("SELECT 1"))
-                db_time = (time.time() - start) * 1000
-                services.append({
-                    "name": "Database",
-                    "status": "healthy" if db_time < 100 else "degraded",
-                    "response_time_ms": round(db_time, 2),
-                    "message": "PostgreSQL connection OK"
-                })
-            except Exception as e:
-                services.append({
-                    "name": "Database",
-                    "status": "unhealthy",
-                    "message": str(e)
-                })
-            
-            # Check Redis
-            try:
-                import redis
-                redis_url = os.getenv("REDIS_URL", "redis://redis:6379/0")
-                start = time.time()
-                r = redis.from_url(redis_url)
-                r.ping()
-                redis_time = (time.time() - start) * 1000
-                services.append({
-                    "name": "Redis",
-                    "status": "healthy" if redis_time < 100 else "degraded",
-                    "response_time_ms": round(redis_time, 2),
-                    "message": "Redis connection OK"
-                })
-            except Exception as e:
-                services.append({
-                    "name": "Redis",
-                    "status": "unhealthy",
-                    "message": str(e)
-                })
-            
-            # Check Celery (via Redis queue)
-            try:
-                import redis
-                redis_url = os.getenv("REDIS_URL", "redis://redis:6379/0")
-                r = redis.from_url(redis_url)
-                queue_length = r.llen("celery")
-                services.append({
-                    "name": "Celery",
-                    "status": "healthy",
-                    "message": f"Queue length: {queue_length}"
-                })
-            except Exception as e:
-                services.append({
-                    "name": "Celery",
-                    "status": "unhealthy",
-                    "message": str(e)
-                })
-            
-            # Check ChromaDB
-            try:
-                start = time.time()
-                import chromadb
-                chroma_host = os.getenv("CHROMA_HOST", "vector_db")
-                chroma_port = int(os.getenv("CHROMA_PORT", "8000"))
-                client = chromadb.HttpClient(host=chroma_host, port=chroma_port)
-                collections = client.list_collections()
-                chroma_time = (time.time() - start) * 1000
-                services.append({
-                    "name": "ChromaDB",
-                    "status": "healthy" if chroma_time < 500 else "degraded",
-                    "response_time_ms": round(chroma_time, 2),
-                    "message": f"Collections: {len(collections)}"
-                })
-            except Exception as e:
-                services.append({
-                    "name": "ChromaDB",
-                    "status": "degraded",
-                    "message": str(e)
-                })
+            # Get health status - check all services
+            services = get_services_health_data(db)
             
             update_data = {
                 "type": "monitoring_update",
@@ -1543,12 +1595,13 @@ async def send_monitoring_update(websocket: WebSocket, user: User):
             except StopIteration:
                 pass
     except Exception as e:
+        logger.exception("Error in send_monitoring_update")
         try:
             await websocket.send_json({
                 "type": "error",
                 "message": str(e)
             })
-        except:
+        except Exception:
             pass  # Connection might be closed
     finally:
         # Ensure generator is exhausted even if exception occurred

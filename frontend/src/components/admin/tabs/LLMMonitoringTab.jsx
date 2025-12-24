@@ -109,18 +109,20 @@ const LLMMonitoringTab = ({ llmMetrics, llmCompanyFilter, setLlmCompanyFilter, f
             <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
                 <h3 className="font-bold text-slate-700 mb-4">Operations by Model</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {llmMetrics.operations_by_model?.map((model) => (
-                        <div key={model.model} className="p-4 bg-slate-50 rounded-lg">
-                            <div className="font-bold text-slate-700 mb-2">{model.model}</div>
-                            <div className="text-2xl font-bold text-slate-900 mb-1">{model.count}</div>
+                    {Object.entries(llmMetrics.operations_by_model || {}).map(([model, count]) => (
+                        <div key={model} className="p-4 bg-slate-50 rounded-lg">
+                            <div className="font-bold text-slate-700 mb-2">{model}</div>
+                            <div className="text-2xl font-bold text-slate-900 mb-1">{count}</div>
                             <div className="text-sm text-slate-500">
-                                {Math.round(model.avg_latency_ms)}ms avg latency
-                            </div>
-                            <div className="text-xs text-slate-400 mt-1">
-                                {model.total_tokens.toLocaleString()} tokens
+                                Operations
                             </div>
                         </div>
-                    )) || []}
+                    ))}
+                    {Object.keys(llmMetrics.operations_by_model || {}).length === 0 && (
+                        <div className="col-span-full text-center text-slate-500 py-4">
+                            No model data available for this period.
+                        </div>
+                    )}
                 </div>
             </div>
 
