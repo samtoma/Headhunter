@@ -6,7 +6,7 @@ import {
 } from 'lucide-react'
 import { XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, AreaChart, Area, LineChart, Line, Legend, ReferenceLine } from 'recharts'
 
-import { isAiEndpoint, formatDate, getLevelColor, getStatusColor, getHealthColor } from './utils/adminDashboardUtils'
+import { isAiEndpoint, formatDate, getLevelColor, getStatusColor, getHealthColor, getStatusValue, getServiceStatusColor } from './utils/adminDashboardUtils'
 import MetricCard from './shared/MetricCard'
 import OverviewTab from './tabs/OverviewTab'
 import LogsTab from './tabs/LogsTab'
@@ -323,6 +323,8 @@ const AdminLogsDashboard = () => {
                         setHistoryInterval={setHistoryInterval}
                         fetchHealthHistory={fetchHealthHistory}
                         thresholds={thresholds}
+                        getStatusValue={getStatusValue}
+                        getServiceStatusColor={getServiceStatusColor}
                     />
                 )}
 
