@@ -43,5 +43,8 @@ class Settings:
             "password": self.REDIS_PASSWORD,
             "decode_responses": True
         }
+    
+    # Logging Configuration
+    LOG_THREAD_POOL_SIZE: int = int(os.getenv("LOG_THREAD_POOL_SIZE", "2"))  # Thread pool size for logging operations
 
 settings = Settings()
