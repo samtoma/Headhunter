@@ -29,6 +29,7 @@ const AdminLogsDashboard = () => {
     const [historyHours, setHistoryHours] = useState(24)
     const [historyInterval, setHistoryInterval] = useState(1)
     const [refreshRate, setRefreshRate] = useState(5)
+    const [businessMetrics, setBusinessMetrics] = useState(null)
     const [llmMetrics, setLlmMetrics] = useState(null)
     const [llmCompanyFilter, setLlmCompanyFilter] = useState('')
     const [thresholds, setThresholds] = useState({
@@ -43,9 +44,6 @@ const AdminLogsDashboard = () => {
     })
     const [wsConnected, setWsConnected] = useState(false)
     const [reconnectTrigger, setReconnectTrigger] = useState(0)
-    const [showAboutSection, setShowAboutSection] = useState(() => {
-        return localStorage.getItem('admin_dashboard_show_about') !== 'false'
-    })
     const wsRef = useRef(null)
     const reconnectTimeoutRef = useRef(null)
 
@@ -87,6 +85,18 @@ const AdminLogsDashboard = () => {
         }
     }, [])
 
+    const fetchErrors = useCallback(async () => {
+        try {
+            // Fetch ERROR and CRITICAL logs specifically for the Errors tab
+            const res = await axios.get('/api/admin/logs', {
+                params: { level: 'ERROR,CRITICAL', limit: 100 }
+            })
+            setErrors(res.data)
+        } catch (err) {
+            console.error('Failed to fetch errors', err)
+        }
+    }, [])
+
     const fetchUxAnalytics = useCallback(async () => {
         try {
             const res = await axios.get('/api/admin/ux-analytics')
@@ -125,9 +135,6 @@ const AdminLogsDashboard = () => {
                 ...prev,
                 total: res.data.length < prev.limit ? prev.offset + res.data.length : prev.offset + prev.limit + 1
             }))
-
-            // Update error list for errors tab
-            setErrors(res.data.filter(log => log.level === 'ERROR' || log.level === 'CRITICAL' || log.error_type))
         } catch (err) {
             console.error('Failed to fetch logs', err)
         }
@@ -167,6 +174,15 @@ const AdminLogsDashboard = () => {
         }
     }, [llmCompanyFilter])
 
+    const fetchBusinessMetrics = useCallback(async () => {
+        try {
+            const res = await axios.get('/api/admin/business-metrics')
+            setBusinessMetrics(res.data)
+        } catch (err) {
+            console.error('Failed to fetch business metrics', err)
+        }
+    }, [])
+
     // Real data loading
     useEffect(() => {
         const fetchInitialData = async () => {
@@ -179,8 +195,10 @@ const AdminLogsDashboard = () => {
                     fetchUxAnalytics(),
                     fetchDbStats(),
                     fetchInvitations(),
+                    fetchErrors(), // Dedicated error logs fetch
                     fetchLlmMetrics(), // Add LLM Metrics to initial load
-                    fetchHealthHistory() // Add Health History to initial load
+                    fetchHealthHistory(), // Add Health History to initial load
+                    fetchBusinessMetrics() // Add Business Metrics to initial load
                 ])
             } catch (err) {
                 console.error("Failed to fetch initial admin data", err)
@@ -190,7 +208,7 @@ const AdminLogsDashboard = () => {
         }
 
         fetchInitialData()
-    }, [fetchMetrics, fetchHealth, fetchUxAnalytics, fetchDbStats, fetchInvitations, fetchLlmMetrics, fetchHealthHistory])
+    }, [fetchMetrics, fetchHealth, fetchUxAnalytics, fetchDbStats, fetchInvitations, fetchErrors, fetchLlmMetrics, fetchHealthHistory, fetchBusinessMetrics])
 
     // Re-fetch logs when filters or pagination change
     useEffect(() => {
@@ -207,28 +225,40 @@ const AdminLogsDashboard = () => {
     // Re-fetch health history when period or interval changes
     useEffect(() => {
         fetchHealthHistory()
-    }, [fetchHealthHistory])
+        fetchBusinessMetrics()
+    }, [fetchHealthHistory, fetchBusinessMetrics])
 
     // WebSocket connection for live updates
     useEffect(() => {
         const token = localStorage.getItem('token')
         if (!token) return
 
+        // Cleanup flag to prevent connecting after unmount (React StrictMode)
+        let isCleanedUp = false
+
         const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
         const host = window.location.host
         const wsUrl = `${protocol}//${host}/api/admin/ws/monitoring?token=${token}`
 
         const connect = () => {
+            // Don't connect if already cleaned up (StrictMode double-invoke)
+            if (isCleanedUp) return
+
             console.log('Connecting to monitoring WebSocket...')
             const ws = new WebSocket(wsUrl)
             wsRef.current = ws
 
             ws.onopen = () => {
+                if (isCleanedUp) {
+                    ws.close()
+                    return
+                }
                 console.log('Monitoring WebSocket connected')
                 setWsConnected(true)
             }
 
             ws.onmessage = (event) => {
+                if (isCleanedUp) return
                 try {
                     const data = JSON.parse(event.data)
                     if (data.type === 'monitoring_update') {
@@ -243,10 +273,12 @@ const AdminLogsDashboard = () => {
             ws.onclose = () => {
                 console.log('Monitoring WebSocket disconnected')
                 setWsConnected(false)
-                // Attempt to reconnect after a delay
-                reconnectTimeoutRef.current = setTimeout(() => {
-                    setReconnectTrigger(prev => prev + 1)
-                }, 5000)
+                // Only attempt to reconnect if not cleaned up
+                if (!isCleanedUp) {
+                    reconnectTimeoutRef.current = setTimeout(() => {
+                        setReconnectTrigger(prev => prev + 1)
+                    }, 5000)
+                }
             }
 
             ws.onerror = (err) => {
@@ -258,7 +290,8 @@ const AdminLogsDashboard = () => {
         connect()
 
         return () => {
-            if (wsRef.current) {
+            isCleanedUp = true
+            if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
                 wsRef.current.close()
             }
             if (reconnectTimeoutRef.current) {
@@ -319,6 +352,27 @@ const AdminLogsDashboard = () => {
         }
     }
 
+    // Handler for clicking on incidents in Health History tab
+    // Navigates to Logs tab with appropriate filters
+    const handleIncidentClick = (timestamp, type) => {
+        const incidentTime = new Date(timestamp)
+        // Show logs from 5 minutes before to 5 minutes after the incident
+        const startTime = new Date(incidentTime.getTime() - 5 * 60 * 1000)
+        const endTime = new Date(incidentTime.getTime() + 5 * 60 * 1000)
+
+        setFilters({
+            ...filters,
+            level: type === 'critical' ? 'ERROR,CRITICAL' : 'WARNING,ERROR,CRITICAL',
+            startDate: startTime.toISOString().slice(0, 16), // Format for datetime-local input
+            endDate: endTime.toISOString().slice(0, 16),
+            searchText: '',
+            component: ''
+        })
+        setActiveTab('logs')
+        // Trigger fetch after tab switch
+        setTimeout(() => fetchLogs(), 100)
+    }
+
     if (loading && !metrics) {
         return <div className="p-8 text-center text-slate-500">Loading admin dashboard...</div>
     }
@@ -365,46 +419,6 @@ const AdminLogsDashboard = () => {
                     </div>
                 </div>
             </div>
-
-            {/* Description Section */}
-            {activeTab === "overview" && showAboutSection && (
-                <div className="bg-indigo-50 border-b border-indigo-100 px-8 py-6 relative animate-in fade-in duration-300">
-                    <button
-                        onClick={() => {
-                            setShowAboutSection(false);
-                            localStorage.setItem('admin_dashboard_show_about', 'false');
-                        }}
-                        className="absolute top-6 right-8 p-1.5 text-indigo-400 hover:text-indigo-600 hover:bg-white rounded-full transition"
-                        title="Dismiss"
-                    >
-                        <span className="text-xl leading-none">×</span>
-                    </button>
-                    <div className="max-w-4xl">
-                        <h2 className="text-lg font-bold text-indigo-900 mb-2">Master Control Center</h2>
-                        <p className="text-indigo-800/80 leading-relaxed mb-6">
-                            This workspace provides administrative oversight of the Headhunter engine.
-                            Monitor service health via high-frequency WebSockets, analyze API throughput,
-                            and perform deep-dive diagnostic logging to ensure peak system reliability.
-                        </p>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-sm">
-                            <div>
-                                <h3 className="font-bold text-indigo-900 mb-1 flex items-center gap-2">
-                                    <div className="w-1.5 h-1.5 bg-indigo-500 rounded-full" />
-                                    Real-time Observability
-                                </h3>
-                                <p className="text-indigo-700/80">Low-latency WebSocket infrastructure for immediate alerts and state synchronization.</p>
-                            </div>
-                            <div>
-                                <h3 className="font-bold text-indigo-900 mb-1 flex items-center gap-2">
-                                    <div className="w-1.5 h-1.5 bg-indigo-500 rounded-full" />
-                                    Unified Orchestration
-                                </h3>
-                                <p className="text-indigo-700/80">Integrated diagnostics for LLM operations, database clusters, and distributed worker queues.</p>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            )}
 
             {/* Tab Navigation */}
             <div className="bg-white border-b border-slate-200 px-8 flex items-end">
@@ -522,8 +536,10 @@ const AdminLogsDashboard = () => {
                         setHistoryInterval={setHistoryInterval}
                         fetchHealthHistory={fetchHealthHistory}
                         thresholds={thresholds}
+                        businessMetrics={businessMetrics}
                         getStatusValue={getStatusValue}
                         getServiceStatusColor={getServiceStatusColor}
+                        onIncidentClick={handleIncidentClick}
                     />
                 )}
 

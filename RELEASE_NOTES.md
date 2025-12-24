@@ -1,3 +1,75 @@
+# Release Notes - v1.18.1 (Admin Dashboard Enhancements & Bug Fixes)
+
+**Release Date:** 2025-12-25
+
+## Summary
+
+This release focuses on **Admin Dashboard improvements**, fixing critical WebSocket issues, modernizing the log visualization, and adding comprehensive test coverage for admin API endpoints.
+
+## 🚀 Key Features
+
+### 📊 Modernized Log Level Visualization
+
+- Replaced the outdated pie chart with a **modern horizontal stacked bar chart** and individual metric cards for each log level (CRITICAL, ERROR, WARNING, INFO, DEBUG).
+- Color-coded cards with percentages for quick visual assessment.
+
+### 🗄️ Enhanced Database Monitoring
+
+- Extended database statistics to show both **Production** and **Logs** databases side-by-side.
+- New compact table design with colored headers (Indigo/Amber) and animated status indicators.
+
+### 🎨 Consistent UI Animations
+
+- Added subtle hover animations (`hover:shadow-md`, `scale`) to MetricCard components and log level cards.
+- Consistent with BusinessFlowCard animation style across the admin section.
+
+### ✅ Errors Tab Fix
+
+- Implemented dedicated `fetchErrors()` function for independent error/critical log retrieval.
+- Added user-friendly empty state message when no errors are found.
+
+### 🧪 Comprehensive Admin Test Suite
+
+- Created `backend/tests/test_admin.py` with **29 test cases** covering:
+  - Access control (authentication + super admin role enforcement)
+  - Metrics, Health, UX Analytics endpoints
+  - Logs with filters and pagination
+  - Log cleanup preview/confirm
+  - Business metrics, Health history, LLM metrics
+
+## 🐛 Bug Fixes
+
+### WebSocket Session Errors (Critical)
+
+- **Sync WebSocket**: Fixed SQLAlchemy detached session error (`user.company` lazy load failure) by eagerly capturing `company_id` during authentication.
+- **Admin Monitoring WebSocket**: Fixed React StrictMode double-invoke causing rapid connect/disconnect cycles by adding cleanup guards.
+
+### Frontend Improvements
+
+- Fixed `TypeError: Cannot read properties of null (reading 'interview_stages')` for super_admin users without a company.
+- Fixed System Availability Timeline empty state by adding proper null checks and `min-w-[2px]` for segments.
+- Added `flexBasis` inline style for proper timeline segment rendering.
+
+## 🛠️ Technical Details
+
+- **Backend**:
+  - `sync.py`: Changed `authenticate_sync_websocket()` to return `(user, company_id)` tuple.
+  - `admin.py`: Updated `DatabaseStatsResponse` to include both production and logs DB stats.
+  - `database.py`, `main.py`, `parse_service.py`: Added DEBUG and CRITICAL logging.
+- **Frontend**:
+  - `AdminLogsDashboard.jsx`: Added cleanup flag for WebSocket StrictMode compatibility.
+  - `HealthHistoryTab.jsx`: Improved timeline with empty state and null-safety.
+  - `OverviewTab.jsx`: Modern log level visualization with bar chart and cards.
+  - `useHeadhunterData.js`: Added null company check for super_admin users.
+
+## ✅ Verification
+
+- **Backend Tests**: 27 passed, 2 skipped (SQLite StaticPool incompatibility)
+- **WebSocket**: Verified stable connections without repeated disconnects
+- **System Availability Timeline**: Verified colored segments render correctly
+
+---
+
 # Release Notes - v1.18.0 (LLM Analytics & Monitoring Platform)
 
 **Release Date:** 2025-12-21

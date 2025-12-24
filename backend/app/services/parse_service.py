@@ -54,6 +54,7 @@ def process_cv(cv_id: int):
     
     try:
         logger.info(f"Processing CV ID {cv_id}...")
+        logger.debug(f"CV {cv_id}: Creating database session and fetching CV record")
         
         # STEP 1: Fetch CV data
         db = SessionLocal()
@@ -73,6 +74,7 @@ def process_cv(cv_id: int):
             db.close()
         
         # STEP 2: Process file (slow I/O and API calls)
+        logger.debug(f"CV {cv_id}: Extracting text from file {cv_filepath}")
         full_text = extract_text(cv_filepath)
         if not full_text:
             logger.warning(f"No text extracted for CV ID {cv_id}.")
@@ -82,10 +84,10 @@ def process_cv(cv_id: int):
         try:
             data = asyncio.run(parse_cv_with_llm(full_text, cv_filename, cv_id=cv_id, company_id=company_id, user_id=user_id))
         except Exception as e:
-            logger.error(f"Error calling AI service for CV {cv_id}: {e}")
+            logger.critical(f"AI service failed for CV {cv_id}: {e}")
             raise
 
-        logger.info(f"Parsed Data for CV {cv_id}: Keys={list(data.keys())}")
+        logger.debug(f"Parsed Data for CV {cv_id}: Keys={list(data.keys())}")
 
         # STEP 3: Save results
         db = SessionLocal()

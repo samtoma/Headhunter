@@ -1,8 +1,20 @@
 import React from 'react'
 import { Activity, AlertCircle, Server, TrendingUp, Zap, CheckCircle, AlertTriangle, XCircle, Clock } from 'lucide-react'
-import { PieChart, Pie, Cell, ResponsiveContainer, Legend } from 'recharts'
 import MetricCard from '../shared/MetricCard'
+import TabHelpSection from '../shared/TabHelpSection'
 import { getHealthColor } from '../utils/adminDashboardUtils'
+
+// KPI explanations for this tab
+const overviewKpis = [
+    { term: 'Total Logs', description: 'Total number of log entries recorded in the system.' },
+    { term: 'Error Rate', description: 'Percentage of requests that resulted in errors (4xx/5xx) in the last 24 hours.' },
+    { term: 'Response p95', description: '95th percentile response time - 95% of requests complete faster than this.' },
+    { term: 'API Requests', description: 'Total number of API calls processed in the last 24 hours.' },
+    { term: 'System Health', description: 'Real-time status of core services: Database, Redis, Celery, and ChromaDB.' },
+    { term: 'Healthy', description: 'Service is operating normally with optimal response times.' },
+    { term: 'Degraded', description: 'Service is responding but with higher latency or minor issues.' },
+    { term: 'Unhealthy', description: 'Service is down or experiencing critical failures.' }
+]
 
 const OverviewTab = ({
     metrics,
@@ -42,6 +54,12 @@ const OverviewTab = ({
 
     return (
         <div className="space-y-6">
+            {/* Help Section */}
+            <TabHelpSection
+                title="Understanding Overview Metrics"
+                storageKey="overview"
+                items={overviewKpis}
+            />
             {/* System Health Status */}
             {health && (
                 <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
@@ -99,30 +117,218 @@ const OverviewTab = ({
                 />
             </div>
 
-            {/* Logs by Level Chart */}
-            {logsByLevelData.length > 0 && (
+            {/* Logs by Level - Modern Horizontal Bar Design */}
+            {logsByLevelData.length > 0 && (() => {
+                const totalLogs = logsByLevelData.reduce((sum, item) => sum + item.value, 0)
+                const sortedData = [...logsByLevelData].sort((a, b) =>
+                    ['CRITICAL', 'ERROR', 'WARNING', 'INFO', 'DEBUG'].indexOf(a.name) -
+                    ['CRITICAL', 'ERROR', 'WARNING', 'INFO', 'DEBUG'].indexOf(b.name)
+                )
+
+                return (
+                    <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+                        <div className="flex items-center justify-between mb-6">
+                            <h3 className="font-bold text-slate-700 flex items-center gap-2">
+                                <Activity size={18} />
+                                Log Distribution (Last 24h)
+                            </h3>
+                            <span className="text-sm text-slate-500">
+                                {totalLogs.toLocaleString()} total entries
+                            </span>
+                        </div>
+
+                        {/* Stacked Horizontal Bar */}
+                        <div className="mb-6">
+                            <div className="h-8 rounded-lg overflow-hidden flex shadow-inner bg-slate-100">
+                                {sortedData.map((item, i) => {
+                                    const percentage = totalLogs > 0 ? (item.value / totalLogs) * 100 : 0
+                                    if (percentage === 0) return null
+                                    return (
+                                        <div
+                                            key={i}
+                                            className="h-full transition-all hover:opacity-80"
+                                            style={{
+                                                width: `${percentage}%`,
+                                                backgroundColor: item.color,
+                                                minWidth: percentage > 0 ? '2px' : '0'
+                                            }}
+                                            title={`${item.name}: ${item.value.toLocaleString()} (${percentage.toFixed(1)}%)`}
+                                        />
+                                    )
+                                })}
+                            </div>
+                        </div>
+
+                        {/* Level Cards Grid */}
+                        <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+                            {['CRITICAL', 'ERROR', 'WARNING', 'INFO', 'DEBUG'].map(level => {
+                                const levelData = logsByLevelData.find(d => d.name === level) || { value: 0 }
+                                const percentage = totalLogs > 0 ? ((levelData.value / totalLogs) * 100).toFixed(1) : '0'
+                                const color = levelColors[level]
+                                const bgColor = {
+                                    CRITICAL: 'bg-purple-50 border-purple-200',
+                                    ERROR: 'bg-red-50 border-red-200',
+                                    WARNING: 'bg-amber-50 border-amber-200',
+                                    INFO: 'bg-blue-50 border-blue-200',
+                                    DEBUG: 'bg-slate-50 border-slate-200'
+                                }[level]
+                                const textColor = {
+                                    CRITICAL: 'text-purple-700',
+                                    ERROR: 'text-red-700',
+                                    WARNING: 'text-amber-700',
+                                    INFO: 'text-blue-700',
+                                    DEBUG: 'text-slate-600'
+                                }[level]
+
+                                return (
+                                    <div key={level} className={`p-3 rounded-lg border ${bgColor} transition-all duration-200 hover:shadow-md hover:scale-[1.02] cursor-default group`}>
+                                        <div className="flex items-center gap-2 mb-1">
+                                            <div
+                                                className="w-2.5 h-2.5 rounded-full"
+                                                style={{ backgroundColor: color }}
+                                            />
+                                            <span className={`text-xs font-bold uppercase tracking-wide ${textColor}`}>
+                                                {level}
+                                            </span>
+                                        </div>
+                                        <div className="flex items-baseline justify-between">
+                                            <span className={`text-lg font-bold ${textColor}`}>
+                                                {levelData.value.toLocaleString()}
+                                            </span>
+                                            <span className="text-xs text-slate-500">
+                                                {percentage}%
+                                            </span>
+                                        </div>
+                                    </div>
+                                )
+                            })}
+                        </div>
+                    </div>
+                )
+            })()}
+
+            {/* Database Statistics - Side by Side */}
+            {dbStats && (
                 <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
-                    <h3 className="font-bold text-slate-700 mb-4 flex items-center gap-2">
-                        <Activity size={18} />
-                        Logs by Level (Last 24h)
+                    <h3 className="font-bold text-slate-700 mb-6 flex items-center gap-2">
+                        <Server size={18} />
+                        Database Statistics
                     </h3>
-                    <ResponsiveContainer width="100%" height={300}>
-                        <PieChart>
-                            <Pie
-                                data={logsByLevelData}
-                                cx="50%"
-                                cy="50%"
-                                outerRadius={80}
-                                dataKey="value"
-                                label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
-                            >
-                                {logsByLevelData.map((entry, index) => (
-                                    <Cell key={`cell-${index}`} fill={entry.color} />
-                                ))}
-                            </Pie>
-                            <Legend />
-                        </PieChart>
-                    </ResponsiveContainer>
+
+                    {/* Two databases side by side */}
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        {/* Production Database */}
+                        {dbStats.production && (
+                            <div className="bg-indigo-50/50 border border-indigo-100 rounded-xl overflow-hidden">
+                                {/* Header */}
+                                <div className="bg-indigo-100 px-4 py-3 flex items-center justify-between">
+                                    <div className="flex items-center gap-2">
+                                        <div className="w-2 h-2 bg-indigo-500 rounded-full animate-pulse" />
+                                        <h4 className="font-bold text-indigo-800">Production DB</h4>
+                                    </div>
+                                    <span className="text-sm font-bold text-indigo-600 bg-white px-2 py-0.5 rounded-full">
+                                        {dbStats.production.total_db_size_mb} MB
+                                    </span>
+                                </div>
+
+                                <div className="p-4">
+                                    {/* Pool Stats */}
+                                    <div className="grid grid-cols-3 gap-2 mb-4">
+                                        <div className="bg-white p-3 rounded-lg border border-indigo-100 text-center shadow-sm">
+                                            <div className="text-xs text-slate-500 mb-1">Pool Size</div>
+                                            <div className="text-lg font-bold text-slate-800">{dbStats.production.connection_pool_size}</div>
+                                        </div>
+                                        <div className="bg-white p-3 rounded-lg border border-emerald-100 text-center shadow-sm">
+                                            <div className="text-xs text-slate-500 mb-1">Available</div>
+                                            <div className="text-lg font-bold text-emerald-600">{dbStats.production.connections_available}</div>
+                                        </div>
+                                        <div className="bg-white p-3 rounded-lg border border-blue-100 text-center shadow-sm">
+                                            <div className="text-xs text-slate-500 mb-1">In Use</div>
+                                            <div className="text-lg font-bold text-blue-600">{dbStats.production.connections_in_use}</div>
+                                        </div>
+                                    </div>
+
+                                    {/* Table Sizes */}
+                                    {dbStats.production.table_sizes?.length > 0 && (
+                                        <div className="bg-white rounded-lg border border-indigo-100 overflow-hidden">
+                                            <table className="w-full text-xs">
+                                                <thead className="bg-indigo-50 text-indigo-700 uppercase tracking-wider">
+                                                    <tr>
+                                                        <th className="text-left p-2 font-bold">Table</th>
+                                                        <th className="text-right p-2 font-bold">Size</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody className="divide-y divide-indigo-50">
+                                                    {dbStats.production.table_sizes.slice(0, 5).map((t, i) => (
+                                                        <tr key={i} className="hover:bg-indigo-50/50 transition">
+                                                            <td className="p-2 font-mono text-slate-700">{t.table}</td>
+                                                            <td className="p-2 text-right font-semibold text-slate-600">{t.size}</td>
+                                                        </tr>
+                                                    ))}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Logs Database */}
+                        {dbStats.logs && (
+                            <div className="bg-amber-50/50 border border-amber-100 rounded-xl overflow-hidden">
+                                {/* Header */}
+                                <div className="bg-amber-100 px-4 py-3 flex items-center justify-between">
+                                    <div className="flex items-center gap-2">
+                                        <div className="w-2 h-2 bg-amber-500 rounded-full animate-pulse" />
+                                        <h4 className="font-bold text-amber-800">Logs DB</h4>
+                                    </div>
+                                    <span className="text-sm font-bold text-amber-600 bg-white px-2 py-0.5 rounded-full">
+                                        {dbStats.logs.total_db_size_mb} MB
+                                    </span>
+                                </div>
+
+                                <div className="p-4">
+                                    {/* Pool Stats */}
+                                    <div className="grid grid-cols-3 gap-2 mb-4">
+                                        <div className="bg-white p-3 rounded-lg border border-amber-100 text-center shadow-sm">
+                                            <div className="text-xs text-slate-500 mb-1">Pool Size</div>
+                                            <div className="text-lg font-bold text-slate-800">{dbStats.logs.connection_pool_size}</div>
+                                        </div>
+                                        <div className="bg-white p-3 rounded-lg border border-emerald-100 text-center shadow-sm">
+                                            <div className="text-xs text-slate-500 mb-1">Available</div>
+                                            <div className="text-lg font-bold text-emerald-600">{dbStats.logs.connections_available}</div>
+                                        </div>
+                                        <div className="bg-white p-3 rounded-lg border border-blue-100 text-center shadow-sm">
+                                            <div className="text-xs text-slate-500 mb-1">In Use</div>
+                                            <div className="text-lg font-bold text-blue-600">{dbStats.logs.connections_in_use}</div>
+                                        </div>
+                                    </div>
+
+                                    {/* Table Sizes */}
+                                    {dbStats.logs.table_sizes?.length > 0 && (
+                                        <div className="bg-white rounded-lg border border-amber-100 overflow-hidden">
+                                            <table className="w-full text-xs">
+                                                <thead className="bg-amber-50 text-amber-700 uppercase tracking-wider">
+                                                    <tr>
+                                                        <th className="text-left p-2 font-bold">Table</th>
+                                                        <th className="text-right p-2 font-bold">Size</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody className="divide-y divide-amber-50">
+                                                    {dbStats.logs.table_sizes.slice(0, 5).map((t, i) => (
+                                                        <tr key={i} className="hover:bg-amber-50/50 transition">
+                                                            <td className="p-2 font-mono text-slate-700">{t.table}</td>
+                                                            <td className="p-2 text-right font-semibold text-slate-600">{t.size}</td>
+                                                        </tr>
+                                                    ))}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        )}
+                    </div>
                 </div>
             )}
 

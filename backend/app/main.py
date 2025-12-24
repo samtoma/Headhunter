@@ -21,6 +21,7 @@ logger = get_logger(__name__)
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     logger.info("Starting up Headhunter API...")
+    logger.debug("Initializing database tables and cache...")
     # Ensure database tables are created
     models.Base.metadata.create_all(bind=engine)
     # Initialize Redis Cache
@@ -44,7 +45,7 @@ async def lifespan(app: FastAPI):
             
         db.close()
     except Exception as e:
-        logger.error(f"Failed to resume CV processing: {e}")
+        logger.critical(f"Failed to resume CV processing during startup: {e}")
         
     # Auto-Sync Embeddings (Background Task)
     try:
@@ -53,7 +54,7 @@ async def lifespan(app: FastAPI):
         # Run in background to not block startup
         asyncio.create_task(sync_embeddings(limit=500))
     except Exception as e:
-        logger.error(f"Failed to start embedding sync: {e}")
+        logger.critical(f"Failed to start embedding sync during startup: {e}")
     
     yield
     

@@ -1,6 +1,19 @@
 import React from 'react'
 import { RefreshCw, AlertCircle, ChevronDown, ChevronUp } from 'lucide-react'
 import { getLevelColor, formatDate } from '../utils/adminDashboardUtils'
+import TabHelpSection from '../shared/TabHelpSection'
+
+// Log level and filter explanations
+const logsKpis = [
+    { term: 'DEBUG', description: 'Detailed diagnostic information for development and troubleshooting.' },
+    { term: 'INFO', description: 'General operational messages confirming normal system behavior.' },
+    { term: 'WARNING', description: 'Potential issues that don\'t affect functionality but need attention.' },
+    { term: 'ERROR', description: 'Failures that prevented an operation from completing successfully.' },
+    { term: 'CRITICAL', description: 'Severe failures requiring immediate attention - system may be down.' },
+    { term: 'Response Time', description: 'Time taken to process and respond to the request in milliseconds.' },
+    { term: 'Request ID', description: 'Unique identifier to trace a request across services.' },
+    { term: 'Component', description: 'System component that generated the log (api, celery, llm, etc.).' }
+]
 
 const LogsTab = ({
     logs,
@@ -16,6 +29,12 @@ const LogsTab = ({
 }) => {
     return (
         <div className="space-y-4">
+            {/* Help Section */}
+            <TabHelpSection
+                title="Understanding Log Levels & Filters"
+                storageKey="logs"
+                items={logsKpis}
+            />
             {/* Filters */}
             <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
@@ -32,6 +51,8 @@ const LogsTab = ({
                             <option value="WARNING">WARNING</option>
                             <option value="ERROR">ERROR</option>
                             <option value="CRITICAL">CRITICAL</option>
+                            <option value="ERROR,CRITICAL">ERROR + CRITICAL</option>
+                            <option value="WARNING,ERROR,CRITICAL">WARNING + ERROR + CRITICAL</option>
                         </select>
                     </div>
                     <div>
@@ -51,6 +72,27 @@ const LogsTab = ({
                             value={filters.searchText}
                             onChange={(e) => setFilters({ ...filters, searchText: e.target.value })}
                             placeholder="Search in messages..."
+                            className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                        />
+                    </div>
+                </div>
+                {/* Date Range Filters */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                    <div>
+                        <label className="block text-sm font-medium text-slate-700 mb-1">Start Date</label>
+                        <input
+                            type="datetime-local"
+                            value={filters.startDate || ''}
+                            onChange={(e) => setFilters({ ...filters, startDate: e.target.value })}
+                            className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                        />
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium text-slate-700 mb-1">End Date</label>
+                        <input
+                            type="datetime-local"
+                            value={filters.endDate || ''}
+                            onChange={(e) => setFilters({ ...filters, endDate: e.target.value })}
                             className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                         />
                     </div>
@@ -135,9 +177,9 @@ const LogsTab = ({
                                         <td className="p-4">
                                             {log.http_status && (
                                                 <span className={`px-2 py-1 rounded text-xs font-bold ${log.http_status >= 200 && log.http_status < 300 ? 'bg-green-100 text-green-700' :
-                                                        log.http_status >= 300 && log.http_status < 400 ? 'bg-blue-100 text-blue-700' :
-                                                            log.http_status >= 400 && log.http_status < 500 ? 'bg-yellow-100 text-yellow-700' :
-                                                                'bg-red-100 text-red-700'
+                                                    log.http_status >= 300 && log.http_status < 400 ? 'bg-blue-100 text-blue-700' :
+                                                        log.http_status >= 400 && log.http_status < 500 ? 'bg-yellow-100 text-yellow-700' :
+                                                            'bg-red-100 text-red-700'
                                                     }`}>
                                                     {log.http_status}
                                                 </span>

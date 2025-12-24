@@ -17,7 +17,7 @@ from datetime import datetime, timedelta, timezone
 from pydantic import BaseModel, ConfigDict
 from app.core.database import get_db
 from app.core.database_logs import get_logs_db
-from app.models.models import UserInvitation, User, Company, UserRole
+from app.models.models import UserInvitation, User, Company, UserRole, ActivityLog
 from app.models.log_models import SystemLog, LLMLog
 from app.api.deps import get_current_user
 from jose import jwt, JWTError
@@ -120,8 +120,8 @@ class UXAnalyticsResponse(BaseModel):
     error_endpoints: List[Dict[str, Any]]
     requests_by_hour: List[Dict[str, Any]]
 
-class DatabaseStatsResponse(BaseModel):
-    """Database statistics"""
+class SingleDbStats(BaseModel):
+    """Stats for a single database"""
     connection_pool_size: int
     connections_in_use: int
     connections_available: int
@@ -129,6 +129,26 @@ class DatabaseStatsResponse(BaseModel):
     total_tables: int
     table_sizes: List[Dict[str, Any]]
     total_db_size_mb: float
+    db_name: str
+
+
+class DatabaseStatsResponse(BaseModel):
+    """Database statistics for both production and logs databases"""
+    production: SingleDbStats
+    logs: SingleDbStats
+
+class BusinessFlowMetric(BaseModel):
+    name: str # e.g. "Talent Acquisition"
+    status: str # "healthy", "degraded", "unknown"
+    volume_24h: int
+    volume_prev_24h: int
+    trend_percent: float
+    success_rate: Optional[float] = None
+    last_event_at: Optional[datetime] = None
+
+class BusinessMetricsResponse(BaseModel):
+    flows: List[BusinessFlowMetric]
+    timestamp: datetime
 
 class HealthHistoryPoint(BaseModel):
     """Single point in health history"""
@@ -940,52 +960,7 @@ def get_system_health(
         services=services,
         timestamp=datetime.now(timezone.utc)
     )
-    
-    # Check Logs Database (separate from main DB)
-    try:
-        from app.core.database_logs import get_logs_db
-        db_logs_gen = get_logs_db()
-        db_logs = next(db_logs_gen)
-        try:
-            start = time.time()
-            db_logs.execute(text("SELECT 1"))
-            logs_db_time = (time.time() - start) * 1000
-            
-            # Check if tables exist
-            tables_exist = db_logs.execute(text("""
-                SELECT EXISTS (
-                    SELECT FROM information_schema.tables 
-                    WHERE table_schema = 'public' 
-                    AND table_name IN ('system_logs', 'llm_logs')
-                )
-            """)).scalar()
-            
-            # Get recent log count (last hour) to verify writes
-            recent_logs = db_logs.query(func.count(SystemLog.id)).filter(
-                SystemLog.created_at >= datetime.now(timezone.utc) - timedelta(hours=1)
-            ).scalar() or 0
-            
-            services.append(ServiceHealth(
-                name="Logs Database",
-                status="healthy" if logs_db_time < 100 and tables_exist else "degraded",
-                response_time_ms=round(logs_db_time, 2),
-                message=f"Logs DB connection OK, {recent_logs} logs in last hour",
-                details={
-                    "tables_exist": tables_exist,
-                    "recent_logs_1h": recent_logs
-                }
-            ))
-        finally:
-            try:
-                next(db_logs_gen, None)
-            except StopIteration:
-                pass
-    except Exception as e:
-        services.append(ServiceHealth(
-            name="Logs Database",
-            status="unhealthy",
-            message=str(e)
-        ))
+
     
     # Check Logging Queue (Redis logs_queue)
     try:
@@ -1191,56 +1166,69 @@ def get_ux_analytics(
 @router.get("/database/stats", response_model=DatabaseStatsResponse)
 def get_database_stats(
     db: Session = Depends(get_db),
+    db_logs: Session = Depends(get_logs_db),
     current_user: User = Depends(get_current_user)
 ):
     """
-    Get database statistics including connection pool and table sizes.
+    Get database statistics for both production and logs databases.
+    Includes connection pool info, table sizes, and total size.
     Super admin only.
     """
     require_super_admin(current_user)
     
     from sqlalchemy import text
     
-    # Get connection pool stats
-    pool = db.get_bind().pool
+    def get_db_stats(session: Session, db_name: str) -> SingleDbStats:
+        """Helper to get stats for a single database"""
+        pool = session.get_bind().pool
+        
+        # Get table sizes
+        table_sizes_query = text("""
+            SELECT 
+                tablename as table_name,
+                pg_size_pretty(pg_total_relation_size(schemaname || '.' || tablename)) as total_size,
+                pg_total_relation_size(schemaname || '.' || tablename) as size_bytes
+            FROM pg_tables 
+            WHERE schemaname = 'public'
+            ORDER BY pg_total_relation_size(schemaname || '.' || tablename) DESC
+            LIMIT 10
+        """)
+        
+        try:
+            table_sizes_result = session.execute(table_sizes_query).fetchall()
+            table_sizes = [
+                {"table": row[0], "size": row[1], "size_bytes": row[2]}
+                for row in table_sizes_result
+            ]
+        except Exception:
+            table_sizes = []
+        
+        # Get total database size
+        db_size_query = text("SELECT pg_database_size(current_database())")
+        try:
+            db_size = session.execute(db_size_query).scalar() or 0
+            db_size_mb = db_size / (1024 * 1024)
+        except Exception:
+            db_size_mb = 0
+        
+        return SingleDbStats(
+            connection_pool_size=pool.size(),
+            connections_in_use=pool.checkedout(),
+            connections_available=pool.size() - pool.checkedout(),
+            pool_overflow=pool.overflow(),
+            total_tables=len(table_sizes),
+            table_sizes=table_sizes,
+            total_db_size_mb=round(db_size_mb, 2),
+            db_name=db_name
+        )
     
-    # Get table sizes
-    table_sizes_query = text("""
-        SELECT 
-            tablename as table_name,
-            pg_size_pretty(pg_total_relation_size(schemaname || '.' || tablename)) as total_size,
-            pg_total_relation_size(schemaname || '.' || tablename) as size_bytes
-        FROM pg_tables 
-        WHERE schemaname = 'public'
-        ORDER BY pg_total_relation_size(schemaname || '.' || tablename) DESC
-        LIMIT 20
-    """)
-    
-    try:
-        table_sizes_result = db.execute(table_sizes_query).fetchall()
-        table_sizes = [
-            {"table": row[0], "size": row[1], "size_bytes": row[2]}
-            for row in table_sizes_result
-        ]
-    except Exception:
-        table_sizes = []
-    
-    # Get total database size
-    db_size_query = text("SELECT pg_database_size(current_database())")
-    try:
-        db_size = db.execute(db_size_query).scalar() or 0
-        db_size_mb = db_size / (1024 * 1024)
-    except Exception:
-        db_size_mb = 0
+    # Get stats for both databases
+    production_stats = get_db_stats(db, "headhunter_db")
+    logs_stats = get_db_stats(db_logs, "headhunter_logs")
     
     return DatabaseStatsResponse(
-        connection_pool_size=pool.size(),
-        connections_in_use=pool.checkedout(),
-        connections_available=pool.size() - pool.checkedout(),
-        pool_overflow=pool.overflow(),
-        total_tables=len(table_sizes),
-        table_sizes=table_sizes,
-        total_db_size_mb=round(db_size_mb, 2)
+        production=production_stats,
+        logs=logs_stats
     )
 
 # ==================== Log Cleanup Endpoint ====================
@@ -1377,16 +1365,18 @@ def get_health_history(
         # For historical data, we'll infer health from response times and errors
         services = []
         
-        # Database health - check for database-related errors
-        db_errors = sum(1 for log in bucket_logs if 'database' in log.component.lower() or 'db' in log.component.lower())
-        db_response_times = [log.response_time_ms for log in bucket_logs 
-                            if log.http_path and ('/api' in log.http_path or '/admin' in log.http_path) 
-                            and log.response_time_ms]
-        avg_db_time = sum(db_response_times) / len(db_response_times) if db_response_times else 0
-        
+        # Database health
+        db_errors = sum(1 for log in bucket_logs if 'sqlalchemy' in log.component.lower() or 'psycopg' in log.component.lower())
+        # For average DB time, we'll use the general response times for now, as specific DB-related response times are harder to isolate from logs
+        avg_db_time = sum(response_times) / len(response_times) if response_times else 0
+            
         db_status = "healthy"
-        if db_errors > len(bucket_logs) * 0.1:  # More than 10% errors
-            db_status = "unhealthy"
+        if db_errors > 0:
+             # If low volume, be lenient. If high volume, check percentage.
+             if len(bucket_logs) < 20: 
+                 db_status = "degraded" if db_errors < 5 else "unhealthy"
+             else:
+                 db_status = "degraded" if db_errors < len(bucket_logs) * 0.2 else "unhealthy"
         elif avg_db_time > 500:  # Average response > 500ms
             db_status = "degraded"
         
@@ -1401,7 +1391,10 @@ def get_health_history(
         redis_errors = sum(1 for log in bucket_logs if 'redis' in log.component.lower())
         redis_status = "healthy"
         if redis_errors > 0:
-            redis_status = "degraded" if redis_errors < len(bucket_logs) * 0.1 else "unhealthy"
+             if len(bucket_logs) < 20:
+                 redis_status = "degraded" if redis_errors < 5 else "unhealthy"
+             else:
+                 redis_status = "degraded" if redis_errors < len(bucket_logs) * 0.2 else "unhealthy"
         
         services.append(ServiceHealth(
             name="Redis",
@@ -1414,7 +1407,11 @@ def get_health_history(
         celery_errors = sum(1 for log in bucket_logs if 'celery' in log.component.lower())
         celery_status = "healthy"
         if celery_errors > 0:
-            celery_status = "degraded" if celery_errors < len(bucket_logs) * 0.1 else "unhealthy"
+             # Celery logs heavily, so we can be stricter on count but lenient on single failures
+             if len(bucket_logs) < 20:
+                 celery_status = "degraded" if celery_errors < 3 else "unhealthy"
+             else:
+                 celery_status = "degraded" if celery_errors < len(bucket_logs) * 0.15 else "unhealthy"
         
         services.append(ServiceHealth(
             name="Celery",
@@ -1427,7 +1424,10 @@ def get_health_history(
         chroma_errors = sum(1 for log in bucket_logs if 'chroma' in log.component.lower() or 'vector' in log.component.lower())
         chroma_status = "healthy"
         if chroma_errors > 0:
-            chroma_status = "degraded" if chroma_errors < len(bucket_logs) * 0.1 else "unhealthy"
+             if len(bucket_logs) < 20:
+                 chroma_status = "degraded" if chroma_errors < 3 else "unhealthy"
+             else:
+                 chroma_status = "degraded" if chroma_errors < len(bucket_logs) * 0.2 else "unhealthy"
         
         services.append(ServiceHealth(
             name="ChromaDB",
@@ -1458,6 +1458,149 @@ def get_health_history(
     return HealthHistoryResponse(
         period_hours=hours,
         time_series=time_series
+    )
+
+@router.get("/business-metrics", response_model=BusinessMetricsResponse)
+def get_business_flow_metrics(
+    db: Session = Depends(get_db),
+    logs_db: Session = Depends(get_logs_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Calculate KPIs for core business flows:
+    1. Talent Acquisition (Invitations/Signups)
+    2. Interview Operations (Scheduling)
+    3. CV Pipeline (Manual Uploads)
+    4. CV Pipeline (Landing Page)
+    """
+    require_super_admin(current_user)
+    
+    now = datetime.now(timezone.utc)
+    one_day_ago = now - timedelta(hours=24)
+    two_days_ago = now - timedelta(hours=48)
+    one_hour_ago = now - timedelta(hours=1)
+    
+    flows = []
+    
+    # helper to calculate volume stats
+    def get_flow_stats(action_filter, source_filter=None):
+        # Current 24h
+        q_curr = db.query(ActivityLog).filter(
+            ActivityLog.created_at >= one_day_ago,
+            ActivityLog.action == action_filter
+        )
+        if source_filter:
+            q_curr = q_curr.filter(ActivityLog.details.like(f'%{source_filter}%'))
+        curr_vol = q_curr.count()
+        
+        # Previous 24h
+        q_prev = db.query(ActivityLog).filter(
+            ActivityLog.created_at >= two_days_ago,
+            ActivityLog.created_at < one_day_ago,
+            ActivityLog.action == action_filter
+        )
+        if source_filter:
+            q_prev = q_prev.filter(ActivityLog.details.like(f'%{source_filter}%'))
+        prev_vol = q_prev.count()
+
+        # Last event
+        last_event = db.query(ActivityLog).filter(
+             ActivityLog.action == action_filter
+        )
+        if source_filter:
+             last_event = last_event.filter(ActivityLog.details.like(f'%{source_filter}%'))
+        last_event = last_event.order_by(ActivityLog.created_at.desc()).first()
+        
+        # Trend
+        if prev_vol == 0:
+            trend = 100.0 if curr_vol > 0 else 0.0
+        else:
+            trend = ((curr_vol - prev_vol) / prev_vol) * 100
+
+        return curr_vol, prev_vol, trend, last_event.created_at if last_event else None
+
+    # helper to check health (error rate in last hour)
+    def check_health(component_name):
+        error_count = logs_db.query(SystemLog).filter(
+            SystemLog.created_at >= one_hour_ago,
+            SystemLog.level.in_(['ERROR', 'CRITICAL']),
+            SystemLog.component == component_name
+        ).count()
+        return "healthy" if error_count == 0 else "degraded"
+
+    # 1. Talent Acquisition
+    inv_curr, inv_prev, inv_trend, inv_last = get_flow_stats("signup") # or user_invited
+    # Also check user_invited for manually invited users
+    inv_curr_2, inv_prev_2, _, inv_last_2 = get_flow_stats("user_invited")
+    
+    total_inv_curr = inv_curr + inv_curr_2
+    total_inv_prev = inv_prev + inv_prev_2
+    
+    if total_inv_prev == 0:
+        total_inv_trend = 100.0 if total_inv_curr > 0 else 0.0
+    else:
+        total_inv_trend = ((total_inv_curr - total_inv_prev) / total_inv_prev) * 100
+        
+    last_inv = inv_last if (inv_last and (not inv_last_2 or inv_last > inv_last_2)) else inv_last_2
+    
+    flows.append(BusinessFlowMetric(
+        name="Talent Acquisition",
+        status=check_health("auth"), # Monitor auth component errors
+        volume_24h=total_inv_curr,
+        volume_prev_24h=total_inv_prev,
+        trend_percent=round(total_inv_trend, 1),
+        last_event_at=last_inv
+    ))
+
+    # 2. Interviews
+    int_curr, int_prev, int_trend, int_last = get_flow_stats("interview_scheduled")
+    flows.append(BusinessFlowMetric(
+        name="Interview Operations",
+        status=check_health("interviews"),
+        volume_24h=int_curr,
+        volume_prev_24h=int_prev,
+        trend_percent=round(int_trend, 1),
+        last_event_at=int_last
+    ))
+
+    # 3. CV Pipeline (Manual)
+    # Combine "manual" (direct upload to job) and "bulk_assign" (pool to job)
+    cv_man_1_curr, cv_man_1_prev, _, cv_man_1_last = get_flow_stats("added_to_pipeline", "manual")
+    cv_man_2_curr, cv_man_2_prev, _, cv_man_2_last = get_flow_stats("added_to_pipeline", "bulk_assign")
+    
+    cv_man_curr = cv_man_1_curr + cv_man_2_curr
+    cv_man_prev = cv_man_1_prev + cv_man_2_prev
+    
+    if cv_man_prev == 0:
+        cv_man_trend = 100.0 if cv_man_curr > 0 else 0.0
+    else:
+        cv_man_trend = ((cv_man_curr - cv_man_prev) / cv_man_prev) * 100
+        
+    last_cv_man = cv_man_1_last if (cv_man_1_last and (not cv_man_2_last or cv_man_1_last > cv_man_2_last)) else cv_man_2_last
+
+    flows.append(BusinessFlowMetric(
+        name="CV Pipeline (Manual)",
+        status=check_health("cv"),
+        volume_24h=cv_man_curr,
+        volume_prev_24h=cv_man_prev,
+        trend_percent=round(cv_man_trend, 1),
+        last_event_at=last_cv_man
+    ))
+
+    # 4. CV Pipeline (Landing Page)
+    cv_pub_curr, cv_pub_prev, cv_pub_trend, cv_pub_last = get_flow_stats("added_to_pipeline", "landing_page")
+    flows.append(BusinessFlowMetric(
+        name="CV Pipeline (Public)",
+        status=check_health("public"),
+        volume_24h=cv_pub_curr,
+        volume_prev_24h=cv_pub_prev,
+        trend_percent=round(cv_pub_trend, 1),
+        last_event_at=cv_pub_last
+    ))
+
+    return BusinessMetricsResponse(
+        flows=flows,
+        timestamp=now
     )
 
 # ==================== WebSocket for Real-time Monitoring ====================

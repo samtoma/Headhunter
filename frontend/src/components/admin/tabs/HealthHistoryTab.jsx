@@ -2,8 +2,22 @@ import React, { useMemo } from 'react'
 import { RefreshCw, LayoutGrid, Calendar, AlertOctagon, CheckCircle2, XCircle } from 'lucide-react'
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ReferenceLine } from 'recharts'
 import ServiceHealthCard from './components/ServiceHealthCard'
+import BusinessFlowCard from './components/BusinessFlowCard'
+import TabHelpSection from '../shared/TabHelpSection'
 
-const HealthHistoryTab = ({ healthHistory, historyHours, setHistoryHours, historyInterval, setHistoryInterval, fetchHealthHistory, thresholds }) => {
+// Health history metrics explanations
+const healthKpis = [
+    { term: 'P50 Latency', description: 'Median response time - half of all requests are faster than this.' },
+    { term: 'P95 Latency', description: '95th percentile - only 5% of requests take longer than this.' },
+    { term: 'P99 Latency', description: '99th percentile - worst-case performance excluding outliers.' },
+    { term: 'Database', description: 'PostgreSQL connection pool health and query performance.' },
+    { term: 'Redis', description: 'In-memory cache and message broker status.' },
+    { term: 'Celery', description: 'Background task worker queue health and throughput.' },
+    { term: 'ChromaDB', description: 'Vector database for AI embeddings and semantic search.' },
+    { term: 'Recent Incidents', description: 'Click any incident to view related logs with details.' }
+]
+
+const HealthHistoryTab = ({ healthHistory, historyHours, setHistoryHours, historyInterval, setHistoryInterval, fetchHealthHistory, thresholds, businessMetrics, onIncidentClick }) => {
 
     // Memoize the chart data transformation
     const chartData = useMemo(() => {
@@ -65,6 +79,12 @@ const HealthHistoryTab = ({ healthHistory, historyHours, setHistoryHours, histor
 
     return (
         <div className="space-y-6">
+            {/* Help Section */}
+            <TabHelpSection
+                title="Understanding Health Metrics"
+                storageKey="health_history"
+                items={healthKpis}
+            />
             {/* Top Bar: Controls & Summary */}
             <div className="flex flex-col md:flex-row justify-between items-center gap-4 bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
                 <div className="flex items-center gap-3">
@@ -128,6 +148,21 @@ const HealthHistoryTab = ({ healthHistory, historyHours, setHistoryHours, histor
                     )
                 })}
             </div>
+
+            {/* Business Process Health Section */}
+            {businessMetrics && businessMetrics.flows && (
+                <div className="space-y-4">
+                    <h3 className="font-bold text-slate-800 flex items-center gap-2">
+                        <LayoutGrid size={20} className="text-indigo-600" />
+                        Business Process Health
+                    </h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                        {businessMetrics.flows.map((flow, i) => (
+                            <BusinessFlowCard key={i} flow={flow} />
+                        ))}
+                    </div>
+                </div>
+            )}
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 {/* Main Latency Chart */}
@@ -216,17 +251,24 @@ const HealthHistoryTab = ({ healthHistory, historyHours, setHistoryHours, histor
                             </div>
                         ) : (
                             alerts.map((alert, i) => (
-                                <div key={i} className={`p-3 rounded-lg border text-sm flex gap-3 ${alert.type === 'critical' ? 'bg-red-50 border-red-100' : 'bg-amber-50 border-amber-100'
-                                    }`}>
+                                <div
+                                    key={i}
+                                    onClick={() => onIncidentClick && onIncidentClick(alert.timestamp, alert.type)}
+                                    className={`p-3 rounded-lg border text-sm flex gap-3 cursor-pointer transition-all hover:shadow-md hover:scale-[1.02] ${alert.type === 'critical' ? 'bg-red-50 border-red-100 hover:border-red-300' : 'bg-amber-50 border-amber-100 hover:border-amber-300'
+                                        }`}
+                                >
                                     <div className={`mt-0.5 ${alert.type === 'critical' ? 'text-red-500' : 'text-amber-500'}`}>
                                         <AlertOctagon size={14} />
                                     </div>
-                                    <div>
+                                    <div className="flex-1">
                                         <div className={`font-semibold ${alert.type === 'critical' ? 'text-red-800' : 'text-amber-800'}`}>
                                             {alert.type === 'critical' ? 'Critical Failure' : 'Warning'}
                                         </div>
                                         <div className="text-slate-600 mb-1">{alert.message}</div>
-                                        <div className="text-xs text-slate-400">{new Date(alert.timestamp).toLocaleTimeString()}</div>
+                                        <div className="text-xs text-slate-400 flex items-center justify-between">
+                                            <span>{new Date(alert.timestamp).toLocaleTimeString()}</span>
+                                            <span className="text-indigo-500 font-medium">Click to view logs →</span>
+                                        </div>
                                     </div>
                                 </div>
                             ))
@@ -238,28 +280,37 @@ const HealthHistoryTab = ({ healthHistory, historyHours, setHistoryHours, histor
             {/* Uptime Strip Visualization */}
             <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
                 <h3 className="font-bold text-slate-800 mb-4 text-sm uppercase tracking-wider text-slate-500">System Availability Timeline</h3>
-                <div className="flex h-12 gap-0.5 w-full rounded-md overflow-hidden bg-slate-100">
-                    {healthHistory.map((point, i) => {
-                        let color = 'bg-emerald-400'
-                        if (point.overall_status === 'degraded') color = 'bg-amber-400'
-                        if (point.overall_status === 'unhealthy') color = 'bg-red-500'
+                {healthHistory.length === 0 ? (
+                    <div className="h-12 rounded-md bg-slate-100 flex items-center justify-center text-slate-400 text-sm">
+                        No health data available for this period
+                    </div>
+                ) : (
+                    <>
+                        <div className="flex h-12 gap-0.5 w-full rounded-md overflow-hidden bg-slate-100">
+                            {healthHistory.map((point, i) => {
+                                let color = 'bg-emerald-400'
+                                if (point?.overall_status === 'degraded') color = 'bg-amber-400'
+                                if (point?.overall_status === 'unhealthy') color = 'bg-red-500'
 
-                        return (
-                            <div
-                                key={i}
-                                className={`flex-1 ${color} hover:opacity-80 transition cursor-help group relative`}
-                            >
-                                <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:block bg-slate-800 text-white text-xs p-2 rounded whitespace-nowrap z-50">
-                                    {new Date(point.timestamp).toLocaleTimeString()}: {point.overall_status.toUpperCase()}
-                                </div>
-                            </div>
-                        )
-                    })}
-                </div>
-                <div className="flex justify-between items-center mt-2 text-xs text-slate-400 font-mono">
-                    <span>{new Date(healthHistory[0]?.timestamp).toLocaleString()}</span>
-                    <span>{new Date(healthHistory[healthHistory.length - 1]?.timestamp).toLocaleString()}</span>
-                </div>
+                                return (
+                                    <div
+                                        key={i}
+                                        className={`flex-1 ${color} hover:opacity-80 transition cursor-help group relative min-w-[2px]`}
+                                        style={{ flexBasis: `${100 / healthHistory.length}%` }}
+                                    >
+                                        <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:block bg-slate-800 text-white text-xs p-2 rounded whitespace-nowrap z-50">
+                                            {new Date(point?.timestamp).toLocaleTimeString()}: {(point?.overall_status || 'unknown').toUpperCase()}
+                                        </div>
+                                    </div>
+                                )
+                            })}
+                        </div>
+                        <div className="flex justify-between items-center mt-2 text-xs text-slate-400 font-mono">
+                            <span>{new Date(healthHistory[0]?.timestamp).toLocaleString()}</span>
+                            <span>{new Date(healthHistory[healthHistory.length - 1]?.timestamp).toLocaleString()}</span>
+                        </div>
+                    </>
+                )}
             </div>
         </div>
     )

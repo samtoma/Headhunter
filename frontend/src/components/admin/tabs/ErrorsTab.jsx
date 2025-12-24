@@ -1,10 +1,26 @@
 import React from 'react'
 import { AlertTriangle, ChevronUp, ChevronDown } from 'lucide-react'
 import { formatDate } from '../utils/adminDashboardUtils'
+import TabHelpSection from '../shared/TabHelpSection'
+
+// Error analysis explanations
+const errorKpis = [
+    { term: 'Error Type', description: 'Python exception class name (e.g., ValueError, HTTPException).' },
+    { term: 'Stack Trace', description: 'Full call stack showing where the error occurred in code.' },
+    { term: 'Component', description: 'Service that generated the error (api, celery, llm).' },
+    { term: 'HTTP Path', description: 'API endpoint that was called when the error occurred.' },
+    { term: 'Metadata', description: 'Additional context (request data, user info, parameters).' }
+]
 
 const ErrorsTab = ({ errors, expandedLogs, toggleLogExpand }) => {
     return (
         <div className="space-y-4">
+            {/* Help Section */}
+            <TabHelpSection
+                title="Understanding Error Details"
+                storageKey="errors"
+                items={errorKpis}
+            />
             {errors.map((error) => (
                 <div key={error.id} className="bg-white rounded-xl border border-red-200 shadow-sm overflow-hidden">
                     <div className="p-4 border-b border-slate-100">
@@ -58,6 +74,20 @@ const ErrorsTab = ({ errors, expandedLogs, toggleLogExpand }) => {
                     )}
                 </div>
             ))}
+
+            {/* Empty State */}
+            {(!errors || errors.length === 0) && (
+                <div className="bg-white rounded-xl border border-slate-200 p-12 text-center">
+                    <div className="w-16 h-16 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <AlertTriangle className="text-emerald-600" size={32} />
+                    </div>
+                    <h3 className="text-lg font-bold text-slate-700 mb-2">No Errors Found</h3>
+                    <p className="text-slate-500 text-sm max-w-md mx-auto">
+                        Great news! There are no recent error logs in the system.
+                        Errors will appear here when they occur.
+                    </p>
+                </div>
+            )}
         </div>
     )
 }

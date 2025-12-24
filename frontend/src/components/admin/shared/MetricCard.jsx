@@ -23,8 +23,8 @@ const MetricCard = ({ title, value, icon: Icon, color = 'indigo' }) => {
     const selectedColorClass = colorClasses[color] || colorClasses.indigo
 
     return (
-        <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm flex items-center gap-4">
-            <div className={`w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0 ${selectedColorClass}`}>
+        <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm flex items-center gap-4 hover:shadow-md hover:border-slate-300 transition-all duration-200 group cursor-default">
+            <div className={`w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0 ${selectedColorClass} group-hover:scale-110 transition-transform duration-200`}>
                 {Icon && <Icon size={24} />}
             </div>
             <div>

@@ -14,13 +14,16 @@ router = APIRouter(prefix="/sync", tags=["Sync"])
 # Active WebSocket connections for sync updates
 sync_connections: Dict[str, WebSocket] = {}
 
-async def authenticate_sync_websocket(websocket: WebSocket) -> Optional[User]:
-    """Authenticate WebSocket connection for sync updates"""
+async def authenticate_sync_websocket(websocket: WebSocket) -> tuple[Optional[User], Optional[int]]:
+    """
+    Authenticate WebSocket connection for sync updates.
+    Returns tuple of (user, company_id) to avoid lazy loading issues.
+    """
     token = websocket.query_params.get("token")
     
     if not token:
         await websocket.close(code=1008, reason="Authentication required")
-        return None
+        return None, None
     
     db_gen = None
     try:
@@ -28,7 +31,7 @@ async def authenticate_sync_websocket(websocket: WebSocket) -> Optional[User]:
         email: str = payload.get("sub")
         if not email:
             await websocket.close(code=1008, reason="Invalid token")
-            return None
+            return None, None
         
         db_gen = get_db()
         db = next(db_gen)
@@ -36,9 +39,11 @@ async def authenticate_sync_websocket(websocket: WebSocket) -> Optional[User]:
             user = db.query(User).filter(User.email == email).first()
             if not user:
                 await websocket.close(code=1008, reason="User not found")
-                return None
+                return None, None
             
-            return user
+            # Eagerly capture company_id while session is still active
+            company_id = user.company_id
+            return user, company_id
         finally:
             try:
                 next(db_gen, None)
@@ -46,10 +51,10 @@ async def authenticate_sync_websocket(websocket: WebSocket) -> Optional[User]:
                 pass
     except JWTError:
         await websocket.close(code=1008, reason="Invalid token")
-        return None
+        return None, None
     except Exception as e:
         await websocket.close(code=1011, reason=f"Authentication error: {str(e)}")
-        return None
+        return None, None
     finally:
         if db_gen:
             try:
@@ -70,7 +75,7 @@ async def websocket_sync(websocket: WebSocket):
     """
     await websocket.accept()
     
-    user = await authenticate_sync_websocket(websocket)
+    user, company_id = await authenticate_sync_websocket(websocket)
     if not user:
         return
     
@@ -89,18 +94,21 @@ async def websocket_sync(websocket: WebSocket):
             db_gen = get_db()
             db = next(db_gen)
             try:
-                # Get initial version
-                if user.company:
-                    db.refresh(user.company)
-                    last_version = user.company.last_data_update.isoformat() if user.company.last_data_update else None
+                # Get initial version - use company_id from auth, load company fresh
+                if company_id:
+                    company = db.query(Company).filter(Company.id == company_id).first()
+                    if company:
+                        last_version = company.last_data_update.isoformat() if company.last_data_update else None
+                    else:
+                        last_version = f"no_company_{user.id}"
                 else:
                     last_version = f"no_company_{user.id}"
                 
                 # Get initial processing IDs
-                if user.company_id:
+                if company_id:
                     processing_cvs = db.query(CV.id).filter(
                         CV.is_parsed.is_(False),
-                        CV.company_id == user.company_id
+                        CV.company_id == company_id
                     ).all()
                     last_processing_ids = {cv.id for cv in processing_cvs}
                 
@@ -137,24 +145,25 @@ async def websocket_sync(websocket: WebSocket):
                     try:
                         updates = {}
                         
-                        # Check data version
-                        if user.company:
-                            db.refresh(user.company)
-                            current_version = user.company.last_data_update.isoformat() if user.company.last_data_update else None
-                            if current_version != last_version:
-                                updates["data_version"] = current_version
-                                last_version = current_version
+                        # Check data version - use company_id from auth, load company fresh
+                        if company_id:
+                            company = db.query(Company).filter(Company.id == company_id).first()
+                            if company:
+                                current_version = company.last_data_update.isoformat() if company.last_data_update else None
+                            else:
+                                current_version = f"no_company_{user.id}"
                         else:
                             current_version = f"no_company_{user.id}"
-                            if current_version != last_version:
-                                updates["data_version"] = current_version
-                                last_version = current_version
+                            
+                        if current_version != last_version:
+                            updates["data_version"] = current_version
+                            last_version = current_version
                         
                         # Check CV processing status
-                        if user.company_id:
+                        if company_id:
                             processing_cvs = db.query(CV.id).filter(
                                 CV.is_parsed.is_(False),
-                                CV.company_id == user.company_id
+                                CV.company_id == company_id
                             ).all()
                             current_processing_ids = {cv.id for cv in processing_cvs}
                             
