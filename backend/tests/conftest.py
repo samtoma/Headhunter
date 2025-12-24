@@ -1,11 +1,26 @@
 # backend/tests/conftest.py
+import os
 import pytest
+
+# Set environment variables for testing before importing app components
+# This prevents validation errors in app/core/config.py
+os.environ["LOGS_DATABASE_URL"] = "sqlite:///:memory:"
+os.environ["DATABASE_URL"] = "sqlite:///:memory:"
+os.environ["ALLOW_MISSING_LOGS_DB"] = "true"
+
+# Monkey patch JSONB to be JSON for SQLite compatibility (SystemLog/LLMLog use JSONB)
+import sqlalchemy.dialects.postgresql
+from sqlalchemy.types import JSON
+sqlalchemy.dialects.postgresql.JSONB = JSON
+
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 from fastapi.testclient import TestClient
 from app.main import app
 from app.core.database import get_db, Base
+from app.core.database_logs import engine_logs
+from app.models.log_models import LogBase
 from app.models.models import User, Company, UserRole
 from app.core.security import get_password_hash, create_access_token
 from fastapi_cache import FastAPICache
@@ -28,11 +43,17 @@ def init_test_cache():
 
 @pytest.fixture(scope="function")
 def db():
+    # Create tables for both Main DB and Logs DB
     Base.metadata.create_all(bind=engine)
+    LogBase.metadata.create_all(bind=engine_logs)
+    
     session = TestingSessionLocal()
     yield session
     session.close()
+    
+    # Drop tables
     Base.metadata.drop_all(bind=engine)
+    LogBase.metadata.drop_all(bind=engine_logs)
 
 @pytest.fixture(scope="function")
 def client(db):
