@@ -37,8 +37,33 @@ services:
     environment:
       - CMAKE_ARGS="-DGGML_OPENCL=on"
       - REDIS_URL=redis://redis:6379/0
+      # Explicitly set LOGS_DATABASE_URL to ensure visibility
+      - LOGS_DATABASE_URL=postgresql://user:password@db:5432/headhunter_logs
     depends_on:
       - db
+      - redis
+    networks:
+      - headhunter_net
+
+  # --- Log Worker ---
+  log_worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: headhunter_log_worker
+    restart: unless-stopped
+    command: python -m app.workers.unified_log_worker
+    volumes:
+      - ./backend:/app
+      - ./logs:/app/logs
+    environment:
+      - REDIS_URL=redis://redis:6379/0
+      - LOGS_DATABASE_URL=postgresql://user:password@db:5432/headhunter_logs
+      # Needs main DB URL just for accessing main definition if needed, though strictly it shouldn't
+      - DATABASE_URL=postgresql://user:password@db:5432/headhunter_db
+    depends_on:
+      - db
+      - redis
     networks:
       - headhunter_net
 

@@ -11,37 +11,28 @@ Dedicated logging for LLM operations with special tracking:
 These logs are separate from regular API logging.
 """
 
-import time
 import json
-import os
+import time
 from typing import Optional, Dict, Any
 from concurrent.futures import ThreadPoolExecutor
 import redis
 from sqlalchemy.orm import Session
-from app.core.database import SessionLocal
-from app.models.models import SystemLog
+from app.core.config import settings
 from app.core.logging import get_logger
 
 logger = get_logger(__name__)
 
-# Redis configuration for LLM logging queue
-REDIS_HOST = os.getenv("REDIS_HOST", "localhost")
-REDIS_PORT = int(os.getenv("REDIS_PORT", 6379))
-REDIS_DB = int(os.getenv("REDIS_DB", 0))
-REDIS_PASSWORD = os.getenv("REDIS_PASSWORD")
-
 # LLM logging queue name
-LLM_LOG_QUEUE = "llm_logs"
+LLM_LOG_QUEUE = "logs_queue"  # Renamed for unified logging
 
 # Initialize Redis client
 try:
-    redis_client = redis.Redis(
-        host=REDIS_HOST,
-        port=REDIS_PORT,
-        db=REDIS_DB,
-        password=REDIS_PASSWORD,
+    # Use unified REDIS_URL from settings
+    redis_client = redis.Redis.from_url(
+        settings.REDIS_URL,
         decode_responses=True
     )
+    redis_client.ping() # Fail fast if invalid
     redis_available = True
 except Exception as e:
     logger.warning(f"Redis not available for LLM logging: {e}")
@@ -123,11 +114,13 @@ class LLMLogger:
         
         # Submit to Redis queue for non-blocking execution
         log_data = {
+            "log_type": "llm",  # Explicitly mark as LLM log for unified worker
             "level": level,
             "action": action,
             "message": message,
             "user_id": user_id,
             "company_id": company_id,
+            "interview_id": interview_id,  # Include interview_id in top-level payload too
             "error_type": error_type,
             "error_message": error_message,
             "metadata": json.dumps(llm_metadata),
@@ -149,7 +142,6 @@ class LLMLogger:
             if redis_available and redis_client:
                 # Queue to Redis for async processing to separate analytics DB
                 redis_client.lpush(LLM_LOG_QUEUE, json.dumps(log_data))
-                logger.debug("Queued LLM log to Redis for async analytics DB processing")
             else:
                 # Redis unavailable - log warning but DON'T write to main DB
                 # This preserves the separation of concerns architecture
@@ -158,53 +150,6 @@ class LLMLogger:
         except Exception as e:
             logger.error(f"Failed to queue LLM log to Redis: {e}", exc_info=True)
             # Don't fallback to main DB - that defeats the architecture purpose
-            logger.warning("LLM analytics data lost due to Redis unavailability - this preserves main DB performance")
-
-    @staticmethod
-    def _write_llm_log_sync(
-        level: str,
-        action: str,
-        message: str,
-        user_id: Optional[int],
-        company_id: Optional[int],
-        error_type: Optional[str],
-        error_message: Optional[str],
-        metadata: str
-    ):
-        """
-        Synchronous database write - runs in background thread.
-        """
-        try:
-            db: Session = SessionLocal()
-            try:
-                # Get deployment version from environment
-                import os
-                deployment_version = os.getenv("DEPLOYMENT_VERSION", os.getenv("GIT_COMMIT", None))
-                deployment_environment = os.getenv("DEPLOYMENT_ENV", "development")
-                
-                system_log = SystemLog(
-                    level=level,
-                    component="llm",  # Special component for LLM operations
-                    action=action,
-                    message=message,
-                    user_id=user_id,
-                    company_id=company_id,
-                    error_type=error_type,
-                    error_message=error_message,
-                    extra_metadata=metadata,
-                    deployment_version=deployment_version,
-                    deployment_environment=deployment_environment
-                )
-                db.add(system_log)
-                db.commit()
-            except Exception as e:
-                db.rollback()
-                logger.error(f"Failed to write LLM log to database: {e}", exc_info=True)
-            finally:
-                db.close()
-        except Exception as e:
-            # Fallback to file logging if database logging fails
-            logger.error(f"Failed to create database session for LLM logging: {e}", exc_info=True)
     
     @staticmethod
     def _calculate_cost(model: str, tokens_input: int, tokens_output: int) -> Optional[float]:

@@ -2,8 +2,10 @@ import os
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, declarative_base
 
+from app.core.config import settings
+
 # Use Environment variable from Docker, fallback to localhost for testing
-DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://user:password@localhost:30002/headhunter_db")
+DATABASE_URL = settings.DATABASE_URL
 
 engine = create_engine(
     DATABASE_URL,
