@@ -13,18 +13,18 @@ import sqlalchemy.dialects.postgresql
 from sqlalchemy.types import JSON
 sqlalchemy.dialects.postgresql.JSONB = JSON
 
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
-from sqlalchemy.pool import StaticPool
-from fastapi.testclient import TestClient
-from app.main import app
-from app.core.database import get_db, Base
-from app.core.database_logs import engine_logs
-from app.models.log_models import LogBase
-from app.models.models import User, Company, UserRole
-from app.core.security import get_password_hash, create_access_token
-from fastapi_cache import FastAPICache
-from fastapi_cache.backends.inmemory import InMemoryBackend
+from sqlalchemy import create_engine  # noqa: E402
+from sqlalchemy.orm import sessionmaker  # noqa: E402
+from sqlalchemy.pool import StaticPool  # noqa: E402
+from fastapi.testclient import TestClient  # noqa: E402
+from app.main import app  # noqa: E402
+from app.core.database import get_db, Base  # noqa: E402
+from app.core.database_logs import engine_logs  # noqa: E402
+from app.models.log_models import LogBase  # noqa: E402
+from app.models.models import User, Company, UserRole  # noqa: E402
+from app.core.security import get_password_hash, create_access_token  # noqa: E402
+from fastapi_cache import FastAPICache  # noqa: E402
+from fastapi_cache.backends.inmemory import InMemoryBackend  # noqa: E402
 
 # In-memory SQLite for testing
 SQLALCHEMY_DATABASE_URL = "sqlite:///:memory:"

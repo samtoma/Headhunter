@@ -5,13 +5,10 @@ Tests cover logs, metrics, health, database stats, and cleanup functionality.
 """
 import pytest
 from unittest.mock import patch, MagicMock
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
-from sqlalchemy.pool import StaticPool
 from fastapi.testclient import TestClient
 
 from app.main import app
-from app.core.database import get_db, Base
+from app.core.database import get_db
 from app.models.models import User, Company, UserRole
 from app.core.security import get_password_hash, create_access_token
 

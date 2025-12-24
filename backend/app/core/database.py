@@ -1,6 +1,7 @@
 import logging
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, declarative_base
+from sqlalchemy.pool import StaticPool
 
 from app.core.config import settings
 
@@ -8,8 +9,6 @@ logger = logging.getLogger(__name__)
 
 # Use Environment variable from Docker, fallback to localhost for testing
 DATABASE_URL = settings.DATABASE_URL
-
-from sqlalchemy.pool import StaticPool
 
 try:
     if "sqlite" in DATABASE_URL:
