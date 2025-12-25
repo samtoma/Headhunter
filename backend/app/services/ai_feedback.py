@@ -136,7 +136,7 @@ Generate comprehensive interview feedback that evaluates the candidate's fit for
                 {"role": "user", "content": user_prompt}
             ],
             stream=True,
-            temperature=0.7
+            temperature=1.0
         )
         
         async for chunk in stream:
