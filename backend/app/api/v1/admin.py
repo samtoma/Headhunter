@@ -232,9 +232,13 @@ def get_system_logs(
         query = query.filter(SystemLog.user_id == user_id)
     
     if start_date:
+        if start_date.tzinfo is None:
+            start_date = start_date.replace(tzinfo=timezone.utc)
         query = query.filter(SystemLog.created_at >= start_date)
     
     if end_date:
+        if end_date.tzinfo is None:
+            end_date = end_date.replace(tzinfo=timezone.utc)
         query = query.filter(SystemLog.created_at <= end_date)
     
     if search_text:

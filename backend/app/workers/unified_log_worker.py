@@ -50,14 +50,17 @@ def signal_handler(sig, frame):
     running = False
 
 def init_redis() -> Optional[redis.Redis]:
-    """Initialize Redis client."""
+    """Initialize Redis client with robust connection settings."""
     try:
         client = redis.Redis.from_url(
             settings.REDIS_URL,
-            decode_responses=True
+            decode_responses=True,
+            socket_keepalive=True,
+            health_check_interval=30,
+            retry_on_timeout=True
         )
         client.ping()
-        logger.info(f"Connected to Redis at {settings.REDIS_HOST}")
+        logger.info(f"Connected to Redis at {settings.REDIS_URL}")
         return client
     except Exception as e:
         logger.error(f"Failed to connect to Redis: {e}")
@@ -140,6 +143,16 @@ def process_batch(batch: List[Dict[str, Any]]) -> None:
         try:
             log_type = log_data.get("log_type", "system") # Default to system if missing
             
+            from datetime import datetime, timezone
+            
+            timestamp_val = log_data.get("timestamp")
+            created_at = None
+            if timestamp_val:
+                try:
+                    created_at = datetime.fromtimestamp(timestamp_val, tz=timezone.utc)
+                except (ValueError, TypeError):
+                    created_at = None
+
             if log_type == "llm":
                 # Create LLMLog object
                 llm_log = LLMLog(
@@ -151,13 +164,7 @@ def process_batch(batch: List[Dict[str, Any]]) -> None:
                     interview_id=log_data.get("interview_id"),
                     error_type=log_data.get("error_type"),
                     error_message=log_data.get("error_message"),
-                    extra_metadata=log_data.get("metadata"), # Expecting JSON string or dict? Middleware sends headers which is dict? 
-                    # Middleware sends json.dumps(metadata) which is string.
-                    # LLMLogger sends json.dumps(metadata) which is string.
-                    # SQLAlchemy JSONB handles dict, but if input is string, we might need to parse it?
-                    # Postgres JSONB adapter usually handles dicts. If input is string, it might be saved as escaped string.
-                    # Ideally we store as dict. Middleware sends `json.dumps`. 
-                    # Let's decode if it's a string, to allow JSONB column to index it properly.
+                    created_at=created_at, # Use actual event time
                     deployment_version=log_data.get("deployment_version"),
                     deployment_environment=log_data.get("deployment_environment")
                 )
@@ -193,7 +200,7 @@ def process_batch(batch: List[Dict[str, Any]]) -> None:
                     error_type=log_data.get("error_type"),
                     error_message=log_data.get("error_message"),
                     stack_trace=log_data.get("stack_trace"),
-                    extra_metadata=None, # Process below
+                    created_at=created_at, # Use actual event time
                     deployment_version=log_data.get("deployment_version"),
                     deployment_environment=log_data.get("deployment_environment")
                 )
@@ -260,29 +267,34 @@ def run_worker():
     last_flush_time = time.time()
     last_heartbeat_time = 0
 
-    def update_heartbeat(client: redis.Redis):
-        """Update heartbeat key in Redis with 30s TTL."""
-        try:
-            client.set("heartbeat:log_worker", str(time.time()), ex=30)
-        except Exception as e:
-            logger.error(f"Failed to update heartbeat: {e}")
-
     while running:
         try:
+            # Ensure redis is connected
+            if redis_client is None:
+                redis_client = init_redis()
+                if not redis_client:
+                    time.sleep(5) # Wait longer before retrying init
+                    continue
+
             current_time = time.time()
             
             # Update heartbeat every 10 seconds
             if current_time - last_heartbeat_time >= 10:
-                update_heartbeat(redis_client)
-                last_heartbeat_time = current_time
+                try:
+                    redis_client.set("heartbeat:log_worker", str(time.time()), ex=30)
+                    last_heartbeat_time = current_time
+                except (redis.exceptions.ConnectionError, redis.exceptions.TimeoutError):
+                    redis_client = None # Trigger re-init
+                    continue
             
             # Non-blocking pop to allow periodic flush based on time
-            # Using lpop/rpop? Middleware uses lpush, so we should rpop.
-            # Using basic pop with short logic or brpop with timeout.
-            # Redis 'rpop' is non-blocking. 'brpop' is blocking.
-            # Use brpop with short timeout to allow checking flush interval.
-            
-            queue_item = redis_client.brpop(LOGS_QUEUE, timeout=1)
+            try:
+                queue_item = redis_client.brpop(LOGS_QUEUE, timeout=1)
+            except (redis.exceptions.ConnectionError, redis.exceptions.TimeoutError, redis.exceptions.RedisError) as e:
+                logger.warning(f"Redis connection lost: {e}. Re-initializing...")
+                redis_client = None # Trigger re-init
+                time.sleep(1)
+                continue
             
             if queue_item:
                 _, log_json = queue_item

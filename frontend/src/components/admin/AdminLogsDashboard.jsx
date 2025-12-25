@@ -117,6 +117,16 @@ const AdminLogsDashboard = () => {
 
     const fetchLogs = useCallback(async () => {
         try {
+            // Helper to convert local datetime-local value to UTC ISO string
+            const toUTC = (dateStr) => {
+                if (!dateStr) return null;
+                try {
+                    return new Date(dateStr).toISOString();
+                } catch (e) {
+                    return dateStr;
+                }
+            };
+
             // Map frontend camelCase to backend snake_case
             const params = {
                 limit: pagination.limit,
@@ -124,8 +134,8 @@ const AdminLogsDashboard = () => {
                 level: filters.level,
                 component: filters.component,
                 action: filters.action,
-                start_date: filters.startDate,
-                end_date: filters.endDate,
+                start_date: toUTC(filters.startDate),
+                end_date: toUTC(filters.endDate),
                 search_text: filters.searchText,
                 has_error: filters.hasError
             }
