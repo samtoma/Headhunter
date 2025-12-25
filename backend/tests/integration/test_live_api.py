@@ -45,14 +45,21 @@ def test_full_recruitment_flow(api_client):
     })
     # 400 is acceptable if user exists (unlikely with timestamp)
     if reg_response.status_code != 200:
-        assert reg_response.status_code == 400
+        assert reg_response.status_code == 400, f"Registration failed with {reg_response.status_code}: {reg_response.text}"
     
     # MANUAL VERIFICATION FOR E2E TEST
     # Since we are running inside the container, we can access the DB directly
-    from app.core.database import SessionLocal
+    # NOTE: We cannot use app.core.database.SessionLocal because conftest.py overrides DATABASE_URL to SQLite
+    from sqlalchemy import create_engine
+    from sqlalchemy.orm import sessionmaker
     from app.models.models import User
     
-    db = SessionLocal()
+    # Connect directly to the live DB
+    LIVE_DB_URL = "postgresql://user:password@db:5432/headhunter_db"
+    live_engine = create_engine(LIVE_DB_URL)
+    SessionLive = sessionmaker(bind=live_engine)
+    
+    db = SessionLive()
     try:
         user = db.query(User).filter(User.email == email).first()
         if user:
@@ -138,9 +145,16 @@ def test_bulk_assign_success(api_client):
     api_client.post("/auth/signup", json={"email": email, "password": password, "full_name": "Bulk Tester", "company_name": "Bulk Corp"})
 
     # MANUAL VERIFICATION
-    from app.core.database import SessionLocal
+    from sqlalchemy import create_engine
+    from sqlalchemy.orm import sessionmaker
     from app.models.models import User
-    db = SessionLocal()
+    
+    # Connect directly to the live DB
+    LIVE_DB_URL = "postgresql://user:password@db:5432/headhunter_db"
+    live_engine = create_engine(LIVE_DB_URL)
+    SessionLive = sessionmaker(bind=live_engine)
+
+    db = SessionLive()
     try:
         user = db.query(User).filter(User.email == email).first()
         if user:

@@ -1,6 +1,6 @@
 from datetime import datetime, timedelta
 from app.models.models import Application, CV
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 
 def test_interview_lifecycle(authenticated_client, db):
     client = authenticated_client
