@@ -13,7 +13,7 @@ const InterviewerDashboard = ({ onOpenMobileSidebar }) => {
     const [loading, setLoading] = useState(true);
     const [selectedCvId, setSelectedCvId] = useState(null);
     const [selectedJobId, setSelectedJobId] = useState(null);
-    const [activeTab, setActiveTab] = useState('upcoming'); // 'upcoming' or 'past'
+    const [activeTab, setActiveTab] = useState('assignments'); // 'assignments' or 'past'
 
     useEffect(() => {
         fetchInterviews();
@@ -31,18 +31,29 @@ const InterviewerDashboard = ({ onOpenMobileSidebar }) => {
         }
     };
 
-    // Upcoming: status is "Scheduled" (or null for backwards compat) AND date is in future
-    const upcomingInterviews = interviews.filter(i =>
-        (!i.status || i.status === 'Scheduled') &&
-        (!i.scheduled_at || new Date(i.scheduled_at) > new Date())
-    );
-    // Past: status is Completed/Cancelled/No-Show OR date is in the past
-    const pastInterviews = interviews.filter(i =>
-        (i.status && i.status !== 'Scheduled') ||
-        (i.scheduled_at && new Date(i.scheduled_at) <= new Date())
-    );
+    // Assignments: Active tasks (Scheduled future, Pending Review, etc.)
+    const assignments = interviews.filter(i => {
+        // Exclude terminal states
+        if (['Completed', 'Cancelled', 'No Show', 'Hired', 'Rejected'].includes(i.status)) {
+            return false;
+        }
+        
+        // If scheduled, must be in future (or today)
+        if (i.status === 'Scheduled' && i.scheduled_at && new Date(i.scheduled_at) <= new Date()) {
+            return false;
+        }
 
-    const displayedInterviews = activeTab === 'upcoming' ? upcomingInterviews : pastInterviews;
+        return true;
+    });
+
+    // Past: Terminal states OR Scheduled in past
+    const pastInterviews = interviews.filter(i => {
+        const isTerminal = ['Completed', 'Cancelled', 'No Show', 'Hired', 'Rejected'].includes(i.status);
+        const isPastScheduled = i.status === 'Scheduled' && i.scheduled_at && new Date(i.scheduled_at) <= new Date();
+        return isTerminal || isPastScheduled;
+    });
+
+    const displayedInterviews = activeTab === 'assignments' ? assignments : pastInterviews;
 
     const handleOpenCandidate = (cvId, jobId) => {
         setSelectedCvId(cvId);
@@ -61,16 +72,16 @@ const InterviewerDashboard = ({ onOpenMobileSidebar }) => {
                 actions={
                     <div className="flex bg-slate-100 p-1 rounded-lg">
                         <button
-                            onClick={() => setActiveTab('upcoming')}
-                            className={`px-4 py-1.5 text-xs font-bold rounded-md transition ${activeTab === 'upcoming' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                            onClick={() => setActiveTab('assignments')}
+                            className={`px-4 py-1.5 text-xs font-bold rounded-md transition ${activeTab === 'assignments' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
                         >
-                            Upcoming ({upcomingInterviews.length})
+                            Assignments ({assignments.length})
                         </button>
                         <button
                             onClick={() => setActiveTab('past')}
                             className={`px-4 py-1.5 text-xs font-bold rounded-md transition ${activeTab === 'past' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
                         >
-                            Past ({pastInterviews.length})
+                            History ({pastInterviews.length})
                         </button>
                     </div>
                 }
@@ -86,13 +97,13 @@ const InterviewerDashboard = ({ onOpenMobileSidebar }) => {
                             <div className="w-20 h-20 bg-indigo-50 rounded-full flex items-center justify-center mx-auto mb-6 text-indigo-300">
                                 <Calendar size={40} />
                             </div>
-                            <h3 className="text-xl font-bold text-slate-800 mb-2">No {activeTab} interviews found</h3>
+                            <h3 className="text-xl font-bold text-slate-800 mb-2">No {activeTab === 'assignments' ? 'active assignments' : 'past interviews'} found</h3>
                             <p className="text-slate-500 max-w-md mx-auto mb-8">
-                                {activeTab === 'upcoming'
-                                    ? "You don't have any upcoming interviews scheduled at the moment. When you are assigned to an interview, it will appear here."
-                                    : "You haven't completed any interviews yet. Your interview history will be stored here."}
+                                {activeTab === 'assignments'
+                                    ? "You don't have any active assignments at the moment. Scheduled interviews and review tasks will appear here."
+                                    : "You haven't completed any interviews yet. Your history will be stored here."}
                             </p>
-                            {activeTab === 'upcoming' && (
+                            {activeTab === 'assignments' && (
                                 <div className="inline-flex items-center gap-2 px-4 py-2 bg-slate-50 text-slate-600 rounded-lg text-sm font-medium">
                                     <CheckCircle size={16} className="text-indigo-500" />
                                     You&apos;re all caught up!

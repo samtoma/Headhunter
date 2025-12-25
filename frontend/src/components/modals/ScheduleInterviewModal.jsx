@@ -2,10 +2,8 @@ import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import axios from 'axios';
 import { X, Calendar, Clock, User, Briefcase, ChevronDown } from 'lucide-react';
-import { useAuth } from '../../context/AuthContext';
 
 const ScheduleInterviewModal = ({ show, onClose, onSchedule, candidate, candidates, job, initialStep, interviewToEdit, preselectedDate, mode = "interview" }) => {
-    const { user } = useAuth();
     const [step, setStep] = useState(initialStep || "Screening");
     const [date, setDate] = useState("");
     const [time, setTime] = useState("");
@@ -22,14 +20,6 @@ const ScheduleInterviewModal = ({ show, onClose, onSchedule, candidate, candidat
             try {
                 const res = await axios.get('/api/users/');
                 setUsers(res.data);
-                
-                // Default to current user if creating new
-                if (!interviewToEdit && res.data && user?.email) {
-                    const currentUser = res.data.find(u => u.email === user.email);
-                    if (currentUser) {
-                        setInterviewerId(currentUser.id);
-                    }
-                }
             } catch (err) {
                 console.error("Failed to fetch users", err);
             }
@@ -100,11 +90,11 @@ const ScheduleInterviewModal = ({ show, onClose, onSchedule, candidate, candidat
                 }
 
                 setStep(initialStep || "Screening");
-                // interviewerId is set in fetchUsers
+                setInterviewerId("");
                 setSelectedCandidateId(candidate?.id || "");
             }
         }
-    }, [show, initialStep, interviewToEdit, preselectedDate, candidate, user]);
+    }, [show, initialStep, interviewToEdit, preselectedDate, candidate]);
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -265,7 +255,7 @@ const ScheduleInterviewModal = ({ show, onClose, onSchedule, candidate, candidat
                                     className="w-full pl-10 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm font-medium focus:ring-2 focus:ring-indigo-500 outline-none transition appearance-none"
                                     value={interviewerId}
                                     onChange={e => setInterviewerId(e.target.value)}
-                                    required // Force selection
+                                    required
                                 >
                                     <option value="">{users.length === 0 ? "Loading users..." : "Select Interviewer..."}</option>
                                     {users.map(u => (
@@ -291,8 +281,8 @@ const ScheduleInterviewModal = ({ show, onClose, onSchedule, candidate, candidat
                     <div className="pt-2">
                         <button
                             type="submit"
-                            disabled={loading}
-                            className="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold shadow-lg shadow-indigo-200 transition active:scale-[0.98] disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                            disabled={loading || !interviewerId}
+                            className="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold shadow-lg shadow-indigo-200 transition active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                         >
                             {loading ? <span className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></span> : mode === 'review' ? "Assign Reviewer" : (interviewToEdit ? "Update Schedule" : "Confirm Schedule")}
                         </button>
