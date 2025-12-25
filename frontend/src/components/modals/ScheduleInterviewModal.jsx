@@ -2,8 +2,10 @@ import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import axios from 'axios';
 import { X, Calendar, Clock, User, Briefcase, ChevronDown } from 'lucide-react';
+import { useAuth } from '../../context/AuthContext';
 
 const ScheduleInterviewModal = ({ show, onClose, onSchedule, candidate, candidates, job, initialStep, interviewToEdit, preselectedDate, mode = "interview" }) => {
+    const { user } = useAuth();
     const [step, setStep] = useState(initialStep || "Screening");
     const [date, setDate] = useState("");
     const [time, setTime] = useState("");
@@ -20,6 +22,14 @@ const ScheduleInterviewModal = ({ show, onClose, onSchedule, candidate, candidat
             try {
                 const res = await axios.get('/api/users/');
                 setUsers(res.data);
+                
+                // Default to current user if creating new
+                if (!interviewToEdit && res.data && user?.email) {
+                    const currentUser = res.data.find(u => u.email === user.email);
+                    if (currentUser) {
+                        setInterviewerId(currentUser.id);
+                    }
+                }
             } catch (err) {
                 console.error("Failed to fetch users", err);
             }
@@ -62,12 +72,14 @@ const ScheduleInterviewModal = ({ show, onClose, onSchedule, candidate, candidat
 
             if (interviewToEdit) {
                 // Buffer to Pre-fill data
-                const scheduledDate = new Date(interviewToEdit.scheduled_at);
-                setDate(scheduledDate.toISOString().split('T')[0]);
-                // Format time as HH:MM
-                const hh = String(scheduledDate.getHours()).padStart(2, '0');
-                const mm = String(scheduledDate.getMinutes()).padStart(2, '0');
-                setTime(`${hh}:${mm}`);
+                if (interviewToEdit.scheduled_at) {
+                    const scheduledDate = new Date(interviewToEdit.scheduled_at);
+                    setDate(scheduledDate.toISOString().split('T')[0]);
+                    // Format time as HH:MM
+                    const hh = String(scheduledDate.getHours()).padStart(2, '0');
+                    const mm = String(scheduledDate.getMinutes()).padStart(2, '0');
+                    setTime(`${hh}:${mm}`);
+                }
 
                 setStep(interviewToEdit.step);
                 setInterviewerId(interviewToEdit.interviewer_id || "");
@@ -88,11 +100,11 @@ const ScheduleInterviewModal = ({ show, onClose, onSchedule, candidate, candidat
                 }
 
                 setStep(initialStep || "Screening");
-                setInterviewerId("");
+                // interviewerId is set in fetchUsers
                 setSelectedCandidateId(candidate?.id || "");
             }
         }
-    }, [show, initialStep, interviewToEdit, preselectedDate, candidate]);
+    }, [show, initialStep, interviewToEdit, preselectedDate, candidate, user]);
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -253,6 +265,7 @@ const ScheduleInterviewModal = ({ show, onClose, onSchedule, candidate, candidat
                                     className="w-full pl-10 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm font-medium focus:ring-2 focus:ring-indigo-500 outline-none transition appearance-none"
                                     value={interviewerId}
                                     onChange={e => setInterviewerId(e.target.value)}
+                                    required // Force selection
                                 >
                                     <option value="">{users.length === 0 ? "Loading users..." : "Select Interviewer..."}</option>
                                     {users.map(u => (
