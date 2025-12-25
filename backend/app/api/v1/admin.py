@@ -714,10 +714,11 @@ def get_recent_errors(
 
 # ==================== System Health Helpers ====================
 
-def get_services_health_data(db: Session):
+def get_services_health_data():
     services = []
     
     # Check Database
+    db = SessionLocal()
     try:
         start = time.time()
         db.execute(text("SELECT 1"))
@@ -740,6 +741,8 @@ def get_services_health_data(db: Session):
             "status": "unhealthy",
             "message": str(e)
         })
+    finally:
+        db.close()
     
     # Check Redis
     try:
@@ -941,7 +944,7 @@ def get_system_health(
     """
     require_super_admin(current_user)
     
-    services_data = get_services_health_data(db)
+    services_data = get_services_health_data()
     
     # Map to ServiceHealth objects (Pydantic)
     services = [ServiceHealth(**s) for s in services_data]
@@ -1319,21 +1322,25 @@ def get_health_history(
     # Get logs grouped by time buckets
     logs_by_bucket = defaultdict(list)
     
-    # Query logs with index hint for better performance with high granularity
-    # Use only necessary columns to reduce memory footprint
-    logs = db_logs.query(SystemLog).filter(
-        SystemLog.created_at >= start_time,
-        SystemLog.created_at <= now
-    ).order_by(SystemLog.created_at).all()
-    
-    # Group logs into time buckets
-    for log in logs:
-        # Find which bucket this log belongs to
-        bucket_index = int((log.created_at - start_time).total_seconds() / interval_seconds)
-        # Clamp bucket_index to valid range: logs at the boundary (now) go into the last bucket
-        bucket_index = min(bucket_index, len(time_buckets) - 1)
-        if bucket_index >= 0:
-            logs_by_bucket[bucket_index].append(log)
+    # Query logs with separate session
+    db_logs_internal = LogsSessionLocal()
+    try:
+        # Limit to last 5000 logs to prevent memory exhaustion and loop freeze
+        logs = db_logs_internal.query(SystemLog).filter(
+            SystemLog.created_at >= start_time,
+            SystemLog.created_at <= now
+        ).order_by(SystemLog.created_at).limit(5000).all()
+        
+        # Group logs into time buckets
+        for log in logs:
+            # Find which bucket this log belongs to
+            bucket_index = int((log.created_at - start_time).total_seconds() / interval_seconds)
+            # Clamp bucket_index to valid range: logs at the boundary (now) go into the last bucket
+            bucket_index = min(bucket_index, len(time_buckets) - 1)
+            if bucket_index >= 0:
+                logs_by_bucket[bucket_index].append(log)
+    finally:
+        db_logs_internal.close()
     
     time_series = []
     
@@ -1671,6 +1678,7 @@ async def websocket_monitoring(websocket: WebSocket):
     
     user = await authenticate_websocket(websocket)
     if not user:
+        # authenticate_websocket already closes the connection
         return
     
     connection_id = f"{user.id}_{datetime.now(timezone.utc).timestamp()}"
@@ -1686,21 +1694,21 @@ async def websocket_monitoring(websocket: WebSocket):
             try:
                 # Wait for client message or timeout
                 try:
+                    # Check if client sent any messages (e.g. to update refresh rate)
                     data = await asyncio.wait_for(websocket.receive_json(), timeout=refresh_interval)
                     if data.get("type") == "set_refresh_rate":
                         refresh_interval = max(1, min(data.get("refresh_interval", 5), 60))  # 1-60 seconds
                         await websocket.send_json({"type": "refresh_rate_updated", "interval": refresh_interval})
                 except asyncio.TimeoutError:
-                    # Timeout - send update
+                    # Timeout reached - time for a periodic update
                     await send_monitoring_update(websocket)
-            except WebSocketDisconnect:
+            except (WebSocketDisconnect, RuntimeError):
+                # Proper disconnect or Starlette runtime error (connection closed)
                 break
             except Exception as e:
-                logger.error(f"Error in monitoring loop: {e}")
-                # Don't break on transient errors, just wait and try again
-                await asyncio.sleep(refresh_interval)
-    except WebSocketDisconnect:
-        pass
+                logger.error(f"Error in monitoring loop for {user.email}: {e}")
+                # Critical errors should break the loop to avoid infinite error spam
+                break
     finally:
         if connection_id in active_connections:
             del active_connections[connection_id]
@@ -1730,7 +1738,7 @@ async def send_monitoring_update(websocket: WebSocket):
         # Get health status - check all services
         # Run blocking health checks in thread pool to avoid blocking event loop
         loop = asyncio.get_event_loop()
-        services = await loop.run_in_executor(None, get_services_health_data, db)
+        services = await loop.run_in_executor(None, get_services_health_data)
         
         update_data = {
             "type": "monitoring_update",
@@ -1747,15 +1755,11 @@ async def send_monitoring_update(websocket: WebSocket):
         }
         
         await websocket.send_json(update_data)
+    except (WebSocketDisconnect, RuntimeError):
+        # Client disconnected during processing or sending
+        pass
     except Exception as e:
-        logger.exception("Error in send_monitoring_update")
-        try:
-            await websocket.send_json({
-                "type": "error",
-                "message": str(e)
-            })
-        except Exception:
-            pass  # Connection might be closed
+        logger.exception(f"Error in send_monitoring_update: {e}")
     finally:
         db.close()
         db_logs.close()
