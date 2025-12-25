@@ -48,6 +48,7 @@ class Company(Base):
     
     logo_url = Column(String, nullable=True)  # Company logo URL
     departments = Column(Text, nullable=True) # JSON list of departments
+    settings = Column(Text, nullable=True) # JSON settings for company-wide configurations
     
     last_data_update = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
     created_at = Column(DateTime(timezone=True), server_default=func.now())

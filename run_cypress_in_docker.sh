@@ -15,7 +15,7 @@ sleep 12
 
 # Run Cypress tests (headless Chrome)
 # Use --browser chrome and no-sandbox flags for Docker
-npx cypress run --spec "cypress/e2e/auth.cy.js"
+npx cypress run --spec "cypress/e2e/cv_update_spec.cy.js"
 
 # Capture Cypress exit code
 CY_EXIT=$?

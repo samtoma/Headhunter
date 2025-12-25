@@ -12,12 +12,14 @@ const WorkflowSettings = ({ onOpenMobileSidebar }) => {
 
     // Stage logic
     const [stages, setStages] = useState([]);
+    const [settings, setSettings] = useState({ interview_emails_enabled: true });
     const [newStageName, setNewStageName] = useState("");
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
 
     useEffect(() => {
         if (globalCompany) {
+            // Stages
             if (companyStages && companyStages.length > 0) {
                 setStages(companyStages);
             } else if (globalCompany.interview_stages) {
@@ -32,6 +34,15 @@ const WorkflowSettings = ({ onOpenMobileSidebar }) => {
                     { name: "Final" }
                 ]);
             }
+
+            // Settings
+            if (globalCompany.settings) {
+                try {
+                    const parsed = JSON.parse(globalCompany.settings);
+                    setSettings(prev => ({ ...prev, ...parsed }));
+                } catch { /* ignore */ }
+            }
+
             setLoading(false);
         } else {
             fetchSettings().then(() => setLoading(false));
@@ -43,7 +54,8 @@ const WorkflowSettings = ({ onOpenMobileSidebar }) => {
         setSaving(true);
         try {
             await axios.patch('/api/companies/me', {
-                interview_stages: JSON.stringify(stages)
+                interview_stages: JSON.stringify(stages),
+                settings: JSON.stringify(settings)
             });
             await fetchSettings();
             alert('Workflow settings saved successfully');
@@ -54,6 +66,8 @@ const WorkflowSettings = ({ onOpenMobileSidebar }) => {
             setSaving(false);
         }
     };
+
+    // ... existing helpers ...
 
     const addStage = () => {
         if (!newStageName.trim()) return;
@@ -111,6 +125,32 @@ const WorkflowSettings = ({ onOpenMobileSidebar }) => {
 
                     <form onSubmit={handleSave} className="bg-white rounded-2xl border border-slate-200 p-6 space-y-6 shadow-sm">
                         <div className="flex justify-between items-center border-b border-slate-100 pb-4">
+                            <div>
+                                <h2 className="text-lg font-bold text-slate-800">Automation & Notifications</h2>
+                                <p className="text-sm text-slate-500">Manage automated emails and events.</p>
+                            </div>
+                        </div>
+
+                        <div className="space-y-4">
+                            <div className="flex items-center justify-between p-4 bg-slate-50 rounded-xl border border-slate-100">
+                                <div>
+                                    <h4 className="font-bold text-slate-800 text-sm">Enable Interview Invitations</h4>
+                                    <p className="text-xs text-slate-500 mt-0.5">Automatically check the "Send Email Invitation" box when scheduling interviews.</p>
+                                </div>
+                                <label className="relative inline-flex items-center cursor-pointer">
+                                    <input
+                                        type="checkbox"
+                                        className="sr-only peer"
+                                        checked={settings.interview_emails_enabled !== false}
+                                        onChange={e => setSettings({ ...settings, interview_emails_enabled: e.target.checked })}
+                                        disabled={!canEdit}
+                                    />
+                                    <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-indigo-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
+                                </label>
+                            </div>
+                        </div>
+
+                        <div className="flex justify-between items-center border-b border-slate-100 pb-4 pt-4">
                             <div>
                                 <h2 className="text-lg font-bold text-slate-800">Pipeline Stages</h2>
                                 <p className="text-sm text-slate-500">Define the steps in your hiring process.</p>

@@ -4,7 +4,7 @@ WORKDIR /app
 
 # 2. Install System Deps (Minimal)
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    libpoppler-cpp-dev libglib2.0-0 libpq-dev postgresql-client && \
+    libpoppler-cpp-dev libglib2.0-0 libpq-dev postgresql-client curl && \
     rm -rf /var/lib/apt/lists/*
 
 

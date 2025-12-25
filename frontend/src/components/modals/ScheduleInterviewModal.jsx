@@ -13,6 +13,8 @@ const ScheduleInterviewModal = ({ show, onClose, onSchedule, candidate, candidat
     const [loading, setLoading] = useState(false);
     const [companyStages, setCompanyStages] = useState([]);
 
+    const [sendNotifications, setSendNotifications] = useState(true);
+
     useEffect(() => {
         const fetchUsers = async () => {
             try {
@@ -26,6 +28,15 @@ const ScheduleInterviewModal = ({ show, onClose, onSchedule, candidate, candidat
         const fetchCompanySettings = async () => {
             try {
                 const res = await axios.get('/api/companies/me');
+                if (res.data.settings) {
+                    try {
+                        const settings = JSON.parse(res.data.settings);
+                        if (settings.interview_emails_enabled !== undefined && !initialStep && !interviewToEdit) {
+                            setSendNotifications(settings.interview_emails_enabled);
+                        }
+                    } catch { /* ignore */ }
+                }
+
                 if (res.data.interview_stages) {
                     const stages = JSON.parse(res.data.interview_stages);
                     setCompanyStages(stages);
@@ -93,7 +104,8 @@ const ScheduleInterviewModal = ({ show, onClose, onSchedule, candidate, candidat
                 step: step,
                 status: mode === 'review' ? "Pending Review" : "Scheduled",
                 scheduled_at: scheduledAt,
-                interviewer_id: interviewerId ? parseInt(interviewerId) : null
+                interviewer_id: interviewerId ? parseInt(interviewerId) : null,
+                send_notifications: sendNotifications
             };
 
             let res;
@@ -249,6 +261,18 @@ const ScheduleInterviewModal = ({ show, onClose, onSchedule, candidate, candidat
                                 </select>
                             </div>
                         </div>
+                    </div>
+
+                    <div className="flex items-center gap-3 pt-2">
+                        <label className="flex items-center gap-2 text-sm text-slate-600 font-medium cursor-pointer select-none">
+                            <input
+                                type="checkbox"
+                                checked={sendNotifications}
+                                onChange={e => setSendNotifications(e.target.checked)}
+                                className="w-4 h-4 text-indigo-600 rounded border-slate-300 focus:ring-indigo-500"
+                            />
+                            Send Email Invitation
+                        </label>
                     </div>
 
                     <div className="pt-2">

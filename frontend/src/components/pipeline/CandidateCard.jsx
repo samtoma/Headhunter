@@ -15,6 +15,7 @@ const CandidateCard = ({ cv, onClick, onDelete, onReprocess, status, compact, se
 
     return (
         <div
+            data-cy-cv-id={cv.id}
             draggable
             onDragStart={(e) => e.dataTransfer.setData("cvId", cv.id)}
             onClick={onClick}

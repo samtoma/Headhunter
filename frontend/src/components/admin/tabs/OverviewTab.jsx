@@ -117,6 +117,38 @@ const OverviewTab = ({
                 />
             </div>
 
+            {/* Slow Endpoints */}
+            {uxAnalytics?.slow_endpoints?.length > 0 && (
+                <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+                    <h3 className="font-bold text-slate-700 mb-4 flex items-center gap-2">
+                        <Clock size={18} />
+                        Slowest API Endpoints (last 24h)
+                    </h3>
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-sm text-left">
+                            <thead className="bg-slate-50 text-slate-500 uppercase">
+                                <tr>
+                                    <th className="p-3 font-bold">Endpoint Path</th>
+                                    <th className="p-3 font-bold text-right">Avg. Response</th>
+                                    <th className="p-3 font-bold text-right">Requests</th>
+                                    <th className="p-3 font-bold text-right">Max Response</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {uxAnalytics.slow_endpoints.map((endpoint) => (
+                                    <tr key={endpoint.path} className="border-b border-slate-100 hover:bg-slate-50">
+                                        <td className="p-3 font-mono text-slate-600">{endpoint.path}</td>
+                                        <td className="p-3 text-right font-semibold text-red-600">{endpoint.avg_response_ms.toFixed(0)} ms</td>
+                                        <td className="p-3 text-right text-slate-500">{endpoint.request_count}</td>
+                                        <td className="p-3 text-right text-slate-500">{endpoint.max_response_ms.toFixed(0)} ms</td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            )}
+
             {/* Logs by Level - Modern Horizontal Bar Design */}
             {logsByLevelData.length > 0 && (() => {
                 const totalLogs = logsByLevelData.reduce((sum, item) => sum + item.value, 0)

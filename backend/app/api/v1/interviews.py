@@ -30,6 +30,7 @@ class InterviewCreate(BaseModel):
     scheduled_at: Optional[datetime] = None
     interviewer_id: Optional[int] = None
     custom_data: Optional[str] = None # JSON string
+    send_notifications: Optional[bool] = True # Default to True (Frontend will override based on settings)
 
 class InterviewUpdate(BaseModel):
     step: Optional[str] = None
@@ -40,6 +41,7 @@ class InterviewUpdate(BaseModel):
     scheduled_at: Optional[datetime] = None
     interviewer_id: Optional[int] = None  # For reassigning interviewer
     custom_data: Optional[str] = None
+    send_notifications: Optional[bool] = True
 
 class InterviewOut(BaseModel):
     id: int
@@ -436,8 +438,12 @@ def create_interview(
         }
     )
     
+    # Check if we should send notifications
+    # 1. Check explicit flag from request (default True)
+    should_send_email = interview.send_notifications
+    
     # Send email notification
-    if interviewer_email and interview.scheduled_at:
+    if should_send_email and interviewer_email and interview.scheduled_at:
         # Queue email in background (silently skip if SMTP not configured for tests)
         try:
             try:
@@ -779,7 +785,8 @@ def update_interview(
                 department_manager_email = dept_manager.email
 
     # Handle interviewer change - notify both old and new
-    if data.interviewer_id is not None and data.interviewer_id != old_interviewer_id:
+    # Only if notifications are enabled
+    if data.send_notifications and data.interviewer_id is not None and data.interviewer_id != old_interviewer_id:
         # Notify new interviewer
         new_interviewer = db.query(User).filter(User.id == data.interviewer_id).first()
         if new_interviewer and new_interviewer.email and interview.scheduled_at:

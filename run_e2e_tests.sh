@@ -52,7 +52,7 @@ docker compose -f docker-compose.e2e.yml exec -T backend-e2e alembic upgrade hea
 # Step 4: Seed test data
 echo "🌱 Seeding test database..."
 docker compose -f docker-compose.e2e.yml exec -T backend-e2e \
-    env PYTHONPATH=/app python tests/seed_test_data.py
+    env PYTHONPATH=/app AUTO_CONFIRM=true python tests/seed_test_data.py
 
 # Step 5: Run Cypress tests
 echo "🧪 Installing Cypress dependencies..."

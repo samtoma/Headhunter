@@ -14,6 +14,7 @@ RUN apt-get update && apt-get install -y \
     xauth \
     xvfb \
     curl \
+    wget \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app

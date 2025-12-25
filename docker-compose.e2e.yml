@@ -63,6 +63,7 @@ services:
       - OPENAI_API_KEY=${OPENAI_API_KEY:-mock-key-for-testing}
       - TESTING=true
       - SECRET_KEY=test-secret-key-for-e2e
+      - LOGS_DATABASE_URL=postgresql://testuser:testpass@db-e2e:5432/headhunter_e2e_db
     depends_on:
       db-e2e:
         condition: service_healthy
@@ -87,6 +88,7 @@ services:
       - REDIS_URL=redis://redis-e2e:6379/0
       - OPENAI_API_KEY=${OPENAI_API_KEY:-mock-key-for-testing}
       - TESTING=true
+      - LOGS_DATABASE_URL=postgresql://testuser:testpass@db-e2e:5432/headhunter_e2e_db
     depends_on:
       - backend-e2e
       - redis-e2e

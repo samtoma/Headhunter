@@ -47,7 +47,7 @@ _log_executor = ThreadPoolExecutor(
 
 def shutdown_log_executor():
     """Gracefully shutdown the log executor. Called during application shutdown."""
-    _log_executor.shutdown(wait=True, timeout=5)
+    _log_executor.shutdown(wait=True)
 
 
 class LoggingMiddleware(BaseHTTPMiddleware):
