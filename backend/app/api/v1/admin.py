@@ -2124,3 +2124,27 @@ def get_llm_metrics(
         operations_by_user=operations_by_user,
         recent_operations=recent_operations
     )
+
+# ==================== Manual Sync Endpoint ====================
+
+@router.post("/sync/embeddings")
+def trigger_embedding_sync(
+    limit: int = Query(500, ge=1, le=2000),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Manually trigger background embedding sync.
+    Useful for maintenance or recovery after system restart.
+    Super admin only.
+    """
+    require_super_admin(current_user)
+    
+    try:
+        from app.services.sync_service import sync_embeddings
+        # Run in background
+        asyncio.create_task(sync_embeddings(limit=limit))
+        return {"status": "started", "message": f"Embedding sync started for up to {limit} records"}
+    except Exception as e:
+        logger.error(f"Failed to trigger sync: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+

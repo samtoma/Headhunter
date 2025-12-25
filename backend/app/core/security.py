@@ -11,7 +11,7 @@ logger = logging.getLogger(__name__)
 # SECRET_KEY should be in env vars in production
 SECRET_KEY = "supersecretkey" 
 ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 30
+ACCESS_TOKEN_EXPIRE_MINUTES = 1440
 
 # Default DEV key (replace with real one in production env)
 DEV_KEY = "DT5F69b_Al-O81XZnOK5V9WDB8OH21uMfdgZzh3SKpE="

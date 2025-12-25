@@ -27,34 +27,41 @@ async def lifespan(app: FastAPI):
     # Initialize Redis Cache
     await init_cache()
     
-    # Auto-resume interrupted CV processing
-    try:
-        from app.core.database import SessionLocal
-        from app.tasks.cv_tasks import process_cv_task
+    # Define background startup tasks with delay
+    async def run_delayed_startup_tasks():
+        logger.info("Waiting 10s before starting heavy background tasks...")
+        await asyncio.sleep(10)
         
-        db = SessionLocal()
-        unparsed_cvs = db.query(models.CV).filter(models.CV.is_parsed.is_(False)).all()
-        
-        if unparsed_cvs:
-            logger.info(f"Found {len(unparsed_cvs)} unparsed CVs - resuming processing...")
-            for cv in unparsed_cvs:
-                process_cv_task.delay(cv.id)
-            logger.info(f"Queued {len(unparsed_cvs)} CVs for processing")
-        else:
-            logger.info("No interrupted CV processing to resume")
+        # 1. Auto-resume interrupted CV processing
+        try:
+            from app.core.database import SessionLocal
+            from app.tasks.cv_tasks import process_cv_task
             
-        db.close()
-    except Exception as e:
-        logger.critical(f"Failed to resume CV processing during startup: {e}")
-        
-    # Auto-Sync Embeddings (Background Task)
-    try:
-        from app.services.sync_service import sync_embeddings
-        logger.info("Starting background embedding sync...")
-        # Run in background to not block startup
-        asyncio.create_task(sync_embeddings(limit=500))
-    except Exception as e:
-        logger.critical(f"Failed to start embedding sync during startup: {e}")
+            db = SessionLocal()
+            unparsed_cvs = db.query(models.CV).filter(models.CV.is_parsed.is_(False)).all()
+            
+            if unparsed_cvs:
+                logger.info(f"[Startup] Found {len(unparsed_cvs)} unparsed CVs - resuming processing...")
+                for cv in unparsed_cvs:
+                    process_cv_task.delay(cv.id)
+                logger.info(f"[Startup] Queued {len(unparsed_cvs)} CVs for processing")
+            else:
+                logger.info("[Startup] No interrupted CV processing to resume")
+                
+            db.close()
+        except Exception as e:
+            logger.error(f"[Startup] Failed to resume CV processing: {e}")
+            
+        # 2. Auto-Sync Embeddings
+        try:
+            from app.services.sync_service import sync_embeddings
+            logger.info("[Startup] Starting background embedding sync...")
+            await sync_embeddings(limit=200)
+        except Exception as e:
+            logger.error(f"[Startup] Failed to start embedding sync: {e}")
+
+    # Schedule the delayed tasks
+    asyncio.create_task(run_delayed_startup_tasks())
     
     yield
     
