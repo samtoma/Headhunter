@@ -156,17 +156,17 @@ async def extract_company_info(
                 if og_image and og_image.get("content"):
                     logo_url = make_absolute_url(og_image.get("content"), url)
             
-            # 4. Last resort: apple-touch-icon (usually 180x180, better than favicon)
+            # 4. Last resort: apple-touch-icon or shortcut icon (usually high quality)
             if not logo_url:
                 for link in soup.find_all("link", rel=True):
                     rel = " ".join(link.get("rel", []))
-                    # Prefer apple-touch-icon (larger) over regular icon
-                    if "apple-touch-icon" in rel:
+                    if any(r in rel for d in ["apple-touch-icon", "shortcut icon", "icon"]):
                         href = link.get("href")
                         logo_url = make_absolute_url(href, url)
-                        break
+                        if logo_url:
+                            break
             
-            # 5. Skip favicons - they're too small for logos
+            # 5. Skip tiny favicons if we have something better
             
             # Try to scrape About, Careers, and Team pages for more info
             additional_text = ""
@@ -190,10 +190,49 @@ async def extract_company_info(
                     continue
             
             # Remove script and style elements from main page
+            # Keep copy of script tags for JSON state extraction if needed
+            script_tags = soup.find_all("script")
+            
             for script in soup(["script", "style", "nav", "footer"]):
                 script.decompose()
             text = soup.get_text(separator=" ", strip=True)[:20000]
             
+            # If text is too short, try to extract from JSON state (e.g. Canva window['bootstrap'])
+            if len(text) < 500:
+                json_content = ""
+                for script in script_tags:
+                    script_str = str(script)
+                    if "bootstrap" in script_str or "JSON.parse" in script_str:
+                        try:
+                            import re
+                            # Find the first { and last }
+                            start = script_str.find('{')
+                            end = script_str.rfind('}')
+                            if start != -1 and end != -1:
+                                raw_json = script_str[start:end+1]
+                                # Extract all double-quoted strings
+                                all_found = re.findall(r'"(.*?)"', raw_json)
+                                for s in all_found:
+                                    # Capture social links from JSON state
+                                    if "linkedin.com" in s and not social_links["linkedin"]:
+                                        social_links["linkedin"] = s
+                                    elif ("twitter.com" in s or "x.com" in s) and not social_links["twitter"]:
+                                        social_links["twitter"] = s
+                                    elif "facebook.com" in s and not social_links["facebook"]:
+                                        social_links["facebook"] = s
+
+                                    # Filter out technical keys and short strings
+                                    if len(s) > 3 and not s.startswith('http') and not s.endswith('.js'):
+                                        # Unescape common sequences
+                                        s = s.replace('\\\\n', ' ').replace('\\\\"', '"').replace('\\"', '"')
+                                        if len(s) > 3:
+                                            json_content += s + " "
+                        except Exception as e:
+                            logger.warning(f"Failed to extract from JSON script: {e}")
+                
+                if json_content:
+                    text += "\n--- EXTRACTED FROM STATE ---\n" + json_content[:30000]
+
             # Combine main text with additional pages
             full_text = text + additional_text
             
@@ -336,13 +375,14 @@ async def extract_company_info(
             # Add the original website URL to preserve it
             result["website"] = url
             
-            # Convert arrays to JSON strings for database storage
+            # Convert arrays to comma-separated strings for frontend compatibility
+            # The frontend expects strings and uses .split(',')
             if "specialties" in result and isinstance(result["specialties"], list):
-                result["specialties"] = json.dumps(result["specialties"])
+                result["specialties"] = ", ".join(result["specialties"])
             if "values" in result and isinstance(result["values"], list):
-                result["values"] = json.dumps(result["values"])
+                result["values"] = ", ".join(result["values"])
             if "departments" in result and isinstance(result["departments"], list):
-                result["departments"] = json.dumps(result["departments"])
+                result["departments"] = ", ".join(result["departments"])
             
             return result
             
@@ -423,13 +463,16 @@ async def regenerate_company_profile(
 
 # ==================== WebSocket for Company Profile Extraction Progress ====================
 
-async def authenticate_company_websocket(websocket: WebSocket) -> Optional[User]:
-    """Authenticate WebSocket connection for company profile extraction"""
+async def authenticate_company_websocket(websocket: WebSocket) -> tuple[Optional[User], Optional[int]]:
+    """
+    Authenticate WebSocket connection for company profile extraction.
+    Returns (user, company_id).
+    """
     token = websocket.query_params.get("token")
 
     if not token:
         await websocket.close(code=1008, reason="Authentication required")
-        return None
+        return None, None
 
     db_gen = None
     try:
@@ -437,7 +480,7 @@ async def authenticate_company_websocket(websocket: WebSocket) -> Optional[User]
         email: str = payload.get("sub")
         if not email:
             await websocket.close(code=1008, reason="Invalid token")
-            return None
+            return None, None
 
         db_gen = get_db()
         db = next(db_gen)
@@ -445,9 +488,10 @@ async def authenticate_company_websocket(websocket: WebSocket) -> Optional[User]
             user = db.query(User).filter(User.email == email).first()
             if not user:
                 await websocket.close(code=1008, reason="User not found")
-                return None
+                return None, None
 
-            return user
+            # Capture company_id eagerly
+            return user, user.company_id
         finally:
             try:
                 next(db_gen, None)
@@ -455,10 +499,10 @@ async def authenticate_company_websocket(websocket: WebSocket) -> Optional[User]
                 pass
     except JWTError:
         await websocket.close(code=1008, reason="Invalid token")
-        return None
+        return None, None
     except Exception as e:
         await websocket.close(code=1011, reason=f"Authentication error: {str(e)}")
-        return None
+        return None, None
     finally:
         if db_gen:
             try:
@@ -471,32 +515,23 @@ async def authenticate_company_websocket(websocket: WebSocket) -> Optional[User]
 async def stream_company_profile_extraction(websocket: WebSocket):
     """
     WebSocket endpoint for streaming company profile extraction with step-by-step progress.
-
-    Connect with: ws://host/api/company/regenerate/stream?token=YOUR_JWT_TOKEN&url=https://company-website.com
-
-    Query parameters:
-    - token: JWT authentication token
-    - url: Company website URL (required)
-
-    Messages sent to client:
-    - {"type": "step", "step": 1, "total_steps": 5, "message": "Fetching website content..."}
-    - {"type": "complete", "data": {...}, "tokens_used": 1234, "model": "...", "latency_ms": 5000}
-    - {"type": "error", "message": "error message", "code": "ERROR_CODE"}
     """
     await websocket.accept()
 
     # Authenticate user
-    user = await authenticate_company_websocket(websocket)
+    user, company_id = await authenticate_company_websocket(websocket)
     if not user:
         return
 
     db_gen = None
-    start_time = None
+    start_time = time.time()
     tokens_used = 0
     tokens_input = 0
     tokens_output = 0
     model_used = OPENAI_MODEL
-    latency_ms = 0
+    
+    # Use a variable to track if the socket is still open
+    socket_open = True
 
     try:
         # Get query parameters
@@ -508,35 +543,19 @@ async def stream_company_profile_extraction(websocket: WebSocket):
                 "code": "MISSING_URL"
             })
             await websocket.close()
+            socket_open = False
             return
 
-        # Get database session
-        db_gen = get_db()
-        db = next(db_gen)
-
-        # Re-fetch user with company relationship
-        user = db.query(User).options(joinedload(User.company)).filter(User.id == user.id).first()
-        if not user:
+        # Verification of company access
+        if not company_id and user.role != UserRole.SUPER_ADMIN:
             await websocket.send_json({
                 "type": "error",
-                "message": "User not found",
-                "code": "USER_NOT_FOUND"
-            })
-            await websocket.close()
-            return
-
-        # Verify user owns the company
-        if not user.company:
-            await websocket.send_json({
-                "type": "error",
-                "message": "Company not found",
+                "message": "Company not found and user is not a super admin",
                 "code": "COMPANY_NOT_FOUND"
             })
             await websocket.close()
+            socket_open = False
             return
-
-        # Start timing
-        start_time = time.time()
 
         # Step 1: Fetching website content
         await websocket.send_json({
@@ -546,28 +565,122 @@ async def stream_company_profile_extraction(websocket: WebSocket):
             "message": "Fetching website content..."
         })
 
-        # Fetch website content (same logic as original endpoint)
+        full_text = ""
         try:
-            async with httpx.AsyncClient(timeout=30.0) as client:
+            async with httpx.AsyncClient(timeout=30.0, follow_redirects=True) as client:
                 response = await client.get(url, headers={
                     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
                 })
                 response.raise_for_status()
                 soup = BeautifulSoup(response.text, 'html.parser')
 
-                # Extract text content
-                for script in soup(["script", "style"]):
+                # Extract social media links from page
+                social_links = {
+                    "linkedin": None,
+                    "twitter": None,
+                    "facebook": None
+                }
+                for link in soup.find_all("a", href=True):
+                    href = link["href"]
+                    if "linkedin.com" in href and not social_links["linkedin"]:
+                        social_links["linkedin"] = href
+                    elif ("twitter.com" in href or "x.com" in href) and not social_links["twitter"]:
+                        social_links["twitter"] = href
+                    elif "facebook.com" in href and not social_links["facebook"]:
+                        social_links["facebook"] = href
+
+                # Helper function to make absolute URLs
+                def make_absolute_url(href, base_url):
+                    if not href:
+                        return None
+                    if href.startswith("http"):
+                        return href
+                    if href.startswith("//"):
+                        return "https:" + href
+                    if href.startswith("/"):
+                        from urllib.parse import urlparse
+                        parsed = urlparse(base_url)
+                        return f"{parsed.scheme}://{parsed.netloc}{href}"
+                    return None
+
+                # Extract logo URL
+                logo_url = None
+                
+                # 1. Check link tags for high-quality icons
+                for link in soup.find_all("link", rel=True):
+                    rel = " ".join(link.get("rel", []))
+                    if any(r in rel for r in ["apple-touch-icon", "shortcut icon", "icon"]):
+                        href = link.get("href")
+                        logo_url = make_absolute_url(href, url)
+                        if logo_url:
+                            break
+
+                # Keep copy of script tags for JSON state extraction if needed
+                script_tags = soup.find_all("script")
+                script_strs = [str(s) for s in script_tags]
+
+                # Extract standard text content
+                for script in soup(["script", "style", "nav", "footer"]):
                     script.decompose()
 
                 text_content = soup.get_text(separator=' ', strip=True)
-                full_text = text_content[:15000]  # Limit text length
+                full_text = text_content[:15000]
+
+                # If text is too short, try robust JSON extraction (Canva/SPA support)
+                if len(full_text) < 500:
+                    json_content = ""
+                    for script_str in script_strs:
+                        if "bootstrap" in script_str or "JSON.parse" in script_str:
+                            try:
+                                import re
+                                start = script_str.find('{')
+                                end = script_str.rfind('}')
+                                if start != -1 and end != -1:
+                                    raw_json = script_str[start:end+1]
+                                    all_found = re.findall(r'"(.*?)"', raw_json)
+                                    for s in all_found:
+                                        # Capture social links from JSON state
+                                        if "linkedin.com" in s and not social_links["linkedin"]:
+                                            social_links["linkedin"] = s
+                                        elif ("twitter.com" in s or "x.com" in s) and not social_links["twitter"]:
+                                            social_links["twitter"] = s
+                                        elif "facebook.com" in s and not social_links["facebook"]:
+                                            social_links["facebook"] = s
+                                        
+                                        # Capture logo hint if we haven't found a good one
+                                        if not logo_url and "logo" in s.lower() and (s.endswith('.png') or s.endswith('.svg')):
+                                            # If it looks like a path, try to make it absolute
+                                            if s.startswith('/') or s.startswith('_assets'):
+                                                logo_url = make_absolute_url(s, url)
+
+                                        if len(s) > 3 and not s.startswith('http') and not s.endswith('.js'):
+                                            s = s.replace('\\\\n', ' ').replace('\\\\"', '"').replace('\\"', '"')
+                                            if len(s) > 3:
+                                                json_content += s + " "
+                            except Exception:
+                                continue
+                    
+                    if json_content:
+                        full_text += "\n--- EXTRACTED FROM STATE ---\n" + json_content[:25000]
         except Exception as e:
             await websocket.send_json({
                 "type": "error",
                 "message": f"Failed to fetch website content: {str(e)}",
                 "code": "FETCH_FAILED"
             })
+            await websocket.close()
+            socket_open = False
             return
+
+        if not full_text or len(full_text.strip()) < 10:
+             await websocket.send_json({
+                "type": "error",
+                "message": "No content could be extracted from this website.",
+                "code": "EMPTY_CONTENT"
+            })
+             await websocket.close()
+             socket_open = False
+             return
 
         # Step 2: Analyzing content
         await websocket.send_json({
@@ -576,7 +689,6 @@ async def stream_company_profile_extraction(websocket: WebSocket):
             "total_steps": 5,
             "message": "Analyzing website content and extracting key information..."
         })
-        await asyncio.sleep(0.5)
 
         # Step 3: Processing with AI
         await websocket.send_json({
@@ -586,24 +698,26 @@ async def stream_company_profile_extraction(websocket: WebSocket):
             "message": "Processing with AI to extract company details..."
         })
 
-        # Build the prompt (same as original)
-        prompt = f"""Extract the following information from the company website text below. Return ONLY valid JSON:
-
+        # Build the prompt
+        prompt = f"""Extract company information from the website text below. Return ONLY valid JSON.
+        Format strings for 'specialties', 'values', and 'departments' as arrays.
+        
 {{
     "name": "Company Name",
-    "description": "Brief company description (2-3 sentences)",
+    "tagline": "Short tagline",
+    "description": "2-3 sentence description",
     "founding_year": 2015,
-    "industry": "Primary industry/sector",
-    "company_size": "e.g., 51-200 employees, 201-500 employees, etc.",
-    "headquarters": "City, State/Country",
-    "mission": "Company mission statement",
-    "vision": "Company vision",
-    "values": ["Value 1", "Value 2", "Value 3"],
-    "culture": "Company culture description",
-    "products_services": "Main products or services offered",
-    "target_market": "Target market or customer base",
-    "competitive_advantage": "What makes them unique",
-    "departments": ["Engineering", "Sales", "Marketing", "HR", "Finance"]
+    "industry": "Industry",
+    "company_size": "e.g. 51-200",
+    "headquarters": "City, Country",
+    "mission": "Mission",
+    "vision": "Vision",
+    "values": ["Value 1", "Value 2"],
+    "culture": "Culture description",
+    "products_services": "Main products",
+    "target_market": "Target customers",
+    "competitive_advantage": "Competitive advantage",
+    "departments": ["Engineering", "Sales"]
 }}
 
 Website Text:
@@ -615,19 +729,38 @@ Website Text:
         completion = await client.chat.completions.create(
             model=OPENAI_MODEL,
             messages=[
-                {"role": "system", "content": "You are an expert business analyst specializing in company research. You are VERY GOOD at finding founding dates, company sizes, and organizational types from website text. You use inference when needed. Always return valid JSON."},
+                {"role": "system", "content": "You are an expert business analyst. Extract company details from website text. Always return valid JSON with all requested fields."},
                 {"role": "user", "content": prompt}
             ],
             response_format={"type": "json_object"}
         )
 
-        # Track token usage
         if hasattr(completion, 'usage') and completion.usage:
             tokens_used = completion.usage.total_tokens
             tokens_input = completion.usage.prompt_tokens
             tokens_output = completion.usage.completion_tokens
 
         result = json.loads(completion.choices[0].message.content)
+
+        # Add extracted social links
+        if social_links["linkedin"]:
+            result["social_linkedin"] = social_links["linkedin"]
+        if social_links["twitter"]:
+            result["social_twitter"] = social_links["twitter"]
+        if social_links["facebook"]:
+            result["social_facebook"] = social_links["facebook"]
+
+        # Add original website
+        result["website"] = url
+        
+        # Add logo URL if found
+        if logo_url:
+            result["logo_url"] = logo_url
+
+        # Convert arrays to comma-separated strings for frontend compatibility
+        for field in ["specialties", "values", "departments"]:
+            if field in result and isinstance(result[field], list):
+                result[field] = ", ".join(result[field])
 
         # Step 4: Validating data
         await websocket.send_json({
@@ -636,7 +769,6 @@ Website Text:
             "total_steps": 5,
             "message": "Validating extracted information..."
         })
-        await asyncio.sleep(0.3)
 
         # Step 5: Generating profile
         await websocket.send_json({
@@ -645,12 +777,9 @@ Website Text:
             "total_steps": 5,
             "message": "Generating company profile..."
         })
-        await asyncio.sleep(0.2)
-
-        # Calculate latency
-        latency_ms = int((time.time() - start_time) * 1000)
 
         # Log successful operation
+        latency_ms = int((time.time() - start_time) * 1000)
         LLMLogger.log_llm_operation(
             action="extract_company_info",
             message=f"Extracted company info from {url}",
@@ -675,37 +804,44 @@ Website Text:
             "model": model_used,
             "latency_ms": latency_ms
         })
+        
+        # Small delay to ensure client receives the message before socket closes
+        await asyncio.sleep(0.1)
 
     except Exception as e:
-        latency_ms = int((time.time() - start_time) * 1000) if start_time else 0
-        await websocket.send_json({
-            "type": "error",
-            "message": f"Internal error: {str(e)}",
-            "code": "INTERNAL_ERROR"
-        })
+        logger.error(f"WebSocket error in company extraction: {e}")
+        if socket_open:
+            try:
+                await websocket.send_json({
+                    "type": "error",
+                    "message": f"Internal error: {str(e)}",
+                    "code": "INTERNAL_ERROR"
+                })
+            except Exception:
+                pass
 
         # Log error
+        latency_ms = int((time.time() - start_time) * 1000) if start_time else 0
         LLMLogger.log_llm_operation(
             action="extract_company_info_error",
-            message=f"Error extracting company info from {url}: {str(e)}",
-            user_id=user.id if user else None,
-            company_id=user.company_id if user else None,
+            message=f"Error extracting company info from {url}: {str(e)}" if 'url' in locals() else f"Error in WebSocket: {str(e)}",
+            user_id=user.id if 'user' in locals() and user else None,
+            company_id=user.company_id if 'user' in locals() and user else None,
             model=model_used,
             tokens_used=tokens_used,
-            tokens_input=tokens_input,
-            tokens_output=tokens_output,
             latency_ms=latency_ms,
             error_type=type(e).__name__,
             error_message=str(e)
         )
     finally:
-        # Clean up database connection
         if db_gen:
             try:
                 next(db_gen, None)
             except StopIteration:
                 pass
-        try:
-            await websocket.close()
-        except Exception:
-            pass
+        
+        if socket_open:
+            try:
+                await websocket.close()
+            except Exception:
+                pass

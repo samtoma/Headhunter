@@ -104,13 +104,18 @@ const CompanyProfileGenerator = ({ url, onComplete, onCancel }) => {
 
             wsRef.current.onclose = (event) => {
                 console.log('Company Profile WebSocket closed. Code:', event.code, 'Reason:', event.reason);
-                // Only show error if we haven't completed and haven't already hit an error
-                if (!isCompleteRef.current && state !== 'error') {
-                    if (event.code !== 1000) {
-                        setError(event.reason || 'Connection closed unexpectedly');
-                        setState('error');
+                
+                // Use a small timeout to allow the 'complete' message to be processed
+                // and the isCompleteRef to be updated.
+                setTimeout(() => {
+                    // Only show error if we haven't completed successfully
+                    if (!isCompleteRef.current) {
+                        if (event.code !== 1000 && event.code !== 1001) {
+                            setError(event.reason || 'Connection closed unexpectedly');
+                            setState('error');
+                        }
                     }
-                }
+                }, 200);
             };
         } catch (error) {
             console.error('Failed to create WebSocket:', error);

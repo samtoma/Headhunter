@@ -393,6 +393,9 @@ async def stream_department_generation(websocket: WebSocket):
             "model": model_used,
             "latency_ms": latency_ms
         })
+        
+        # Small delay to ensure client receives the message before socket closes
+        await asyncio.sleep(0.1)
 
     except Exception as e:
         latency_ms = int((time.time() - start_time) * 1000) if start_time else 0
