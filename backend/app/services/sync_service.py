@@ -1,6 +1,6 @@
-
 import logging
 import json
+import asyncio
 
 from app.core.database import SessionLocal
 from app.models.models import ParsedCV, CV
@@ -43,11 +43,15 @@ async def sync_embeddings(limit: int = 500):
     """
     Synchronizes Postgres ParsedCVs with ChromaDB embeddings.
     Checks for missing candidates or incorrect metadata and updates them.
+    Runs non-blocking using asyncio.to_thread for heavy IO.
     """
     db = SessionLocal()
     try:
-        # Fetch parsed CVs that have a company_id
-        results = db.query(ParsedCV, CV).join(CV, ParsedCV.cv_id == CV.id).limit(limit).all()
+        # Fetch parsed CVs that have a company_id (Run in thread)
+        def get_cvs():
+            return db.query(ParsedCV, CV).join(CV, ParsedCV.cv_id == CV.id).limit(limit).all()
+            
+        results = await asyncio.to_thread(get_cvs)
         
         logger.info(f"[Sync] Found {len(results)} parsed CVs to check.")
         
@@ -60,13 +64,13 @@ async def sync_embeddings(limit: int = 500):
 
             existing = None
             try:
-                if hasattr(vector_db, 'collection'):
-                    # Only ask for IDs and Metadatas first to be faster? 
-                    # No, we need embeddings to know if we can skip generation.
-                    # Getting embeddings is heavy payload.
-                    # Optimization: Check ID existence first? 
-                    # For now keep logic simple as in script.
-                    existing = vector_db.collection.get(ids=[str(cv.id)], include=["embeddings", "metadatas"])
+                if hasattr(vector_db, 'collection') and vector_db.collection:
+                    # Check Chroma (Run in thread)
+                    existing = await asyncio.to_thread(
+                        vector_db.collection.get, 
+                        ids=[str(cv.id)], 
+                        include=["embeddings", "metadatas"]
+                    )
             except Exception as e:
                 logger.warning(f"[Sync] Error reading Chroma for {cv.id}: {e}")
 
@@ -119,7 +123,9 @@ async def sync_embeddings(limit: int = 500):
             }
             
             try:
-                vector_db.upsert(
+                # Upsert to Chroma (Run in thread)
+                await asyncio.to_thread(
+                    vector_db.upsert,
                     ids=[str(cv.id)],
                     documents=[construct_rich_text(parsed)],
                     metadatas=[metadata],
@@ -128,9 +134,13 @@ async def sync_embeddings(limit: int = 500):
             except Exception as e:
                 logger.error(f"[Sync] Failed to upsert CV {cv.id}: {e}")
 
+            # Yield control to event loop after each record to keep API responsive
+            await asyncio.sleep(0.01)
+
         logger.info(f"[Sync] Complete. New: {count_new}, Updated: {count_updated}")
 
     except Exception as e:
         logger.error(f"[Sync] Critical error: {e}")
     finally:
         db.close()
+

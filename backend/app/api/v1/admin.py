@@ -15,8 +15,8 @@ from sqlalchemy import func, and_, or_, desc, Text
 from typing import List, Optional, Dict, Any
 from datetime import datetime, timedelta, timezone
 from pydantic import BaseModel, ConfigDict
-from app.core.database import get_db
-from app.core.database_logs import get_logs_db
+from app.core.database import get_db, SessionLocal
+from app.core.database_logs import get_logs_db, LogsSessionLocal
 from app.models.models import UserInvitation, User, Company, UserRole, ActivityLog
 from app.models.log_models import SystemLog, LLMLog
 from app.api.deps import get_current_user
@@ -1677,14 +1677,9 @@ async def websocket_monitoring(websocket: WebSocket):
     active_connections[connection_id] = websocket
     refresh_interval = 5  # Default 5 seconds
     
-    db_gen = get_db()
-    db_logs_gen = get_logs_db()
-    db = next(db_gen)
-    db_logs = next(db_logs_gen)
-    
     try:
         # Send initial data
-        await send_monitoring_update(websocket, db, db_logs)
+        await send_monitoring_update(websocket)
         
         # Keep connection alive and send periodic updates
         while True:
@@ -1697,7 +1692,7 @@ async def websocket_monitoring(websocket: WebSocket):
                         await websocket.send_json({"type": "refresh_rate_updated", "interval": refresh_interval})
                 except asyncio.TimeoutError:
                     # Timeout - send update
-                    await send_monitoring_update(websocket, db, db_logs)
+                    await send_monitoring_update(websocket)
             except WebSocketDisconnect:
                 break
             except Exception as e:
@@ -1709,19 +1704,11 @@ async def websocket_monitoring(websocket: WebSocket):
     finally:
         if connection_id in active_connections:
             del active_connections[connection_id]
-        
-        # Clean up database sessions
-        try:
-            next(db_gen, None)
-        except StopIteration:
-            pass
-        try:
-            next(db_logs_gen, None)
-        except StopIteration:
-            pass
 
-async def send_monitoring_update(websocket: WebSocket, db: Session, db_logs: Session):
-    """Send monitoring data update via WebSocket"""
+async def send_monitoring_update(websocket: WebSocket):
+    """Send monitoring data update via WebSocket with short-lived DB sessions"""
+    db = SessionLocal()
+    db_logs = LogsSessionLocal()
     try:
         # Get metrics
         now = datetime.now(timezone.utc)
@@ -1741,7 +1728,9 @@ async def send_monitoring_update(websocket: WebSocket, db: Session, db_logs: Ses
         error_rate = (errors_24h / logs_24h * 100) if logs_24h > 0 else 0
         
         # Get health status - check all services
-        services = get_services_health_data(db)
+        # Run blocking health checks in thread pool to avoid blocking event loop
+        loop = asyncio.get_event_loop()
+        services = await loop.run_in_executor(None, get_services_health_data, db)
         
         update_data = {
             "type": "monitoring_update",
@@ -1767,6 +1756,9 @@ async def send_monitoring_update(websocket: WebSocket, db: Session, db_logs: Ses
             })
         except Exception:
             pass  # Connection might be closed
+    finally:
+        db.close()
+        db_logs.close()
 
 # ==================== Threshold Configuration ====================
 
