@@ -5,11 +5,13 @@ Features:
 - Structured JSON logs with timestamp, action, component, company, user
 - Daily log rotation with automatic cleanup
 - File + console output
+- Redis queue integration for async database logging (ERROR level+)
 """
 
 import logging
 import json
 import os
+import time
 from datetime import datetime, timezone
 from logging.handlers import TimedRotatingFileHandler
 from typing import Optional
@@ -47,13 +49,75 @@ class StructuredJSONFormatter(logging.Formatter):
         return json.dumps(log_data)
 
 
+class RedisQueueHandler(logging.Handler):
+    """
+    Logging handler that pushes log records to a Redis queue for async database storage.
+    Captures only ERROR and above by default to avoid flooding the queue.
+    """
+    def __init__(self, redis_url: Optional[str] = None, queue_name: str = "logs_queue"):
+        super().__init__()
+        self.redis_url = redis_url or os.getenv("REDIS_URL", "redis://redis:6379/0")
+        self.queue_name = queue_name
+        self._client = None
+
+    @property
+    def client(self):
+        if self._client is None:
+            import redis
+            try:
+                self._client = redis.Redis.from_url(self.redis_url, decode_responses=True)
+            except Exception:
+                pass
+        return self._client
+
+    def emit(self, record):
+        # Prevent recursion if redis itself fails
+        if record.name == "app.core.logging":
+            return
+
+        try:
+            client = self.client
+            if not client:
+                return
+
+            # Basic log data
+            data = {
+                "log_type": "system",
+                "level": record.levelname,
+                "component": record.name,
+                "module": record.module,
+                "function": record.funcName,
+                "message": record.getMessage(),
+                "timestamp": time.time(),
+                "deployment_version": os.getenv("DEPLOYMENT_VERSION", "0.0.0"),
+                "deployment_environment": os.getenv("DEPLOYMENT_ENV", "development"),
+            }
+
+            # Add exception info if present
+            if record.exc_info:
+                data["error_type"] = record.exc_info[0].__name__
+                data["error_message"] = str(record.exc_info[1])
+                import traceback
+                data["stack_trace"] = "".join(traceback.format_exception(*record.exc_info))
+            
+            # Add extra context (action, user_id, etc.)
+            extra_fields = ["action", "company_id", "user_id", "request_id"]
+            for field in extra_fields:
+                if hasattr(record, field):
+                    data[field] = getattr(record, field)
+            
+            # Use request_id if available in state or elsewhere
+            # Note: access to request.state is not easy here without custom logic
+
+            client.lpush(self.queue_name, json.dumps(data))
+        except Exception:
+            # Silent failure to avoid crashing the app during logging
+            pass
+
+
 def setup_logging(log_dir: str = "/app/logs", log_level: str = "INFO"):
     """
-    Configure logging with daily rotation and JSON formatting.
-    
-    Args:
-        log_dir: Directory for log files (default: /app/logs)
-        log_level: Logging level (default: INFO)
+    Configure logging with daily rotation, JSON formatting, and Redis integration.
     """
     # Try to create log directory, fall back to ./logs if /app/logs fails
     file_logging_enabled = True
@@ -65,7 +129,6 @@ def setup_logging(log_dir: str = "/app/logs", log_level: str = "INFO"):
         try:
             os.makedirs(log_dir, exist_ok=True)
         except PermissionError:
-            # If even local logs dir fails, disable file logging
             file_logging_enabled = False
     
     log_file = os.path.join(log_dir, "headhunter.log")
@@ -77,24 +140,24 @@ def setup_logging(log_dir: str = "/app/logs", log_level: str = "INFO"):
     # Remove existing handlers to avoid duplicates
     root_logger.handlers = []
     
-    # File handler with daily rotation (keeps 1 day of logs)
-    # Only add file handler if we have permission to write logs
+    # 1. File handler
     if file_logging_enabled:
         file_handler = TimedRotatingFileHandler(
-            log_file,
-            when="midnight",        # Rotate at midnight
-            interval=1,             # Every 1 day
-            backupCount=1,          # Keep only 1 backup (yesterday's log)
-            encoding="utf-8"
+            log_file, when="midnight", interval=1, backupCount=1, encoding="utf-8"
         )
         file_handler.setFormatter(StructuredJSONFormatter())
-        file_handler.suffix = "%Y-%m-%d"  # Add date suffix to rotated files
         root_logger.addHandler(file_handler)
     
-    # Console handler for development/docker logs
+    # 2. Console handler
     console_handler = logging.StreamHandler()
     console_handler.setFormatter(StructuredJSONFormatter())
     root_logger.addHandler(console_handler)
+    
+    # 3. Redis Queue handler (ERROR and above only)
+    redis_handler = RedisQueueHandler()
+    redis_handler.setLevel(logging.ERROR)
+    redis_handler.setFormatter(StructuredJSONFormatter())
+    root_logger.addHandler(redis_handler)
     
     # Reduce noise from external libraries
     logging.getLogger("uvicorn").setLevel(logging.WARNING)
@@ -103,25 +166,14 @@ def setup_logging(log_dir: str = "/app/logs", log_level: str = "INFO"):
     
 
 def get_logger(name: str) -> logging.Logger:
-    """
-    Get a logger instance with the specified name.
-    
-    Usage:
-        logger = get_logger(__name__)
-        logger.info("User logged in", extra={
-            "action": "login",
-            "user_id": 123,
-            "company_id": 1
-        })
-    """
+    """Get a logger instance with the specified name."""
     return logging.getLogger(name)
 
 
 class AuditLogger:
     """
     Structured audit logger for tracking user actions.
-    Provides convenience methods for common operations.
-    Also writes to SystemLog table for admin dashboard.
+    Convenience wrapper around standard logger with specific defaults.
     """
     
     def __init__(self, component: str):
@@ -138,19 +190,7 @@ class AuditLogger:
         company_name: Optional[str] = None,
         **kwargs
     ):
-        """
-        Log a user action with full context.
-        Writes to both file logs and SystemLog table.
-        
-        Args:
-            action: Action type (e.g., "login", "create_job", "upload_cv")
-            message: Human-readable description
-            user_id: User performing the action
-            user_email: User's email
-            company_id: Company context
-            company_name: Company name
-            **kwargs: Additional context (job_id, cv_id, etc.)
-        """
+        """Log a user action with full context."""
         extra = {
             "action": action,
             "user_id": user_id,
@@ -159,21 +199,16 @@ class AuditLogger:
             "company_name": company_name,
             **kwargs
         }
-        # Filter out None values
         extra = {k: v for k, v in extra.items() if v is not None}
         
-        # Log to file
+        # Standard logger will now handle both console/file AND Redis (if it's an error)
+        # However, for audit we often want INFO level logs in the database too.
+        # So we manually push to Redis for audit actions if they are not already errors.
+        
         self.logger.info(message, extra=extra)
         
-        # Also write to SystemLog table
-        self._write_to_system_log(
-            level="INFO",
-            action=action,
-            message=message,
-            user_id=user_id,
-            company_id=company_id,
-            metadata=kwargs
-        )
+        # Manually push to Redis for non-error audit logs (since redis_handler is level ERROR+)
+        self._push_audit_to_redis("INFO", action, message, user_id, company_id, None, None, None, kwargs)
     
     def log_error(
         self,
@@ -186,87 +221,40 @@ class AuditLogger:
         extra = {"action": action, **kwargs}
         extra = {k: v for k, v in extra.items() if v is not None}
         
-        # Log to file
         if error:
             self.logger.error(message, exc_info=error, extra=extra)
         else:
             self.logger.error(message, extra=extra)
         
-        # Also write to SystemLog table
-        error_type = type(error).__name__ if error else None
-        error_message = str(error) if error else None
-        import traceback
-        stack_trace = traceback.format_exc() if error else None
-        
-        self._write_to_system_log(
-            level="ERROR",
-            action=action,
-            message=message,
-            user_id=kwargs.get("user_id"),
-            company_id=kwargs.get("company_id"),
-            error_type=error_type,
-            error_message=error_message,
-            stack_trace=stack_trace,
-            metadata=kwargs
-        )
-    
-    def _write_to_system_log(
-        self,
-        level: str,
-        action: str,
-        message: str,
-        user_id: Optional[int] = None,
-        company_id: Optional[int] = None,
-        error_type: Optional[str] = None,
-        error_message: Optional[str] = None,
-        stack_trace: Optional[str] = None,
-        metadata: Optional[dict] = None
-    ):
-        """
-        Write log entry to SystemLog table.
-        Uses a separate database session to the logs database to avoid transaction issues.
-        Note: This should write to Redis queue instead for async processing, but keeping
-        this as fallback for direct writes if needed.
-        """
+        # redis_handler already caught this because it's level ERROR. 
+        # No need to manually push here.
+
+    def _push_audit_to_redis(self, level, action, message, user_id, company_id, error_type, error_message, stack_trace, metadata):
+        """Internal helper to push non-error audit logs to Redis."""
         try:
-            from app.core.database_logs import LogsSessionLocal
-            from app.models.log_models import SystemLog
-            import os
+            import redis
+            redis_url = os.getenv("REDIS_URL", "redis://redis:6379/0")
+            client = redis.Redis.from_url(redis_url, decode_responses=True)
             
-            db = LogsSessionLocal()
-            try:
-                deployment_version = os.getenv("DEPLOYMENT_VERSION", os.getenv("GIT_COMMIT", None))
-                deployment_environment = os.getenv("DEPLOYMENT_ENV", "development")
-                
-                # extra_metadata is JSONB, so pass dict directly (SQLAlchemy handles conversion)
-                system_log = SystemLog(
-                    level=level,
-                    component=self.component,
-                    action=action,
-                    message=message,
-                    user_id=user_id,
-                    company_id=company_id,
-                    error_type=error_type,
-                    error_message=error_message,
-                    stack_trace=stack_trace,
-                    extra_metadata=metadata if metadata else None,  # JSONB accepts dict directly
-                    deployment_version=deployment_version,
-                    deployment_environment=deployment_environment
-                )
-                db.add(system_log)
-                db.commit()
-            except Exception:
-                db.rollback()
-                # Don't log to avoid recursion - just fail silently
-                pass
-            finally:
-                db.close()
+            data = {
+                "log_type": "system",
+                "level": level,
+                "component": self.component,
+                "action": action,
+                "message": message,
+                "user_id": user_id,
+                "company_id": company_id,
+                "timestamp": time.time(),
+                "deployment_version": os.getenv("DEPLOYMENT_VERSION", "0.0.0"),
+                "deployment_environment": os.getenv("DEPLOYMENT_ENV", "development"),
+                "extra_metadata": json.dumps(metadata) if metadata else None
+            }
+            client.lpush("logs_queue", json.dumps(data))
         except Exception:
-            # Fail silently if database logging is unavailable
             pass
 
 
-# Pre-configured audit loggers for key components
+# Pre-configured audit loggers
 auth_logger = AuditLogger("auth")
 jobs_logger = AuditLogger("jobs")
 cv_logger = AuditLogger("cv")
