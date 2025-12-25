@@ -19,6 +19,7 @@ const DepartmentGenerator = ({ name, fineTuning, onComplete, onCancel }) => {
     const [latency, setLatency] = useState(0);
 
     const wsRef = useRef(null);
+    const isCompleteRef = useRef(false);
     const token = localStorage.getItem('token');
 
     const steps = [
@@ -57,6 +58,7 @@ const DepartmentGenerator = ({ name, fineTuning, onComplete, onCancel }) => {
         setState('connecting');
         setError(null);
         setCurrentStep(0);
+        isCompleteRef.current = false;
 
         // Build query parameters
         const params = new URLSearchParams({
@@ -105,7 +107,7 @@ const DepartmentGenerator = ({ name, fineTuning, onComplete, onCancel }) => {
 
             wsRef.current.onclose = (event) => {
                 console.log('Department Generation WebSocket closed. Code:', event.code, 'Reason:', event.reason);
-                if (state !== 'complete' && state !== 'error') {
+                if (!isCompleteRef.current && state !== 'error') {
                     if (event.code !== 1000) {
                         setError(event.reason || 'Connection closed unexpectedly');
                         setState('error');
@@ -129,6 +131,7 @@ const DepartmentGenerator = ({ name, fineTuning, onComplete, onCancel }) => {
             }
 
             case 'complete':
+                isCompleteRef.current = true;
                 setState('complete');
                 setTokensUsed(data.tokens_used || 0);
                 setLatency(data.latency_ms || 0);
