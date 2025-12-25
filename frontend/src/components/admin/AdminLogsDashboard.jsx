@@ -117,14 +117,22 @@ const AdminLogsDashboard = () => {
 
     const fetchLogs = useCallback(async () => {
         try {
+            // Map frontend camelCase to backend snake_case
             const params = {
                 limit: pagination.limit,
                 offset: pagination.offset,
-                ...filters
+                level: filters.level,
+                component: filters.component,
+                action: filters.action,
+                start_date: filters.startDate,
+                end_date: filters.endDate,
+                search_text: filters.searchText,
+                has_error: filters.hasError
             }
+            
             // Remove empty filters
             Object.keys(params).forEach(key => {
-                if (params[key] === "" || params[key] === null) delete params[key]
+                if (params[key] === "" || params[key] === null || params[key] === undefined) delete params[key]
             })
 
             const res = await axios.get('/api/admin/logs', { params })
