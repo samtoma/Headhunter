@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import {
-    Calendar, Search, ChevronRight
+    Calendar, Search, ChevronRight, User, Users
 } from 'lucide-react';
 import PageHeader from '../components/layout/PageHeader';
 
@@ -14,12 +14,24 @@ const InterviewsAdmin = ({ onOpenMobileSidebar }) => {
     const navigate = useNavigate();
     const [interviews, setInterviews] = useState([]);
     const [loading, setLoading] = useState(true);
-    const [filter, setFilter] = useState('all'); // all, scheduled, completed, cancelled
+    const [filter, setFilter] = useState('active'); // active, all, scheduled, completed, cancelled
+    const [viewScope, setViewScope] = useState('mine'); // mine, all
     const [search, setSearch] = useState('');
+    const [currentUserId, setCurrentUserId] = useState(null);
 
     useEffect(() => {
+        fetchCurrentUser();
         fetchAllInterviews();
     }, []);
+
+    const fetchCurrentUser = async () => {
+        try {
+            const res = await axios.get('/api/auth/me');
+            setCurrentUserId(res.data.id);
+        } catch (err) {
+            console.error("Failed to fetch user", err);
+        }
+    };
 
     /**
      * Fetch all interviews from the backend
@@ -40,11 +52,20 @@ const InterviewsAdmin = ({ onOpenMobileSidebar }) => {
      * Filter interviews based on status and search term
      */
     const filteredInterviews = interviews.filter(i => {
+        // Scope Filter
+        if (viewScope === 'mine' && currentUserId) {
+            if (i.interviewer_id !== currentUserId) return false;
+        }
+
         // Status filter
-        if (filter === 'scheduled' && i.status !== 'Scheduled') return false;
-        if (filter === 'completed' && i.status !== 'Completed') return false;
-        if (filter === 'cancelled' && i.status !== 'Cancelled') return false;
-        if (filter === 'noshow' && i.status !== 'No-Show') return false;
+        if (filter === 'active') {
+            // Active includes Scheduled, Pending Review, or anything not terminal
+            if (['Completed', 'Cancelled', 'No-Show', 'Hired', 'Rejected'].includes(i.status)) return false;
+        }
+        else if (filter === 'scheduled' && i.status !== 'Scheduled') return false;
+        else if (filter === 'completed' && i.status !== 'Completed') return false;
+        else if (filter === 'cancelled' && i.status !== 'Cancelled') return false;
+        else if (filter === 'noshow' && i.status !== 'No-Show') return false;
 
         // Search filter
         if (search) {
@@ -79,6 +100,8 @@ const InterviewsAdmin = ({ onOpenMobileSidebar }) => {
         switch (status) {
             case 'Scheduled':
                 return 'bg-blue-100 text-blue-700';
+            case 'Pending Review':
+                return 'bg-purple-100 text-purple-700';
             case 'Completed':
                 return 'bg-emerald-100 text-emerald-700';
             case 'Cancelled':
@@ -91,15 +114,31 @@ const InterviewsAdmin = ({ onOpenMobileSidebar }) => {
     };
 
     return (
-        <div className="flex flex-col h-full overflow-hidden">
+        <div className="flex flex-col h-full overflow-hidden bg-white">
             <PageHeader
                 title="My Interviews"
-                subtitle="Manage all scheduled interviews"
+                subtitle="Manage your assignments and team interviews"
                 icon={Calendar}
                 onOpenMobileSidebar={onOpenMobileSidebar}
+                actions={
+                    <div className="flex bg-slate-100 p-1 rounded-lg">
+                        <button
+                            onClick={() => setViewScope('mine')}
+                            className={`flex items-center gap-2 px-4 py-1.5 text-xs font-bold rounded-md transition ${viewScope === 'mine' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                        >
+                            <User size={14} /> My Assignments
+                        </button>
+                        <button
+                            onClick={() => setViewScope('all')}
+                            className={`flex items-center gap-2 px-4 py-1.5 text-xs font-bold rounded-md transition ${viewScope === 'all' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                        >
+                            <Users size={14} /> All Company
+                        </button>
+                    </div>
+                }
             />
 
-            <div className="flex-1 overflow-y-auto p-6">
+            <div className="flex-1 overflow-y-auto p-6 bg-slate-50">
                 {/* Filters */}
                 <div className="flex flex-wrap items-center gap-4 mb-6">
                     {/* Search */}
@@ -115,9 +154,10 @@ const InterviewsAdmin = ({ onOpenMobileSidebar }) => {
                     </div>
 
                     {/* Status Filter Tabs */}
-                    <div className="flex items-center bg-slate-100 rounded-lg p-0.5 overflow-x-auto max-w-full no-scrollbar">
+                    <div className="flex items-center bg-white border border-slate-200 rounded-lg p-0.5 overflow-x-auto max-w-full no-scrollbar shadow-sm">
                         {[
-                            { key: 'all', label: 'All' },
+                            { key: 'active', label: 'Active Tasks' },
+                            { key: 'all', label: 'All History' },
                             { key: 'scheduled', label: 'Scheduled' },
                             { key: 'completed', label: 'Completed' },
                             { key: 'cancelled', label: 'Cancelled' },
@@ -127,8 +167,8 @@ const InterviewsAdmin = ({ onOpenMobileSidebar }) => {
                                 key={tab.key}
                                 onClick={() => setFilter(tab.key)}
                                 className={`px-4 py-2 text-sm font-medium rounded-md transition whitespace-nowrap ${filter === tab.key
-                                    ? 'bg-white text-indigo-600 shadow-sm'
-                                    : 'text-slate-600 hover:text-slate-800'
+                                    ? 'bg-indigo-50 text-indigo-600'
+                                    : 'text-slate-600 hover:text-slate-800 hover:bg-slate-50'
                                     }`}
                             >
                                 {tab.label}
@@ -146,7 +186,9 @@ const InterviewsAdmin = ({ onOpenMobileSidebar }) => {
                         </div>
                     ) : filteredInterviews.length === 0 ? (
                         <div className="p-12 text-center">
-                            <Calendar className="w-12 h-12 text-slate-300 mx-auto mb-4" />
+                            <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-4">
+                                <Calendar className="w-8 h-8 text-slate-300" />
+                            </div>
                             <p className="text-slate-500 font-medium">No interviews found</p>
                             <p className="text-sm text-slate-400 mt-1">
                                 {filter !== 'all' ? 'Try changing your filters' : 'Schedule interviews from the pipeline view'}
@@ -175,16 +217,16 @@ const InterviewsAdmin = ({ onOpenMobileSidebar }) => {
                                     >
                                         <td className="px-6 py-4">
                                             <div className="flex items-center gap-3">
-                                                <div className="w-9 h-9 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center font-bold text-sm">
+                                                <div className="w-9 h-9 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center font-bold text-sm shrink-0">
                                                     {(interview.candidate_name || 'C').charAt(0)}
                                                 </div>
-                                                <div>
-                                                    <div className="font-semibold text-slate-800">{interview.candidate_name || 'Unknown'}</div>
+                                                <div className="min-w-0">
+                                                    <div className="font-semibold text-slate-800 truncate max-w-[150px]">{interview.candidate_name || 'Unknown'}</div>
                                                 </div>
                                             </div>
                                         </td>
                                         <td className="px-6 py-4">
-                                            <span className="text-sm text-slate-700">{interview.job_title || '-'}</span>
+                                            <span className="text-sm text-slate-700 truncate block max-w-[150px]">{interview.job_title || '-'}</span>
                                         </td>
                                         <td className="px-6 py-4">
                                             <span className="text-sm font-medium text-indigo-600">{interview.step}</span>
@@ -196,13 +238,13 @@ const InterviewsAdmin = ({ onOpenMobileSidebar }) => {
                                             <span className="text-sm text-slate-600">{formatDate(interview.scheduled_at)}</span>
                                         </td>
                                         <td className="px-6 py-4">
-                                            <span className={`px - 2.5 py - 1 rounded - full text - xs font - semibold ${getStatusBadge(interview.status)} `}>
-                                                {interview.status}
+                                            <span className={`px-2.5 py-1 rounded-full text-xs font-semibold whitespace-nowrap ${getStatusBadge(interview.status)}`}>
+                                                {interview.status || 'Scheduled'}
                                             </span>
                                         </td>
                                         <td className="px-6 py-4">
                                             {interview.outcome ? (
-                                                <span className={`px - 2.5 py - 1 rounded - full text - xs font - semibold ${interview.outcome === 'Passed' ? 'bg-emerald-100 text-emerald-700' :
+                                                <span className={`px-2.5 py-1 rounded-full text-xs font-semibold whitespace-nowrap ${interview.outcome === 'Passed' ? 'bg-emerald-100 text-emerald-700' :
                                                     interview.outcome === 'Failed' ? 'bg-red-100 text-red-700' :
                                                         'bg-amber-100 text-amber-700'
                                                     } `}>
@@ -230,16 +272,16 @@ const InterviewsAdmin = ({ onOpenMobileSidebar }) => {
                             <div className="text-xs font-medium text-slate-500 uppercase">Scheduled</div>
                         </div>
                         <div className="bg-white p-4 rounded-xl border border-slate-200">
+                            <div className="text-2xl font-bold text-purple-600">{interviews.filter(i => i.status === 'Pending Review').length}</div>
+                            <div className="text-xs font-medium text-slate-500 uppercase">Pending Review</div>
+                        </div>
+                        <div className="bg-white p-4 rounded-xl border border-slate-200">
                             <div className="text-2xl font-bold text-emerald-600">{interviews.filter(i => i.status === 'Completed').length}</div>
                             <div className="text-xs font-medium text-slate-500 uppercase">Completed</div>
                         </div>
                         <div className="bg-white p-4 rounded-xl border border-slate-200">
                             <div className="text-2xl font-bold text-red-600">{interviews.filter(i => i.status === 'Cancelled').length}</div>
                             <div className="text-xs font-medium text-slate-500 uppercase">Cancelled</div>
-                        </div>
-                        <div className="bg-white p-4 rounded-xl border border-slate-200">
-                            <div className="text-2xl font-bold text-orange-600">{interviews.filter(i => i.status === 'No-Show').length}</div>
-                            <div className="text-xs font-medium text-slate-500 uppercase">No-Show</div>
                         </div>
                     </div>
                 )}

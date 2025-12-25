@@ -103,6 +103,7 @@ class InterviewDashboardOut(BaseModel):
     outcome: Optional[str] = None
     rating: Optional[int] = None
     interviewer_name: Optional[str] = None  # Added for admin view
+    interviewer_id: Optional[int] = None # Added for filtering
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -252,7 +253,8 @@ def get_all_interviews(db: Session = Depends(get_db), current_user: User = Depen
             status=i.status or "Scheduled",
             outcome=i.outcome,
             rating=i.rating,
-            interviewer_name=interviewer_name
+            interviewer_name=interviewer_name,
+            interviewer_id=i.interviewer_id
         ))
     return results
 
