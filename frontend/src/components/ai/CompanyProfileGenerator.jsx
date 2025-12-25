@@ -19,6 +19,7 @@ const CompanyProfileGenerator = ({ url, onComplete, onCancel }) => {
     const [latency, setLatency] = useState(0);
 
     const wsRef = useRef(null);
+    const isCompleteRef = useRef(false);
     const token = localStorage.getItem('token');
 
     const steps = [
@@ -67,8 +68,8 @@ const CompanyProfileGenerator = ({ url, onComplete, onCancel }) => {
         // Determine WebSocket URL
         const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
         const wsHost = window.location.host;
-        const wsPath = `/api/company/regenerate/stream`;
-        const wsUrl = `${wsProtocol}//${wsHost}${wsPath}?${params.toString()}`;
+        const wsPath = 'api/company/regenerate/stream';
+        const wsUrl = `${wsProtocol}//${wsHost}/${wsPath}?${params.toString()}`;
 
         console.log('🔌 Connecting to Company Profile WebSocket:', {
             wsUrl: wsUrl.replace(/token=[^&]+/, 'token=***'),
@@ -103,7 +104,8 @@ const CompanyProfileGenerator = ({ url, onComplete, onCancel }) => {
 
             wsRef.current.onclose = (event) => {
                 console.log('Company Profile WebSocket closed. Code:', event.code, 'Reason:', event.reason);
-                if (state !== 'complete' && state !== 'error') {
+                // Only show error if we haven't completed and haven't already hit an error
+                if (!isCompleteRef.current && state !== 'error') {
                     if (event.code !== 1000) {
                         setError(event.reason || 'Connection closed unexpectedly');
                         setState('error');
@@ -127,6 +129,7 @@ const CompanyProfileGenerator = ({ url, onComplete, onCancel }) => {
             }
 
             case 'complete':
+                isCompleteRef.current = true;
                 setState('complete');
                 setTokensUsed(data.tokens_used || 0);
                 setLatency(data.latency_ms || 0);
