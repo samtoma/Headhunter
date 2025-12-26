@@ -16,7 +16,7 @@ const API_URL = '/api'; // Use relative path to leverage Vite proxy
 function VersionCheck() {
     useEffect(() => {
         const token = localStorage.getItem('token')
-        
+
         // If authenticated, use WebSocket (handled by sync WebSocket in useHeadhunterData)
         // Otherwise, do initial check via HTTP
         const checkVersion = async () => {
@@ -39,7 +39,7 @@ function VersionCheck() {
                 } else if (!localVersion) {
                     localStorage.setItem('app_version', serverVersion);
                 }
-            } catch (error) {
+            } catch {
                 // Silently fail - version check is not critical for initial load
             }
         };

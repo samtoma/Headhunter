@@ -1,5 +1,5 @@
-import { useState, useEffect, useRef } from 'react';
-import { Sparkles, Loader2, X, AlertCircle, CheckCircle2, Globe } from 'lucide-react';
+import { useState, useEffect, useRef, useCallback } from 'react';
+import { Loader2, X, AlertCircle, CheckCircle2, Globe } from 'lucide-react';
 
 /**
  * CompanyProfileGenerator - Component for step-by-step company profile extraction
@@ -30,19 +30,37 @@ const CompanyProfileGenerator = ({ url, onComplete, onCancel }) => {
         "Generating company profile..."
     ];
 
-    // Auto-start extraction when component mounts
-    useEffect(() => {
-        if (url) {
-            connectWebSocket();
-        }
-        return () => {
-            if (wsRef.current) {
-                wsRef.current.close();
+    const handleWebSocketMessage = useCallback((data) => {
+        switch (data.type) {
+            case 'step': {
+                const stepNum = data.step;
+                setCurrentStep(stepNum);
+                setState(`step${stepNum}`);
+                break;
             }
-        };
-    }, [url, token]);
 
-    const connectWebSocket = () => {
+            case 'complete':
+                isCompleteRef.current = true;
+                setState('complete');
+                setTokensUsed(data.tokens_used || 0);
+                setLatency(data.latency_ms || 0);
+
+                if (onComplete) {
+                    onComplete(data.data);
+                }
+                break;
+
+            case 'error':
+                setError(data.message || 'An error occurred');
+                setState('error');
+                break;
+
+            default:
+                console.warn('Unknown message type:', data.type);
+        }
+    }, [onComplete]);
+
+    const connectWebSocket = useCallback(() => {
         if (!token) {
             setError('Authentication required');
             setState('error');
@@ -104,7 +122,7 @@ const CompanyProfileGenerator = ({ url, onComplete, onCancel }) => {
 
             wsRef.current.onclose = (event) => {
                 console.log('Company Profile WebSocket closed. Code:', event.code, 'Reason:', event.reason);
-                
+
                 // Use a small timeout to allow the 'complete' message to be processed
                 // and the isCompleteRef to be updated.
                 setTimeout(() => {
@@ -122,37 +140,19 @@ const CompanyProfileGenerator = ({ url, onComplete, onCancel }) => {
             setError('Failed to connect. Please try again.');
             setState('error');
         }
-    };
+    }, [token, url, handleWebSocketMessage]);
 
-    const handleWebSocketMessage = (data) => {
-        switch (data.type) {
-            case 'step': {
-                const stepNum = data.step;
-                setCurrentStep(stepNum);
-                setState(`step${stepNum}`);
-                break;
-            }
-
-            case 'complete':
-                isCompleteRef.current = true;
-                setState('complete');
-                setTokensUsed(data.tokens_used || 0);
-                setLatency(data.latency_ms || 0);
-
-                if (onComplete) {
-                    onComplete(data.data);
-                }
-                break;
-
-            case 'error':
-                setError(data.message || 'An error occurred');
-                setState('error');
-                break;
-
-            default:
-                console.warn('Unknown message type:', data.type);
+    // Auto-start extraction when component mounts
+    useEffect(() => {
+        if (url) {
+            connectWebSocket();
         }
-    };
+        return () => {
+            if (wsRef.current) {
+                wsRef.current.close();
+            }
+        };
+    }, [url, token, connectWebSocket]);
 
     const handleCancel = () => {
         if (wsRef.current) {

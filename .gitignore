@@ -47,3 +47,6 @@ frontend/cypress/videos/
 frontend/cypress/results/
 coverage/
 junit.xml
+
+# Stakpak session files
+.stakpak/session*

@@ -1,4 +1,4 @@
-import React from 'react'
+
 import { Activity, AlertCircle, Server, TrendingUp, Zap, CheckCircle, AlertTriangle, XCircle, Clock } from 'lucide-react'
 import MetricCard from '../shared/MetricCard'
 import TabHelpSection from '../shared/TabHelpSection'
@@ -26,8 +26,7 @@ const OverviewTab = ({
     setCleanupDays,
     previewCleanup,
     executeCleanup,
-    isCleaningUp,
-    thresholds
+    isCleaningUp
 }) => {
     const levelColors = {
         DEBUG: "#94a3b8",

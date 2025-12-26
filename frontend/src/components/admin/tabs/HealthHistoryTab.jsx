@@ -1,5 +1,5 @@
-import React, { useMemo } from 'react'
-import { RefreshCw, LayoutGrid, Calendar, AlertOctagon, CheckCircle2, XCircle } from 'lucide-react'
+import { useMemo } from 'react'
+import { RefreshCw, LayoutGrid, AlertOctagon, CheckCircle2, XCircle } from 'lucide-react'
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ReferenceLine } from 'recharts'
 import ServiceHealthCard from './components/ServiceHealthCard'
 import BusinessFlowCard from './components/BusinessFlowCard'
@@ -17,7 +17,7 @@ const healthKpis = [
     { term: 'Recent Incidents', description: 'Click any incident to view related logs with details.' }
 ]
 
-const HealthHistoryTab = ({ healthHistory, historyHours, setHistoryHours, historyInterval, setHistoryInterval, fetchHealthHistory, thresholds, businessMetrics, onIncidentClick }) => {
+const HealthHistoryTab = ({ healthHistory, historyHours, setHistoryHours, historyInterval, setHistoryInterval, fetchHealthHistory, businessMetrics, onIncidentClick }) => {
 
     // Memoize the chart data transformation
     const chartData = useMemo(() => {

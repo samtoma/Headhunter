@@ -14,7 +14,6 @@ const PipelineHeader = ({
     searchTerm,
     setSearchTerm,
     uploading,
-    performUpload,
     setUploadFiles,
     setShowUploadModal,
     sortBy,

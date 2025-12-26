@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react';
 import axios from 'axios';
 import {
-    CheckCircle, Calendar, Plus, ChevronRight, User,
-    MessageSquare, Star, Clock, AlertCircle, Sparkles,
-    ChevronDown, ChevronUp, UserPlus, Search, Filter,
+    CheckCircle, Calendar, ChevronRight,
+    Clock, AlertCircle, Sparkles,
+    ChevronDown, UserPlus, Search, Filter,
     Briefcase
 } from 'lucide-react';
 
@@ -47,13 +47,6 @@ const TimelineView = ({ jobId, onSelectCandidate, onScheduleInterview, refreshTr
             ...prev,
             [stage]: !prev[stage]
         }));
-    };
-
-    const isUpcoming = (dateString, status) => {
-        if (!dateString || status !== 'Scheduled') return false;
-        const d = new Date(dateString);
-        const now = new Date();
-        return d >= now;
     };
 
     if (loading) {

@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import { X, Search, User, Briefcase, Check, Plus, Upload, Loader2, AlertCircle } from 'lucide-react'
+import { X, Search, User, Check, Plus, Upload, Loader2 } from 'lucide-react'
 import axios from 'axios'
 import { safeList } from '../../utils/helpers'
 
@@ -18,9 +18,9 @@ const AddCandidateModal = ({ isOpen, onClose, job, onAddCandidates, onUpload }) 
             }
         }, 300)
         return () => clearTimeout(timeoutId)
-    }, [search, isOpen])
+    }, [search, isOpen, fetchCandidates])
 
-    const fetchCandidates = async () => {
+    const fetchCandidates = useCallback(async () => {
         setLoading(true)
         try {
             // Fetch profiles. We handle pagination simply for now (limit 50)
@@ -44,7 +44,7 @@ const AddCandidateModal = ({ isOpen, onClose, job, onAddCandidates, onUpload }) 
         } finally {
             setLoading(false)
         }
-    }
+    }, [search, job?.id])
 
     const toggleSelect = (id) => {
         if (selectedIds.includes(id)) {

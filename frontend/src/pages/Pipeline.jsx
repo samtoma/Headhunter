@@ -565,7 +565,7 @@ const Pipeline = ({ onOpenMobileSidebar }) => {
                             setShowScheduleModal(false);
                             setScheduleData(null);
                         }}
-                        onSchedule={(result) => {
+                        onSchedule={() => {
                             fetchProfiles();
                             setRefreshKey(prev => prev + 1);
                         }}

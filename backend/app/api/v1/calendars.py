@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from sqlalchemy.sql import func
-from typing import Any, Dict
+from typing import Dict
 import uuid
 from app.core.database import get_db
 from app.api.v1.auth import get_current_user

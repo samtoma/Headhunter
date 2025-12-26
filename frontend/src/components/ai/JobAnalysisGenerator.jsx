@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { Sparkles, Loader2, X, AlertCircle, CheckCircle2 } from 'lucide-react';
 
 /**
@@ -22,21 +22,67 @@ const JobAnalysisGenerator = ({ title, location, employmentType, fineTuning, dep
     const [latency, setLatency] = useState(0);
 
     const wsRef = useRef(null);
+    const isCompleteRef = useRef(false);
     const token = localStorage.getItem('token');
 
-    // Auto-start generation when component mounts
-    useEffect(() => {
-        if (title) {
-            connectWebSocket();
-        }
-        return () => {
-            if (wsRef.current) {
-                wsRef.current.close();
-            }
-        };
-    }, [title, location, employmentType, fineTuning, departmentId, departmentName, token]);
+    const handleWebSocketMessage = useCallback((data) => {
+        switch (data.type) {
+            case 'status':
+                setStatusMessage(data.message || 'Processing...');
+                if (data.status === 'thinking') {
+                    setState('thinking');
+                } else if (data.status === 'generating') {
+                    setState('generating');
+                }
+                break;
 
-    const connectWebSocket = () => {
+            case 'chunk':
+                setPreview(data.accumulated || data.content || '');
+                setState(prev => prev !== 'streaming' ? 'streaming' : prev);
+                break;
+
+            case 'complete': {
+                isCompleteRef.current = true;
+                setState('complete');
+                setStatusMessage('Analysis complete!');
+                setTokensUsed(data.tokens_used || 0);
+                setLatency(data.latency_ms || 0);
+
+                // Parse the data
+                const parseField = (val) => {
+                    if (Array.isArray(val)) return val;
+                    if (typeof val === 'string') {
+                        try { return JSON.parse(val); } catch { return []; }
+                    }
+                    return [];
+                };
+
+                const result = {
+                    ...data.data,
+                    responsibilities: parseField(data.data.responsibilities),
+                    qualifications: parseField(data.data.qualifications),
+                    preferred_qualifications: parseField(data.data.preferred_qualifications),
+                    benefits: parseField(data.data.benefits),
+                    skills_required: parseField(data.data.skills_required)
+                };
+
+                if (onComplete) {
+                    onComplete(result);
+                }
+                break;
+            }
+
+            case 'error':
+                setError(data.message || 'An error occurred');
+                setState('error');
+                break;
+
+            default:
+                console.warn('Unknown message type:', data.type);
+        }
+    }, [onComplete]);
+
+    const connectWebSocket = useCallback(() => {
         if (!token) {
             setError('Authentication required');
             setState('error');
@@ -53,6 +99,7 @@ const JobAnalysisGenerator = ({ title, location, employmentType, fineTuning, dep
         setStatusMessage('Connecting to AI service...');
         setError(null);
         setPreview('');
+        isCompleteRef.current = false;
 
         // Build query parameters
         const params = new URLSearchParams({
@@ -104,77 +151,35 @@ const JobAnalysisGenerator = ({ title, location, employmentType, fineTuning, dep
 
             wsRef.current.onclose = (event) => {
                 console.log('Job Analysis WebSocket closed. Code:', event.code, 'Reason:', event.reason);
-                if (state !== 'complete' && state !== 'error') {
-                    if (event.code !== 1000) {
-                        setError(event.reason || 'Connection closed unexpectedly');
-                        setState('error');
+
+                // Use a small timeout to allow the 'complete' message to be processed
+                setTimeout(() => {
+                    if (!isCompleteRef.current) {
+                        if (event.code !== 1000) {
+                            setError(event.reason || 'Connection closed unexpectedly');
+                            setState('error');
+                        }
                     }
-                }
+                }, 200);
             };
         } catch (error) {
             console.error('Failed to create WebSocket:', error);
             setError('Failed to connect. Please try again.');
             setState('error');
         }
-    };
+    }, [token, title, location, employmentType, fineTuning, departmentId, departmentName, handleWebSocketMessage]);
 
-    const handleWebSocketMessage = (data) => {
-        switch (data.type) {
-            case 'status':
-                setStatusMessage(data.message || 'Processing...');
-                if (data.status === 'thinking') {
-                    setState('thinking');
-                } else if (data.status === 'generating') {
-                    setState('generating');
-                }
-                break;
-
-            case 'chunk':
-                setPreview(data.accumulated || data.content || '');
-                if (state !== 'streaming') {
-                    setState('streaming');
-                }
-                break;
-
-            case 'complete': {
-                setState('complete');
-                setStatusMessage('Analysis complete!');
-                setTokensUsed(data.tokens_used || 0);
-                setLatency(data.latency_ms || 0);
-
-                // Parse the data
-                const parseField = (val) => {
-                    if (Array.isArray(val)) return val;
-                    if (typeof val === 'string') {
-                        try { return JSON.parse(val); } catch { return []; }
-                    }
-                    return [];
-                };
-
-                const result = {
-                    ...data.data,
-                    responsibilities: parseField(data.data.responsibilities),
-                    qualifications: parseField(data.data.qualifications),
-                    preferred_qualifications: parseField(data.data.preferred_qualifications),
-                    benefits: parseField(data.data.benefits),
-                    skills_required: parseField(data.data.skills_required)
-                };
-
-                if (onComplete) {
-                    onComplete(result);
-                }
-                break;
-            }
-
-            case 'error':
-                setError(data.message || 'An error occurred');
-                setState('error');
-                break;
-
-            default:
-                console.warn('Unknown message type:', data.type);
+    // Auto-start generation when component mounts
+    useEffect(() => {
+        if (title) {
+            connectWebSocket();
         }
-    };
+        return () => {
+            if (wsRef.current) {
+                wsRef.current.close();
+            }
+        };
+    }, [title, location, employmentType, fineTuning, departmentId, departmentName, token, connectWebSocket]);
 
     const handleCancel = () => {
         if (wsRef.current) {
@@ -286,4 +291,3 @@ const JobAnalysisGenerator = ({ title, location, employmentType, fineTuning, dep
 };
 
 export default JobAnalysisGenerator;
-

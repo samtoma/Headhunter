@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import axios from 'axios'
 import { Wifi, WifiOff } from 'lucide-react'
 
@@ -32,7 +32,7 @@ const AdminLogsDashboard = () => {
     const [businessMetrics, setBusinessMetrics] = useState(null)
     const [llmMetrics, setLlmMetrics] = useState(null)
     const [llmCompanyFilter, setLlmCompanyFilter] = useState('')
-    const [thresholds, setThresholds] = useState({
+    const [thresholds] = useState({
         response_time_warning_ms: 200,
         response_time_critical_ms: 500,
         error_rate_warning_percent: 1.0,
@@ -122,7 +122,7 @@ const AdminLogsDashboard = () => {
                 if (!dateStr) return null;
                 try {
                     return new Date(dateStr).toISOString();
-                } catch (e) {
+                } catch {
                     return dateStr;
                 }
             };
@@ -139,7 +139,7 @@ const AdminLogsDashboard = () => {
                 search_text: filters.searchText,
                 has_error: filters.hasError
             }
-            
+
             // Remove empty filters
             Object.keys(params).forEach(key => {
                 if (params[key] === "" || params[key] === null || params[key] === undefined) delete params[key]
