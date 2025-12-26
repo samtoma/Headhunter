@@ -10,16 +10,6 @@ const AddCandidateModal = ({ isOpen, onClose, job, onAddCandidates, onUpload }) 
     const [selectedIds, setSelectedIds] = useState([])
     const [adding, setAdding] = useState(false)
 
-    // Debounce search
-    useEffect(() => {
-        const timeoutId = setTimeout(() => {
-            if (isOpen) {
-                fetchCandidates()
-            }
-        }, 300)
-        return () => clearTimeout(timeoutId)
-    }, [search, isOpen, fetchCandidates])
-
     const fetchCandidates = useCallback(async () => {
         setLoading(true)
         try {
@@ -35,7 +25,7 @@ const AddCandidateModal = ({ isOpen, onClose, job, onAddCandidates, onUpload }) 
             // Filter out candidates who are already in the current job
             const available = (res.data.items || []).filter(p => {
                 const apps = safeList(p.applications)
-                return !apps.some(a => a.job_id === job.id)
+                return !apps.some(a => a.job_id === job?.id)
             })
 
             setCandidates(available)
@@ -45,6 +35,16 @@ const AddCandidateModal = ({ isOpen, onClose, job, onAddCandidates, onUpload }) 
             setLoading(false)
         }
     }, [search, job?.id])
+
+    // Debounce search
+    useEffect(() => {
+        const timeoutId = setTimeout(() => {
+            if (isOpen) {
+                fetchCandidates()
+            }
+        }, 300)
+        return () => clearTimeout(timeoutId)
+    }, [search, isOpen, fetchCandidates])
 
     const toggleSelect = (id) => {
         if (selectedIds.includes(id)) {
