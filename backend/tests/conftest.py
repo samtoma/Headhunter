@@ -7,6 +7,7 @@ import pytest
 os.environ["LOGS_DATABASE_URL"] = "sqlite:///:memory:"
 os.environ["DATABASE_URL"] = "sqlite:///:memory:"
 os.environ["ALLOW_MISSING_LOGS_DB"] = "true"
+os.environ["TESTING"] = "true"
 
 # Monkey patch JSONB to be JSON for SQLite compatibility (SystemLog/LLMLog use JSONB)
 import sqlalchemy.dialects.postgresql
