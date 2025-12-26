@@ -1,4 +1,4 @@
-import React from 'react'
+
 import { getStatusColor, formatDate } from '../utils/adminDashboardUtils'
 
 const InvitationsTab = ({ invitations }) => {

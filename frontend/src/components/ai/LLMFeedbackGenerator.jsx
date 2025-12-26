@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { Sparkles, Loader2, X, AlertCircle, CheckCircle2 } from 'lucide-react';
 
 /**
@@ -20,11 +20,71 @@ const LLMFeedbackGenerator = ({ interviewId, onComplete, onCancel }) => {
     const [error, setError] = useState(null);
     const [tokensUsed, setTokensUsed] = useState(0);
     const [latency, setLatency] = useState(0);
-    
+
     const wsRef = useRef(null);
+    const isCompleteRef = useRef(false);
     const token = localStorage.getItem('token');
 
-    const connectWebSocket = () => {
+    const handleWebSocketMessage = useCallback((data) => {
+        switch (data.type) {
+            case 'status':
+                if (data.status === 'thinking') {
+                    setState('thinking');
+                    setStatusMessage(data.message || 'AI is analyzing interview data...');
+                } else if (data.status === 'analyzing') {
+                    setState('thinking');
+                    setStatusMessage(data.message || 'Analyzing candidate profile and job requirements...');
+                } else if (data.status === 'generating') {
+                    setState('generating');
+                    setStatusMessage(data.message || 'Generating feedback...');
+                }
+                break;
+
+            case 'chunk':
+                // Use functional update to avoid reading state dependency, or rely on React bail-out
+                setState(prev => prev !== 'streaming' ? 'streaming' : prev);
+                setStatusMessage('Streaming feedback...');
+                if (data.accumulated) {
+                    setFeedback(data.accumulated);
+                } else if (data.content) {
+                    setFeedback(prev => prev + data.content);
+                }
+                // Update token count if provided in chunk
+                if (data.tokens_used) {
+                    setTokensUsed(data.tokens_used);
+                }
+                break;
+
+            case 'complete':
+                isCompleteRef.current = true;
+                setState('complete');
+                setStatusMessage('Feedback generation complete!');
+                setFeedback(prev => data.feedback || prev);
+                setTokensUsed(data.tokens_used || 0);
+                setLatency(data.latency_ms || 0);
+                if (onComplete && data.feedback) {
+                    onComplete(data.feedback);
+                }
+                // Close WebSocket
+                if (wsRef.current) {
+                    wsRef.current.close();
+                }
+                break;
+
+            case 'error':
+                setError(data.message || 'An error occurred');
+                setState('error');
+                if (wsRef.current) {
+                    wsRef.current.close();
+                }
+                break;
+
+            default:
+                console.warn('Unknown message type:', data.type);
+        }
+    }, [onComplete]);
+
+    const connectWebSocket = useCallback(() => {
         if (!token) {
             setError('Authentication required');
             setState('error');
@@ -35,13 +95,14 @@ const LLMFeedbackGenerator = ({ interviewId, onComplete, onCancel }) => {
         setStatusMessage('Connecting to AI service...');
         setError(null);
         setFeedback('');
+        isCompleteRef.current = false;
 
         // Determine WebSocket URL
         const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
         const wsHost = window.location.host;
         const wsPath = `/api/interviews/${interviewId}/generate-feedback/stream`;
         const wsUrl = `${wsProtocol}//${wsHost}${wsPath}?token=${encodeURIComponent(token)}`;
-        
+
         console.log('🔌 Connecting to LLM WebSocket:', {
             url: wsUrl.replace(/token=[^&]+/, 'token=***'),
             interviewId
@@ -75,76 +136,23 @@ const LLMFeedbackGenerator = ({ interviewId, onComplete, onCancel }) => {
 
             wsRef.current.onclose = (event) => {
                 console.log('LLM Feedback WebSocket closed. Code:', event.code, 'Reason:', event.reason);
-                if (state !== 'complete' && state !== 'error') {
-                    if (event.code !== 1000) {
-                        setError(event.reason || 'Connection closed unexpectedly');
-                        setState('error');
+
+                // Use a small timeout to allow the 'complete' message to be processed
+                setTimeout(() => {
+                    if (!isCompleteRef.current) {
+                        if (event.code !== 1000) {
+                            setError(event.reason || 'Connection closed unexpectedly');
+                            setState('error');
+                        }
                     }
-                }
+                }, 200);
             };
         } catch (error) {
             console.error('Failed to create WebSocket:', error);
             setError('Failed to connect. Please try again.');
             setState('error');
         }
-    };
-
-    const handleWebSocketMessage = (data) => {
-        switch (data.type) {
-            case 'status':
-                if (data.status === 'thinking') {
-                    setState('thinking');
-                    setStatusMessage(data.message || 'AI is analyzing interview data...');
-                } else if (data.status === 'analyzing') {
-                    setState('thinking');
-                    setStatusMessage(data.message || 'Analyzing candidate profile and job requirements...');
-                } else if (data.status === 'generating') {
-                    setState('generating');
-                    setStatusMessage(data.message || 'Generating feedback...');
-                }
-                break;
-
-            case 'chunk':
-                setState('streaming');
-                setStatusMessage('Streaming feedback...');
-                if (data.accumulated) {
-                    setFeedback(data.accumulated);
-                } else if (data.content) {
-                    setFeedback(prev => prev + data.content);
-                }
-                // Update token count if provided in chunk (though usually only in complete)
-                if (data.tokens_used) {
-                    setTokensUsed(data.tokens_used);
-                }
-                break;
-
-            case 'complete':
-                setState('complete');
-                setStatusMessage('Feedback generation complete!');
-                setFeedback(data.feedback || feedback);
-                setTokensUsed(data.tokens_used || 0);
-                setLatency(data.latency_ms || 0);
-                if (onComplete && data.feedback) {
-                    onComplete(data.feedback);
-                }
-                // Close WebSocket
-                if (wsRef.current) {
-                    wsRef.current.close();
-                }
-                break;
-
-            case 'error':
-                setError(data.message || 'An error occurred');
-                setState('error');
-                if (wsRef.current) {
-                    wsRef.current.close();
-                }
-                break;
-
-            default:
-                console.warn('Unknown message type:', data.type);
-        }
-    };
+    }, [token, interviewId, handleWebSocketMessage]);
 
     const handleStart = () => {
         connectWebSocket();
@@ -175,13 +183,13 @@ const LLMFeedbackGenerator = ({ interviewId, onComplete, onCancel }) => {
     useEffect(() => {
         // Auto-start generation when component is first shown
         connectWebSocket();
-        
+
         return () => {
             if (wsRef.current) {
                 wsRef.current.close();
             }
         };
-    }, []); // Only run on mount
+    }, [connectWebSocket]); // Only run on mount or if dependencies change
 
     // Note: Component auto-starts on mount, so idle state is rarely shown
     // It's only shown if user cancels and retries, or if there's an initialization delay
@@ -335,4 +343,3 @@ const LLMFeedbackGenerator = ({ interviewId, onComplete, onCancel }) => {
 };
 
 export default LLMFeedbackGenerator;
-

@@ -175,8 +175,9 @@ class TestExtractCompanyInfo:
         data = response.json()
         assert "departments" in data
         # Departments should be a JSON string
-        departments = json.loads(data["departments"])
-        assert isinstance(departments, list)
+        # Departments should be a comma-separated string
+        departments = data["departments"]
+        assert isinstance(departments, str)
         assert "Engineering" in departments
 
     @patch("app.api.v1.company.httpx.AsyncClient")

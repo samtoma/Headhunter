@@ -1,6 +1,6 @@
 from datetime import datetime, timedelta, timezone
 from typing import Optional
-import os
+
 from cryptography.fernet import Fernet
 from jose import jwt
 from passlib.context import CryptContext

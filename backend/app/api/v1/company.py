@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, WebSocket
-from sqlalchemy.orm import Session, joinedload
+from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.api.deps import get_current_user
 from app.models.models import User, UserRole
@@ -89,6 +89,13 @@ async def extract_company_info(
             # Extract metadata from page
             metadata = {}
             
+            # Initialize social links dictionary
+            social_links = {
+                "linkedin": None,
+                "twitter": None,
+                "facebook": None
+            }
+            
             # Try to find founded year in meta tags or structured data
             for meta in soup.find_all("meta"):
                 content = meta.get("content", "")
@@ -160,7 +167,7 @@ async def extract_company_info(
             if not logo_url:
                 for link in soup.find_all("link", rel=True):
                     rel = " ".join(link.get("rel", []))
-                    if any(r in rel for d in ["apple-touch-icon", "shortcut icon", "icon"]):
+                    if any(key in rel for key in ["apple-touch-icon", "shortcut icon", "icon"]):
                         href = link.get("href")
                         logo_url = make_absolute_url(href, url)
                         if logo_url:
@@ -233,15 +240,7 @@ async def extract_company_info(
                 if json_content:
                     text += "\n--- EXTRACTED FROM STATE ---\n" + json_content[:30000]
 
-            # Combine main text with additional pages
-            full_text = text + additional_text
-            
             # Extract social media links from page
-            social_links = {
-                "linkedin": None,
-                "twitter": None,
-                "facebook": None
-            }
             for link in soup.find_all("a", href=True):
                 href = link["href"]
                 if "linkedin.com" in href and not social_links["linkedin"]:
@@ -250,6 +249,9 @@ async def extract_company_info(
                     social_links["twitter"] = href
                 elif "facebook.com" in href and not social_links["facebook"]:
                     social_links["facebook"] = href
+            
+            # Combine main text with additional pages
+            full_text = text + additional_text
             
             fine_tuning_instruction = ""
             if request.fine_tuning:

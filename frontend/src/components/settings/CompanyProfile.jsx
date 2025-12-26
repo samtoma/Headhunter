@@ -27,7 +27,7 @@ const toJsonArray = (commaString) => {
 const CompanyProfile = ({ onOpenMobileSidebar }) => {
     const [activeTab, setActiveTab] = useState("basic")
     const [loading, setLoading] = useState(false)
-    const [regenerating, setRegenerating] = useState(false)
+    const [regenerating] = useState(false)
     const [showGenerator, setShowGenerator] = useState(false)
     const [data, setData] = useState({
         name: "",

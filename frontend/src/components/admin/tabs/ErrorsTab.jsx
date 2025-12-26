@@ -1,4 +1,4 @@
-import React from 'react'
+
 import { AlertTriangle, ChevronUp, ChevronDown } from 'lucide-react'
 import { formatDate } from '../utils/adminDashboardUtils'
 import TabHelpSection from '../shared/TabHelpSection'

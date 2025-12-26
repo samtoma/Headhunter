@@ -7,7 +7,7 @@ logger = logging.getLogger(__name__)
 class Settings:
     # Service Information
     PROJECT_NAME: str = "Headhunter AI"
-    VERSION: str = "1.18.1"
+    VERSION: str = "1.18.2"
     
     # Database Configurations
     # Main DB: Business Data (Users, Companies, Jobs)

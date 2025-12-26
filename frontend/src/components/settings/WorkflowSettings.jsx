@@ -135,7 +135,7 @@ const WorkflowSettings = ({ onOpenMobileSidebar }) => {
                             <div className="flex items-center justify-between p-4 bg-slate-50 rounded-xl border border-slate-100">
                                 <div>
                                     <h4 className="font-bold text-slate-800 text-sm">Enable Interview Invitations</h4>
-                                    <p className="text-xs text-slate-500 mt-0.5">Automatically check the "Send Email Invitation" box when scheduling interviews.</p>
+                                    <p className="text-xs text-slate-500 mt-0.5">Automatically check the &quot;Send Email Invitation&quot; box when scheduling interviews.</p>
                                 </div>
                                 <label className="relative inline-flex items-center cursor-pointer">
                                     <input

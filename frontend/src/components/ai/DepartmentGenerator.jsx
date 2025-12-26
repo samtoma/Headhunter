@@ -1,5 +1,5 @@
-import { useState, useEffect, useRef } from 'react';
-import { Sparkles, Loader2, X, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { useState, useEffect, useRef, useCallback } from 'react';
+import { Loader2, X, AlertCircle, CheckCircle2 } from 'lucide-react';
 
 /**
  * DepartmentGenerator - Component for step-by-step department generation
@@ -30,19 +30,37 @@ const DepartmentGenerator = ({ name, fineTuning, onComplete, onCancel }) => {
         "Finalizing department profile..."
     ];
 
-    // Auto-start generation when component mounts
-    useEffect(() => {
-        if (name) {
-            connectWebSocket();
-        }
-        return () => {
-            if (wsRef.current) {
-                wsRef.current.close();
+    const handleWebSocketMessage = useCallback((data) => {
+        switch (data.type) {
+            case 'step': {
+                const stepNum = data.step;
+                setCurrentStep(stepNum);
+                setState(`step${stepNum}`);
+                break;
             }
-        };
-    }, [name, fineTuning, token]);
 
-    const connectWebSocket = () => {
+            case 'complete':
+                isCompleteRef.current = true;
+                setState('complete');
+                setTokensUsed(data.tokens_used || 0);
+                setLatency(data.latency_ms || 0);
+
+                if (onComplete) {
+                    onComplete(data.data);
+                }
+                break;
+
+            case 'error':
+                setError(data.message || 'An error occurred');
+                setState('error');
+                break;
+
+            default:
+                console.warn('Unknown message type:', data.type);
+        }
+    }, [onComplete]);
+
+    const connectWebSocket = useCallback(() => {
         if (!token) {
             setError('Authentication required');
             setState('error');
@@ -107,7 +125,7 @@ const DepartmentGenerator = ({ name, fineTuning, onComplete, onCancel }) => {
 
             wsRef.current.onclose = (event) => {
                 console.log('Department Generation WebSocket closed. Code:', event.code, 'Reason:', event.reason);
-                
+
                 // Use a small timeout to allow the 'complete' message to be processed
                 // and the isCompleteRef to be updated.
                 setTimeout(() => {
@@ -125,37 +143,19 @@ const DepartmentGenerator = ({ name, fineTuning, onComplete, onCancel }) => {
             setError('Failed to connect. Please try again.');
             setState('error');
         }
-    };
+    }, [token, name, fineTuning, handleWebSocketMessage]);
 
-    const handleWebSocketMessage = (data) => {
-        switch (data.type) {
-            case 'step': {
-                const stepNum = data.step;
-                setCurrentStep(stepNum);
-                setState(`step${stepNum}`);
-                break;
-            }
-
-            case 'complete':
-                isCompleteRef.current = true;
-                setState('complete');
-                setTokensUsed(data.tokens_used || 0);
-                setLatency(data.latency_ms || 0);
-
-                if (onComplete) {
-                    onComplete(data.data);
-                }
-                break;
-
-            case 'error':
-                setError(data.message || 'An error occurred');
-                setState('error');
-                break;
-
-            default:
-                console.warn('Unknown message type:', data.type);
+    // Auto-start generation when component mounts
+    useEffect(() => {
+        if (name) {
+            connectWebSocket();
         }
-    };
+        return () => {
+            if (wsRef.current) {
+                wsRef.current.close();
+            }
+        };
+    }, [name, fineTuning, token, connectWebSocket]);
 
     const handleCancel = () => {
         if (wsRef.current) {
@@ -280,14 +280,14 @@ const DepartmentGenerator = ({ name, fineTuning, onComplete, onCancel }) => {
                                 return (
                                     <div key={index} className="flex items-center gap-2 text-xs">
                                         <div className={`w-4 h-4 rounded-full flex items-center justify-center text-white text-xs font-bold ${isCompleted ? 'bg-green-500' :
-                                                isActive ? 'bg-indigo-600' :
-                                                    'bg-indigo-300'
+                                            isActive ? 'bg-indigo-600' :
+                                                'bg-indigo-300'
                                             }`}>
                                             {isCompleted ? '✓' : stepNumber}
                                         </div>
                                         <span className={`${isCompleted ? 'text-green-700' :
-                                                isActive ? 'text-indigo-900 font-medium' :
-                                                    'text-indigo-500'
+                                            isActive ? 'text-indigo-900 font-medium' :
+                                                'text-indigo-500'
                                             }`}>
                                             {stepText}
                                         </span>

@@ -1,8 +1,7 @@
-import React from 'react'
-import { Activity, CheckCircle, AlertTriangle, XCircle, Clock, Database } from 'lucide-react'
-import { ResponsiveContainer, AreaChart, Area, Tooltip } from 'recharts'
+import { Activity, CheckCircle, AlertTriangle, XCircle, Clock } from 'lucide-react'
+import { ResponsiveContainer, AreaChart, Area } from 'recharts'
 
-const ServiceHealthCard = ({ name, status, responseTime, errorRate, history }) => {
+const ServiceHealthCard = ({ name, status, responseTime, history }) => {
     // Generate mini sparkline data from history
     const sparklineData = history.map(point => {
         const service = point.services?.find(s => s.name === name)

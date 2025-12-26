@@ -1,6 +1,4 @@
-
-import React from 'react'
-import { ArrowUp, ArrowDown, Activity, CheckCircle, AlertTriangle, Clock } from 'lucide-react'
+import { ArrowUp, ArrowDown, CheckCircle, AlertTriangle, Clock } from 'lucide-react'
 
 const BusinessFlowCard = ({ flow }) => {
     const isPositive = flow.trend_percent >= 0

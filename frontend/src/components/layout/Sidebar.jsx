@@ -1,4 +1,4 @@
-import { BrainCircuit, LayoutDashboard, Briefcase as BriefcaseIcon, Archive, Layers, Lock, Plus, Settings, LogOut, Building2, X, ChevronDown, ChevronRight, Users, Calendar, Sparkles, TrendingUp, GanttChart } from 'lucide-react'
+import { BrainCircuit, LayoutDashboard, Briefcase as BriefcaseIcon, Archive, Layers, Lock, Plus, Settings, LogOut, Building2, X, ChevronDown, ChevronRight, Calendar, Sparkles, TrendingUp, GanttChart } from 'lucide-react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import { useHeadhunter } from '../../context/HeadhunterContext'
@@ -135,7 +135,7 @@ const Sidebar = ({ isMobileOpen, setIsMobileOpen }) => {
                                     const formData = new FormData();
                                     formData.append('file', file);
 
-                                    const res = await axios.post('/api/users/me/avatar', {
+                                    await axios.post('/api/users/me/avatar', {
                                         headers: { 'Content-Type': 'multipart/form-data' }
                                     });
 
@@ -153,7 +153,7 @@ const Sidebar = ({ isMobileOpen, setIsMobileOpen }) => {
                                     // Ref: Step 78 lines 140-142.
                                     // I will correct it in the file content below.
 
-                                } catch (err) {
+                                } catch {
                                     // ...
                                 }
                             }}

@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
 import {
-    Calendar, Clock, User, ChevronDown, ChevronUp, MessageSquare,
+    Calendar, User, ChevronDown, ChevronUp, MessageSquare,
     Star, Plus, RefreshCw, ArrowRight, Globe
 } from 'lucide-react';
 
@@ -68,10 +68,7 @@ const UnifiedActivityFeed = ({
         return d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
     };
 
-    const formatTime = (dateStr) => {
-        if (!dateStr) return '';
-        return new Date(dateStr).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
-    };
+
 
     const getOutcomeColor = (outcome) => {
         switch (outcome?.toLowerCase()) {

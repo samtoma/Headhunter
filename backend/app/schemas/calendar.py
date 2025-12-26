@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field
-from typing import List, Optional, Dict, Any
+from typing import List, Optional
 
 class CalendarEventDateTime(BaseModel):
     dateTime: str = Field(..., description="ISO 8601 date-time string")

@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { Calendar, Check, X, RefreshCw, Trash2, ExternalLink, Loader2 } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Calendar, Check, RefreshCw, Trash2, ExternalLink, Loader2 } from 'lucide-react';
 import api from '../../services/api';
 
 const CalendarSettings = () => {

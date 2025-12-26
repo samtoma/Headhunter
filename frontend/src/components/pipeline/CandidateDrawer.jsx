@@ -2,8 +2,8 @@ import { useState, useMemo, useEffect, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import {
     MapPin, User, Briefcase, Bug, Pencil, X, ExternalLink, Linkedin, Github,
-    FileText, BrainCircuit, GraduationCap, Layers, LayoutGrid, DollarSign, Star,
-    Check, Save, ChevronDown, Heart, Flag, MessageSquare, Clock, Plus, Lock, Globe
+    FileText, BrainCircuit, GraduationCap, LayoutGrid, DollarSign, Star,
+    Check, Save, ChevronDown, Heart, Flag, MessageSquare, Clock, Plus, Lock
 } from 'lucide-react'
 import axios from 'axios'
 import { useAuth } from '../../context/AuthContext'

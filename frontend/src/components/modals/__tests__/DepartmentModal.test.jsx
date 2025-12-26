@@ -1,7 +1,6 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import DepartmentModal from '../../modals/DepartmentModal'
-import axios from 'axios'
 
 // Mock axios
 vi.mock('axios')
@@ -107,8 +106,7 @@ describe('DepartmentModal AI Generation', () => {
         await waitFor(() => {
             // The button with "Generate" text is conditionally shown based on showGenerator
             // When generator is visible (showGenerator=true), button is hidden
-            const buttons = screen.queryAllByRole('button')
-            const hasGenerateButton = buttons.some(btn => btn.textContent?.includes('Generate'))
+
             // Note: Generate button should disappear when showGenerator is true
             // But if generator isn't rendered in test, button may still exist
         }, { timeout: 100 })

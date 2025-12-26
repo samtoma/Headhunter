@@ -1,4 +1,4 @@
-import React from 'react';
+
 
 const SettingsTabs = ({ tabs, activeTab, onTabChange }) => {
     return (

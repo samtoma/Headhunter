@@ -1,9 +1,7 @@
-import React from 'react';
-import { NavLink, Outlet, useLocation } from 'react-router-dom';
+import { NavLink, Outlet } from 'react-router-dom';
 import { Settings, Building2, Users, GitBranch, Calendar, LayoutGrid, Sliders } from 'lucide-react';
 
 const SettingsLayout = ({ onOpenMobileSidebar }) => {
-    const location = useLocation();
 
     const navItems = [
         { path: '/settings/general', label: 'General Options', icon: Sliders },

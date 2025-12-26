@@ -97,7 +97,7 @@ describe('InterviewerDashboard Component', () => {
 
         await waitFor(() => screen.getByText('John Doe'));
 
-        fireEvent.click(screen.getByText(/Past/));
+        fireEvent.click(screen.getByText(/History/));
 
         await waitFor(() => {
             expect(screen.getByText('Jane Smith')).toBeInTheDocument();
@@ -113,7 +113,7 @@ describe('InterviewerDashboard Component', () => {
 
         await waitFor(() => screen.getByText('John Doe'));
 
-        fireEvent.click(screen.getByText(/Past/));
+        fireEvent.click(screen.getByText(/History/));
 
         await waitFor(() => {
             // Cancelled interview should appear in past tab
@@ -142,7 +142,7 @@ describe('InterviewerDashboard Component', () => {
         render(<InterviewerDashboard onOpenMobileSidebar={() => { }} />);
 
         await waitFor(() => {
-            expect(screen.getByText(/No upcoming interviews found/i)).toBeInTheDocument();
+            expect(screen.getByText(/No active assignments found/i)).toBeInTheDocument();
         });
     });
 });

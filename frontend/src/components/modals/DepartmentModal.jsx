@@ -12,7 +12,7 @@ const DepartmentModal = ({ isOpen, onClose, department, onSave }) => {
     })
     const [techInput, setTechInput] = useState("")
     const [loading, setLoading] = useState(false)
-    const [generating, setGenerating] = useState(false)
+    const [generating] = useState(false)
     const [showGenerator, setShowGenerator] = useState(false)
 
     useEffect(() => {
