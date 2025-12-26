@@ -38,7 +38,6 @@ def test_signup_flow(client, db):
         "password": "password123"
     })
     assert res.status_code in [400, 422]
-    assert res.status_code in [400, 422]
     # Pydantic returns list of dicts for 422, application might return string for 400
     # assert "Invalid email" in res.json()["detail"]
 
