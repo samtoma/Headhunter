@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 from datetime import datetime, timedelta, timezone
@@ -7,7 +7,7 @@ from app.models.models import User, Company, UserRole, ActivityLog
 from app.api.deps import get_current_user
 from app.core.security import verify_password, get_password_hash, create_access_token, ACCESS_TOKEN_EXPIRE_MINUTES
 from app.core.logging import auth_logger
-from pydantic import BaseModel
+from pydantic import BaseModel, EmailStr
 from typing import Optional
 import logging
 
@@ -28,20 +28,21 @@ class Token(BaseModel):
     is_verified: bool = False  # Email verification status
 
 class UserCreate(BaseModel):
-    email: str
+    email: EmailStr
     password: str
     full_name: Optional[str] = None  # Optional display name
 
 @router.post("/signup", response_model=Token)
-async def signup(user: UserCreate, db: Session = Depends(get_db)):
+async def signup(
+    user: UserCreate, 
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db)
+):
     db_user = db.query(User).filter(User.email == user.email).first()
     if db_user:
         raise HTTPException(status_code=400, detail="Email already registered")
     
     # Domain Extraction & Company Logic
-    if "@" not in user.email:
-        raise HTTPException(status_code=400, detail="Invalid email format")
-    
     domain = user.email.split("@")[1]
     company = db.query(Company).filter(Company.domain == domain).first()
     
@@ -69,16 +70,16 @@ async def signup(user: UserCreate, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(new_user)
 
-    # Send Verification Email
+    # Send Verification Email (Asynchronously)
     try:
         verification_token = create_access_token(
             data={"sub": new_user.email, "type": "verification"}, 
             expires_delta=timedelta(hours=24)
         )
         from app.core.email import send_verification_email
-        await send_verification_email(new_user.email, verification_token)
+        background_tasks.add_task(send_verification_email, new_user.email, verification_token)
     except Exception as e:
-        auth_logger.log_action(action="error", message=f"Failed to send verification email: {str(e)}", user_id=new_user.id, user_email=new_user.email, company_id=company.id)
+        auth_logger.log_action(action="error", message=f"Failed to queue verification email: {str(e)}", user_id=new_user.id, user_email=new_user.email, company_id=company.id)
     
     access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     access_token = create_access_token(
@@ -177,7 +178,11 @@ def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(), db:
     }
 
 @router.post("/resend-verification")
-async def resend_verification(email: str, db: Session = Depends(get_db)):
+async def resend_verification(
+    email: EmailStr, 
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db)
+):
     user = db.query(User).filter(User.email == email).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
@@ -188,12 +193,16 @@ async def resend_verification(email: str, db: Session = Depends(get_db)):
     verification_token = create_access_token(data={"sub": user.email, "type": "verification"}, expires_delta=timedelta(hours=24))
     
     from app.core.email import send_verification_email
-    await send_verification_email(user.email, verification_token)
+    background_tasks.add_task(send_verification_email, user.email, verification_token)
     
     return {"message": "Verification email sent"}
 
 @router.post("/send-verification")
-async def send_verification(email: str, db: Session = Depends(get_db)):
+async def send_verification(
+    email: EmailStr, 
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db)
+):
     user = db.query(User).filter(User.email == email).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
@@ -204,7 +213,7 @@ async def send_verification(email: str, db: Session = Depends(get_db)):
     verification_token = create_access_token(data={"sub": user.email, "type": "verification"}, expires_delta=timedelta(hours=24))
     
     from app.core.email import send_verification_email
-    await send_verification_email(user.email, verification_token)
+    background_tasks.add_task(send_verification_email, user.email, verification_token)
     
     return {"message": "Verification email sent"}
 
@@ -255,7 +264,11 @@ def read_users_me(current_user: User = Depends(get_current_user), db: Session = 
     }
 
 @router.post("/forgot-password")
-async def forgot_password(email: str, db: Session = Depends(get_db)):
+async def forgot_password(
+    email: EmailStr, 
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db)
+):
     """Request a password reset email."""
     import uuid
     from datetime import timedelta
@@ -281,16 +294,17 @@ async def forgot_password(email: str, db: Session = Depends(get_db)):
     db.add(reset_token)
     db.commit()
     
-    # Send email
+    # Send email (Asynchronously)
     try:
-        await send_password_reset_email(
+        background_tasks.add_task(
+            send_password_reset_email,
             email=user.email,
             token=token,
             user_name=user.full_name or user.email.split("@")[0]
         )
     except Exception as e:
         # Log but don't expose email errors
-        logger.error(f"Failed to send reset email: {e}")
+        logger.error(f"Failed to queue reset email: {e}")
     
     return {"message": "If an account exists with that email, a password reset link has been sent."}
 

@@ -4,6 +4,7 @@ import os
 from cryptography.fernet import Fernet
 from jose import jwt
 from passlib.context import CryptContext
+from app.core.config import settings
 import logging
 
 logger = logging.getLogger(__name__)
@@ -13,15 +14,11 @@ SECRET_KEY = "supersecretkey"
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 1440
 
-# Default DEV key (replace with real one in production env)
-DEV_KEY = "DT5F69b_Al-O81XZnOK5V9WDB8OH21uMfdgZzh3SKpE="
-ENCRYPTION_KEY = os.getenv("ENCRYPTION_KEY", DEV_KEY)
-
 try:
-    fernet = Fernet(ENCRYPTION_KEY)
+    fernet = Fernet(settings.ENCRYPTION_KEY)
 except Exception as e:
     logger.warning(f"Invalid ENCRYPTION_KEY, using default dev key. Error: {e}")
-    fernet = Fernet(DEV_KEY)
+    fernet = Fernet(settings.DEV_KEY)
 
 def encrypt_token(token: str) -> str:
     """Encrypts a token string."""

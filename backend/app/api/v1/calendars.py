@@ -7,6 +7,7 @@ from app.core.database import get_db
 from app.api.v1.auth import get_current_user
 from app.models.models import User, CalendarConnection
 from app.core.security import encrypt_token, decrypt_token
+from app.schemas.calendar import CalendarEventCreate
 from app.services.calendar.google_calendar import GoogleCalendarProvider
 from app.services.calendar.microsoft_calendar import MicrosoftCalendarProvider
 import logging
@@ -159,7 +160,7 @@ def list_events(
 
 @router.post("/events")
 def create_event(
-    event_data: Dict[str, Any],
+    event_data: CalendarEventCreate,
     provider: str = "google",
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
@@ -179,7 +180,8 @@ def create_event(
     decrypted_refresh = decrypt_token(conn.refresh_token) if conn.refresh_token else None
     
     try:
-        event = providers[provider].create_event(decrypted_access, decrypted_refresh, event_data)
+        # Convert Pydantic model to dict for the provider
+        event = providers[provider].create_event(decrypted_access, decrypted_refresh, event_data.model_dump())
         return event
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

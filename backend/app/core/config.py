@@ -14,17 +14,11 @@ class Settings:
     DATABASE_URL: str = os.getenv("DATABASE_URL", "postgresql://user:password@localhost:30002/headhunter_db")
     
     # Logs DB: High-volume System & LLM Logs
-    # STRICTLY REQUIRED - Fail if missing to enforce architecture
-    _logs_db_url = os.getenv("LOGS_DATABASE_URL")
-    if not _logs_db_url:
-        # Fallback for CI/Test environments if explicitly allowed, otherwise RAISE
-        if os.getenv("ALLOW_MISSING_LOGS_DB", "false").lower() == "true":
-            LOGS_DATABASE_URL = DATABASE_URL # Dangerous fallback, only for dev/test
-            logger.warning("LOGS_DATABASE_URL invalid. Using DATABASE_URL fallback (Dev Mode).")
-        else:
-            raise ValueError("CRITICAL: LOGS_DATABASE_URL is not set. Architecture requires separate logs DB.")
-    else:
-        LOGS_DATABASE_URL: str = _logs_db_url
+    # Default to DATABASE_URL if LOGS_DATABASE_URL is missing to simplify onboarding
+    LOGS_DATABASE_URL: str = os.getenv("LOGS_DATABASE_URL") or DATABASE_URL
+    
+    if LOGS_DATABASE_URL == DATABASE_URL:
+        logger.warning("LOGS_DATABASE_URL not set. Falling back to main DATABASE_URL.")
 
     # Redis Configuration
     # Unified Redis URL for proper connection pooling
@@ -49,5 +43,9 @@ class Settings:
     
     # Logging Configuration
     LOG_THREAD_POOL_SIZE: int = int(os.getenv("LOG_THREAD_POOL_SIZE", "2"))  # Thread pool size for logging operations
+
+    # Security Configuration
+    DEV_KEY: str = "DT5F69b_Al-O81XZnOK5V9WDB8OH21uMfdgZzh3SKpE="
+    ENCRYPTION_KEY: str = os.getenv("ENCRYPTION_KEY", DEV_KEY)
 
 settings = Settings()
