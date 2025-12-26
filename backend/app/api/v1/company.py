@@ -16,6 +16,7 @@ import asyncio
 from app.core.llm_logging import LLMLogger
 from jose import jwt, JWTError
 from app.core.security import SECRET_KEY, ALGORITHM
+from app.core.validators import validate_safe_url
 
 logger = logging.getLogger(__name__)
 router = APIRouter(tags=["Company"])
@@ -75,6 +76,9 @@ async def extract_company_info(
     url = request.url
     if not url.startswith("http"):
         url = "https://" + url
+        
+    # Validate URL for SSRF
+    validate_safe_url(url)
         
     try:
         async with httpx.AsyncClient(follow_redirects=True, timeout=20.0) as http_client:
@@ -554,6 +558,21 @@ async def stream_company_profile_extraction(websocket: WebSocket):
                 "type": "error",
                 "message": "Company not found and user is not a super admin",
                 "code": "COMPANY_NOT_FOUND"
+            })
+            await websocket.close()
+            socket_open = False
+            return
+            
+        # Validate URL for SSRF
+        try:
+            if not url.startswith("http"):
+                 url = "https://" + url
+            validate_safe_url(url)
+        except HTTPException as e:
+            await websocket.send_json({
+                "type": "error",
+                "message": e.detail,
+                "code": "INVALID_URL"
             })
             await websocket.close()
             socket_open = False

@@ -218,6 +218,31 @@ class TestExtractCompanyInfo:
         assert "twitter.com" in data["social_twitter"]
 
 
+    def test_extract_blocks_private_ip(self, authenticated_client):
+        """Test that extraction blocks explicitly private IP addresses."""
+        response = authenticated_client.post(
+            "/company/extract_info",
+            json={"url": "http://127.0.0.1/sensitive"}
+        )
+        
+        assert response.status_code == 400
+        assert "access to local" in response.json()["detail"].lower()
+
+    @patch("app.core.validators.socket.gethostbyname")
+    def test_extract_blocks_resolved_private_ip(self, mock_gethost, authenticated_client):
+        """Test that extraction blocks domains resolving to private IPs."""
+        mock_gethost.return_value = "192.168.1.5"
+        
+        response = authenticated_client.post(
+            "/company/extract_info",
+            json={"url": "http://internal-corp.local"}
+        )
+        
+        assert response.status_code == 400
+        # The exact message depends on the validator implementation for private IPs
+        assert "access to private" in response.json()["detail"].lower()
+
+
 class TestRegenerateCompanyProfile:
     """Tests for the regenerate company profile endpoint."""
 
