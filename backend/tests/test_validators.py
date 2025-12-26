@@ -1,5 +1,5 @@
 import pytest
-from app.core.validators import validate_safe_url
+from app.core.validators import validate_safe_url, validate_social_link
 from fastapi import HTTPException
 from unittest.mock import patch
 
@@ -49,3 +49,24 @@ def test_validate_safe_url_aws_metadata():
         with pytest.raises(HTTPException) as exc:
             validate_safe_url("http://169.254.169.254/latest/meta-data")
     assert "private/local" in exc.value.detail or "Access to" in exc.value.detail
+
+
+def test_validate_social_link_valid():
+    assert validate_social_link("https://linkedin.com/in/user", "linkedin") is True
+    assert validate_social_link("https://www.linkedin.com/in/user", "linkedin") is True
+    assert validate_social_link("https://uk.linkedin.com/in/user", "linkedin") is True
+    assert validate_social_link("linkedin.com/in/user", "linkedin") is True # Should handle missing protocol
+
+def test_validate_social_link_invalid_phishing():
+    assert validate_social_link("https://evil-linkedin.com", "linkedin") is False
+    assert validate_social_link("https://linkedin.com.evil.com", "linkedin") is False
+    assert validate_social_link("https://not-linkedin.com", "linkedin") is False
+
+def test_validate_social_link_twitter_x():
+    assert validate_social_link("https://twitter.com/user", "twitter") is True
+    assert validate_social_link("https://x.com/user", "twitter") is True
+    assert validate_social_link("https://www.x.com/user", "twitter") is True
+
+def test_validate_social_link_facebook():
+    assert validate_social_link("https://facebook.com/user", "facebook") is True
+    assert validate_social_link("https://evil-facebook.com", "facebook") is False

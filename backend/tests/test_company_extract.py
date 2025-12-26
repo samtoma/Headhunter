@@ -4,6 +4,7 @@ Tests for company profile extraction and regeneration functionality.
 import pytest
 from unittest.mock import patch, AsyncMock, MagicMock
 import json
+from app.core.validators import validate_social_link
 
 
 # Mock HTML content for testing
@@ -214,8 +215,8 @@ class TestExtractCompanyInfo:
         assert response.status_code == 200
         data = response.json()
         assert "social_linkedin" in data
-        assert "linkedin.com" in data["social_linkedin"]
-        assert "twitter.com" in data["social_twitter"]
+        assert validate_social_link(data["social_linkedin"], "linkedin")
+        assert validate_social_link(data["social_twitter"], "twitter")
 
 
     def test_extract_blocks_private_ip(self, authenticated_client):

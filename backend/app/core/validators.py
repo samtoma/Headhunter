@@ -51,3 +51,31 @@ def validate_safe_url(url: str):
         raise HTTPException(status_code=400, detail="Invalid IP address resolved.")
 
     return True
+
+def validate_social_link(url: str, provider: str) -> bool:
+    """
+    Validates if a URL belongs to a specific social media provider.
+    Prevents "evil-linkedin.com" attacks by checking hostname strictly.
+    """
+    try:
+        if not url.startswith("http"):
+            url = "https://" + url
+        parsed = urlparse(url)
+        hostname = parsed.hostname
+        if not hostname:
+            return False
+            
+        hostname = hostname.lower()
+        
+        # Strict suffix check to allow localized subdomains (e.g. uk.linkedin.com)
+        # but block evil-linkedin.com
+        target_domain = f"{provider}.com"
+        if provider == "twitter":
+             # special case for X
+             return (hostname == "twitter.com" or hostname.endswith(".twitter.com") or 
+                     hostname == "x.com" or hostname.endswith(".x.com"))
+
+        return hostname == target_domain or hostname.endswith(f".{target_domain}")
+            
+    except Exception:
+        return False

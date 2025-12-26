@@ -31,7 +31,7 @@ def create_super_admin():
         db.add(db_user)
         db.commit()
         db.refresh(db_user)
-        print(f"Super admin created: {email} / {password}")
+        print(f"Super admin created: {email} / ***")
         
     except Exception as e:
         print(f"Error creating super admin: {e}")

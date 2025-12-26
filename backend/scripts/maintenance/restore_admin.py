@@ -35,7 +35,7 @@ def restore_super_admin():
             )
             db.add(db_user)
             db.commit()
-            print(f"Super admin created: {email} / {password}")
+            print(f"Super admin created: {email} / ***")
         
     except Exception as e:
         print(f"Error restoring super admin: {e}")
