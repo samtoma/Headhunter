@@ -17,6 +17,8 @@ from app.core.llm_logging import LLMLogger
 from jose import jwt, JWTError
 from app.core.security import SECRET_KEY, ALGORITHM
 
+from app.core.validators import validate_safe_url, validate_social_link
+
 logger = logging.getLogger(__name__)
 router = APIRouter(tags=["Company"])
 
@@ -75,6 +77,9 @@ async def extract_company_info(
     url = request.url
     if not url.startswith("http"):
         url = "https://" + url
+        
+    # Validate URL for SSRF
+    validate_safe_url(url)
         
     try:
         async with httpx.AsyncClient(follow_redirects=True, timeout=20.0) as http_client:
@@ -221,11 +226,11 @@ async def extract_company_info(
                                 all_found = re.findall(r'"(.*?)"', raw_json)
                                 for s in all_found:
                                     # Capture social links from JSON state
-                                    if "linkedin.com" in s and not social_links["linkedin"]:
+                                    if validate_social_link(s, "linkedin") and not social_links["linkedin"]:
                                         social_links["linkedin"] = s
-                                    elif ("twitter.com" in s or "x.com" in s) and not social_links["twitter"]:
+                                    elif validate_social_link(s, "twitter") and not social_links["twitter"]:
                                         social_links["twitter"] = s
-                                    elif "facebook.com" in s and not social_links["facebook"]:
+                                    elif validate_social_link(s, "facebook") and not social_links["facebook"]:
                                         social_links["facebook"] = s
 
                                     # Filter out technical keys and short strings
@@ -243,11 +248,11 @@ async def extract_company_info(
             # Extract social media links from page
             for link in soup.find_all("a", href=True):
                 href = link["href"]
-                if "linkedin.com" in href and not social_links["linkedin"]:
+                if validate_social_link(href, "linkedin") and not social_links["linkedin"]:
                     social_links["linkedin"] = href
-                elif ("twitter.com" in href or "x.com" in href) and not social_links["twitter"]:
+                elif validate_social_link(href, "twitter") and not social_links["twitter"]:
                     social_links["twitter"] = href
-                elif "facebook.com" in href and not social_links["facebook"]:
+                elif validate_social_link(href, "facebook") and not social_links["facebook"]:
                     social_links["facebook"] = href
             
             # Combine main text with additional pages
@@ -558,6 +563,21 @@ async def stream_company_profile_extraction(websocket: WebSocket):
             await websocket.close()
             socket_open = False
             return
+            
+        # Validate URL for SSRF
+        try:
+            if not url.startswith("http"):
+                 url = "https://" + url
+            validate_safe_url(url)
+        except HTTPException as e:
+            await websocket.send_json({
+                "type": "error",
+                "message": e.detail,
+                "code": "INVALID_URL"
+            })
+            await websocket.close()
+            socket_open = False
+            return
 
         # Step 1: Fetching website content
         await websocket.send_json({
@@ -584,11 +604,11 @@ async def stream_company_profile_extraction(websocket: WebSocket):
                 }
                 for link in soup.find_all("a", href=True):
                     href = link["href"]
-                    if "linkedin.com" in href and not social_links["linkedin"]:
+                    if validate_social_link(href, "linkedin") and not social_links["linkedin"]:
                         social_links["linkedin"] = href
-                    elif ("twitter.com" in href or "x.com" in href) and not social_links["twitter"]:
+                    elif validate_social_link(href, "twitter") and not social_links["twitter"]:
                         social_links["twitter"] = href
-                    elif "facebook.com" in href and not social_links["facebook"]:
+                    elif validate_social_link(href, "facebook") and not social_links["facebook"]:
                         social_links["facebook"] = href
 
                 # Helper function to make absolute URLs
@@ -642,11 +662,11 @@ async def stream_company_profile_extraction(websocket: WebSocket):
                                     all_found = re.findall(r'"(.*?)"', raw_json)
                                     for s in all_found:
                                         # Capture social links from JSON state
-                                        if "linkedin.com" in s and not social_links["linkedin"]:
+                                        if validate_social_link(s, "linkedin") and not social_links["linkedin"]:
                                             social_links["linkedin"] = s
-                                        elif ("twitter.com" in s or "x.com" in s) and not social_links["twitter"]:
+                                        elif validate_social_link(s, "twitter") and not social_links["twitter"]:
                                             social_links["twitter"] = s
-                                        elif "facebook.com" in s and not social_links["facebook"]:
+                                        elif validate_social_link(s, "facebook") and not social_links["facebook"]:
                                             social_links["facebook"] = s
                                         
                                         # Capture logo hint if we haven't found a good one

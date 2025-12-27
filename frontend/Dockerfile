@@ -18,7 +18,8 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
-COPY package.json package-lock.json .
+COPY package.json package-lock.json ./
+RUN npm install -g npm@latest
 RUN npm install
 RUN npx cypress install
 COPY . .

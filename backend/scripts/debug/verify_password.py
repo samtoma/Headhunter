@@ -23,7 +23,7 @@ def check_password_verification():
         
         # Test verification
         is_valid = verify_password(password, user.hashed_password)
-        print(f"Verification result for '{password}': {is_valid}")
+        print(f"Verification result: {is_valid}")
         
         # Test generating a new hash and verifying it
         new_hash = get_password_hash(password)
