@@ -16,7 +16,7 @@ import asyncio
 from app.core.llm_logging import LLMLogger
 from jose import jwt, JWTError
 from app.core.security import SECRET_KEY, ALGORITHM
-from app.core.security import SECRET_KEY, ALGORITHM
+
 from app.core.validators import validate_safe_url, validate_social_link
 
 logger = logging.getLogger(__name__)
