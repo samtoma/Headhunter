@@ -19,7 +19,7 @@ def check_password_verification():
             print(f"User {email} not found")
             return
 
-        print(f"Stored Hash: {user.hashed_password}")
+        print(f"Stored Hash: {user.hashed_password[:5]}...***")
         
         # Test verification
         is_valid = verify_password(password, user.hashed_password)
@@ -27,7 +27,7 @@ def check_password_verification():
         
         # Test generating a new hash and verifying it
         new_hash = get_password_hash(password)
-        print(f"New Hash: {new_hash}")
+        print(f"New Hash: {new_hash[:5]}...***")
         print(f"Verify New Hash: {verify_password(password, new_hash)}")
         
     except Exception as e:

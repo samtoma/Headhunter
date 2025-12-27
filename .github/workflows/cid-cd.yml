@@ -1,5 +1,8 @@
 name: Headhunter CI/CD
 
+permissions: read-all
+
+
 on:
   push:
     branches: [ "**" ]

@@ -171,7 +171,8 @@ def debug_db_check(db: Session = Depends(get_db)):
             "parsed_cvs_sample": parsed_info[:5]
         }
     except Exception as e:
-        return {"error": str(e)}
+        logger.error(f"Debug DB check failed: {e}")
+        return {"error": "Internal server error"}
 
 @app.get("/")
 def root():
