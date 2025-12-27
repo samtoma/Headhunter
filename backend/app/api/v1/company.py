@@ -17,7 +17,7 @@ from app.core.llm_logging import LLMLogger
 from jose import jwt, JWTError
 from app.core.security import SECRET_KEY, ALGORITHM
 
-from app.core.validators import validate_safe_url, validate_social_link
+from app.core.validators import ensure_safe_url, validate_social_link
 
 logger = logging.getLogger(__name__)
 router = APIRouter(tags=["Company"])
@@ -78,15 +78,60 @@ async def extract_company_info(
     if not url.startswith("http"):
         url = "https://" + url
         
-    # Validate URL for SSRF
-    validate_safe_url(url)
+    # Validate URL for SSRF and get sanitized string
+    url = ensure_safe_url(url)
         
+    async def fetch_url_safe(client, target_url, max_redirects=5):
+        """
+        Safely fetch a URL by manually handling redirects and validating each target.
+        """
+        current_url = target_url
+        history = []
+        
+        for _ in range(max_redirects + 1):
+            # Validate current URL to prevent SSRF and get sanitized string
+            current_url = ensure_safe_url(current_url)
+            
+            try:
+                # Perform the request without automatically following redirects
+                response = await client.get(current_url, headers=headers, follow_redirects=False)
+                history.append(response)
+                
+                # Check for redirect status codes
+                if response.status_code in (301, 302, 303, 307, 308):
+                    next_url = response.headers.get("location")
+                    if not next_url:
+                        break
+                        
+                    # Handle relative URLs in redirects
+                    if next_url.startswith("/"):
+                        from urllib.parse import urlparse
+                        parsed = urlparse(current_url)
+                        next_url = f"{parsed.scheme}://{parsed.netloc}{next_url}"
+                    elif not next_url.startswith("http"):
+                        # If redirect is not absolute and not relative with slash, it might be relative path
+                        # Simplified handling: join with base
+                        next_url = current_url.rstrip("/") + "/" + next_url.lstrip("/")
+                        
+                    current_url = next_url
+                    continue
+                else:
+                    # Final response
+                    return response
+            except Exception as e:
+                # If any request fails, re-raise
+                raise e
+                
+        # If loop finishes without returning, we exceeded max redirects
+        raise HTTPException(status_code=400, detail="Too many redirects")
+
     try:
-        async with httpx.AsyncClient(follow_redirects=True, timeout=20.0) as http_client:
+        # Disable automatic redirects to allow manual validation
+        async with httpx.AsyncClient(timeout=20.0, follow_redirects=False) as http_client:
             headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"}
             
-            # Scrape main page
-            resp = await http_client.get(url, headers=headers)
+            # Scrape main page safely
+            resp = await fetch_url_safe(http_client, url)
             resp.raise_for_status()
             
             soup = BeautifulSoup(resp.text, "html.parser")
@@ -186,7 +231,10 @@ async def extract_company_info(
             for path in ["/about", "/about-us", "/company", "/careers", "/jobs", "/team", "/our-team", "/leadership"]:
                 try:
                     page_url = url.rstrip("/") + path
-                    page_resp = await http_client.get(page_url, headers=headers, timeout=10.0)
+                    
+                    # Use secure fetch for sub-pages too
+                    page_resp = await fetch_url_safe(http_client, page_url)
+                    
                     if page_resp.status_code == 200:
                         page_soup = BeautifulSoup(page_resp.text, "html.parser")
                         for script in page_soup(["script", "style", "nav", "footer", "header"]):
@@ -568,7 +616,8 @@ async def stream_company_profile_extraction(websocket: WebSocket):
         try:
             if not url.startswith("http"):
                  url = "https://" + url
-            validate_safe_url(url)
+            # Validate URL for SSRF and get sanitized string
+            url = ensure_safe_url(url)
         except HTTPException as e:
             await websocket.send_json({
                 "type": "error",
@@ -587,12 +636,35 @@ async def stream_company_profile_extraction(websocket: WebSocket):
             "message": "Fetching website content..."
         })
 
+        # Define safe fetch helper (duplicated from extract_company_info to avoid refactoring)
+        async def fetch_url_safe(client, target_url, max_redirects=5):
+            current_url = target_url
+            for _ in range(max_redirects + 1):
+                current_url = ensure_safe_url(current_url)
+                try:
+                    response = await client.get(current_url, headers={'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'}, follow_redirects=False)
+                    if response.status_code in (301, 302, 303, 307, 308):
+                        next_url = response.headers.get("location")
+                        if not next_url:
+                            break
+                        if next_url.startswith("/"):
+                            from urllib.parse import urlparse
+                            parsed = urlparse(current_url)
+                            next_url = f"{parsed.scheme}://{parsed.netloc}{next_url}"
+                        elif not next_url.startswith("http"):
+                            next_url = current_url.rstrip("/") + "/" + next_url.lstrip("/")
+                        current_url = next_url
+                        continue
+                    else:
+                        return response
+                except Exception as e:
+                    raise e
+            raise HTTPException(status_code=400, detail="Too many redirects")
+
         full_text = ""
         try:
-            async with httpx.AsyncClient(timeout=30.0, follow_redirects=True) as client:
-                response = await client.get(url, headers={
-                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
-                })
+            async with httpx.AsyncClient(timeout=30.0, follow_redirects=False) as client:
+                response = await fetch_url_safe(client, url)
                 response.raise_for_status()
                 soup = BeautifulSoup(response.text, 'html.parser')
 

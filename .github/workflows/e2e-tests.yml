@@ -1,6 +1,9 @@
 name: E2E Tests (New Strategy)
 
+
 # This workflow uses the new E2E testing infrastructure with real services
+permissions: read-all
+
 # No retries needed - tests are reliable with real backend
 
 on:
