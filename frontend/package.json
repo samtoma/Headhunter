@@ -21,7 +21,7 @@
     "react": "^18.2.0",
     "react-big-calendar": "^1.17.1",
     "react-dom": "^18.2.0",
-    "react-router-dom": "^6.20.0",
+    "react-router-dom": "^6.30.3",
     "react-virtualized-auto-sizer": "^1.0.24",
     "react-window": "^1.8.10",
     "recharts": "^2.10.3",
